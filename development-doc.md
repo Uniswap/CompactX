@@ -185,26 +185,49 @@ Below is a detailed explanation of the payloads and flows for each external API.
 
 ### 4.1. Smallocator (Session & Compact Signing)
 
-The Smallocator API client is implemented in `src/api/smallocator.ts`. It provides a type-safe interface for all Smallocator endpoints and handles error cases appropriately. Usage example:
+The Smallocator API client is implemented in `src/api/smallocator.ts`. It provides a type-safe interface for all Smallocator endpoints and handles error cases appropriately. The client uses the native `fetch` API for making HTTP requests and includes proper session management.
+
+#### Authentication Flow
+
+1. **Session Payload**
+
+   ```typescript
+   // Get session payload for signing
+   const sessionPayload = await smallocator.getSessionPayload(chainId, address);
+   ```
+
+2. **Session Creation**
+
+   ```typescript
+   // Create session with signed payload
+   const { sessionId } = await smallocator.createSession({
+     signature,
+     payload: sessionPayload,
+   });
+   ```
+
+3. **Session Verification**
+   ```typescript
+   // Verify existing session
+   const { valid } = await smallocator.verifySession();
+   ```
+
+The session ID is automatically stored in localStorage and included in subsequent API requests via the `x-session-id` header.
+
+#### Authentication Hook
+
+The `useAuth` hook (`src/hooks/useAuth.ts`) manages the authentication state and provides methods for signing in and out:
 
 ```typescript
-import { smallocator } from '../api/smallocator';
-
-// Get session payload
-const sessionResponse = await smallocator.getSessionPayload(10, address);
-
-// Create session with signed payload
-const sessionId = await smallocator.createSession({
-  signature,
-  payload: sessionResponse.payload,
-});
-
-// Submit compact for signing
-const compactResponse = await smallocator.submitCompact({
-  chainId: '10',
-  compact: compactMessage,
-});
+const { isAuthenticated, isLoading, error, signIn, signOut } = useAuth();
 ```
+
+The hook handles:
+
+- Automatic session verification on mount
+- Sign-in flow with proper error handling
+- Session management and persistence
+- Sign-out with proper cleanup
 
 ### 4.2. Broadcast Service
 
@@ -392,14 +415,15 @@ const broadcastResponse = await broadcast.broadcast({
 - **Response Payload Example:**
   ```json
   {
-  "quote": {
-  "inputTokenAmount": "1000000000000000000",
-  "expectedOutputAmount": "990000000000000000",
-  "fee": "10000000000000000",
-  "estimatedGas": "21000",
-  "validUntil": "1732520000"
+    "quote": {
+      "inputTokenAmount": "1000000000000000000",
+      "expectedOutputAmount": "990000000000000000",
+      "fee": "10000000000000000",
+      "estimatedGas": "21000",
+      "validUntil": "1732520000"
+    }
   }
-  }
+  ```
 
 ````
 
@@ -689,7 +713,7 @@ Begin with these simplified parameters for the proof-of-concept:
 
 ```typescript
 const INITIAL_CONFIG = {
-  supportedChains: [1, 10, 8453], // Mainnet, Optimism, Base
+  supportedChains: [1, 10, 8453], // Mainnet, Optimism, & Base
   tokens: [
     // Mainnet tokens
     {

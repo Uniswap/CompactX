@@ -1,5 +1,3 @@
-import axios, { AxiosError } from 'axios';
-
 // Types
 export interface SessionPayload {
   domain: string;
@@ -13,10 +11,6 @@ export interface SessionPayload {
   expirationTime: string;
 }
 
-export interface SessionResponse {
-  payload: SessionPayload;
-}
-
 export interface CreateSessionRequest {
   signature: string;
   payload: SessionPayload;
@@ -26,35 +20,37 @@ export interface CreateSessionResponse {
   sessionId: string;
 }
 
-export interface CompactMessage {
-  arbiter: string;
-  sponsor: string;
-  nonce: string;
-  expires: string;
-  id: string;
-  amount: string;
-  witnessTypeString: string;
-  witnessHash: string;
+export interface SessionResponse {
+  payload: SessionPayload;
 }
 
 export interface CompactRequest {
   chainId: string;
-  compact: CompactMessage;
+  compact: {
+    amount: string;
+    arbiter: string;
+    expires: string;
+    id: string;
+    nonce: string;
+    sponsor: string;
+    witnessHash: string;
+    witnessTypeString: string;
+  };
 }
 
 export interface CompactResponse {
-  hash: string;
-  signature: string;
-  nonce: string;
+  success: boolean;
+  txHash: string;
 }
 
-interface ErrorResponse {
-  message: string;
+export interface ErrorResponse {
+  error: string;
 }
 
 // API Client
 export class SmallocatorClient {
   private baseUrl: string;
+  private sessionId: string | null;
 
   constructor() {
     const baseUrl = import.meta.env.VITE_SMALLOCATOR_URL;
@@ -62,28 +58,32 @@ export class SmallocatorClient {
       throw new Error('VITE_SMALLOCATOR_URL environment variable is not set');
     }
     this.baseUrl = baseUrl;
+    this.sessionId = localStorage.getItem('sessionId');
   }
 
-  private async request<T>(method: 'GET' | 'POST', endpoint: string, data?: unknown): Promise<T> {
-    try {
-      const response = await axios({
-        method,
-        url: `${this.baseUrl}${endpoint}`,
-        data,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError<ErrorResponse>;
-        throw new Error(
-          `Smallocator API error: ${axiosError.response?.data?.message || axiosError.message}`
-        );
-      }
-      throw new Error(`Smallocator API error: ${(error as Error).message}`);
+  protected async request<T>(method: 'GET' | 'POST', endpoint: string, data?: unknown): Promise<T> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add session header if available
+    if (this.sessionId) {
+      headers['x-session-id'] = this.sessionId;
     }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method,
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Request failed');
+    }
+
+    return result;
   }
 
   /**
@@ -100,7 +100,13 @@ export class SmallocatorClient {
    * @param request - The signed session payload
    */
   async createSession(request: CreateSessionRequest): Promise<CreateSessionResponse> {
-    return this.request<CreateSessionResponse>('POST', '/session', request);
+    const response = await this.request<CreateSessionResponse>('POST', '/session', request);
+    // Store the session ID
+    if (response.sessionId) {
+      localStorage.setItem('sessionId', response.sessionId);
+      this.sessionId = response.sessionId;
+    }
+    return response;
   }
 
   /**
@@ -109,6 +115,13 @@ export class SmallocatorClient {
    */
   async submitCompact(request: CompactRequest): Promise<CompactResponse> {
     return this.request<CompactResponse>('POST', '/compact', request);
+  }
+
+  /**
+   * Verify the current session
+   */
+  async verifySession(): Promise<{ valid: boolean }> {
+    return this.request<{ valid: boolean }>('GET', '/session/verify');
   }
 }
 

@@ -1,92 +1,85 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import axios from 'axios';
-import { BroadcastClient } from '../api/broadcast';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { BroadcastApiClient } from '../api/broadcast';
 
-// Mock axios
-vi.mock('axios');
-const mockedAxios = vi.mocked(axios);
-
-describe('BroadcastClient', () => {
-  let client: BroadcastClient;
+describe('BroadcastApiClient', () => {
+  let client: BroadcastApiClient;
 
   beforeEach(() => {
-    client = new BroadcastClient();
+    vi.stubEnv('VITE_BROADCAST_URL', 'http://localhost:3000');
+    client = new BroadcastApiClient();
   });
 
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('should broadcast final payload', async () => {
+  it('should broadcast message successfully', async () => {
     const mockRequest = {
       finalPayload: {
         compact: {
-          arbiter: '0xArbiterAddress',
-          sponsor: '0xUserAddress',
-          nonce: '0xUserAddressNonce',
-          expires: '1732520000',
-          id: '0xTokenIDForResourceLock',
-          amount: '1000000000000000000',
-          witnessTypeString:
-            'ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)',
-          witnessHash: '0xWitnessHashValue',
+          chainId: '10',
+          compact: {
+            amount: '1000000000000000000',
+            arbiter: '0xArbiterAddress',
+            expires: '1732520000',
+            id: '0xTokenIDForResourceLock',
+            nonce: '0xUserAddressNonce',
+            sponsor: '0xUserAddress',
+            witnessHash: '0xWitnessHashValue',
+            witnessTypeString:
+              'ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)',
+          },
         },
         userSignature: '0xUserSignature',
         smallocatorSignature: '0xSmallocatorSignature',
       },
     };
 
-    const mockResponse = {
-      data: {
-        status: 'success',
-        message: 'Trade broadcasted successfully',
-      },
-    };
-
-    mockedAxios.mockResolvedValueOnce(mockResponse);
+    // Mock successful response
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
 
     const response = await client.broadcast(mockRequest);
-    expect(response).toEqual(mockResponse.data);
-    expect(mockedAxios).toHaveBeenCalledWith({
-      method: 'POST',
-      url: 'https://broadcast.xyz/broadcast',
-      data: mockRequest,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    expect(response).toEqual({ success: true });
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:3000/broadcast',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(mockRequest),
+      })
+    );
   });
 
-  it('should handle API errors', async () => {
-    const error = new Error('Invalid signature') as Error & {
-      isAxiosError: boolean;
-      response: { data: { message: string } };
-    };
-    error.isAxiosError = true;
-    error.response = {
-      data: {
-        message: 'Invalid signature',
+  it('should handle broadcast errors', async () => {
+    const mockRequest = {
+      finalPayload: {
+        compact: {
+          chainId: '10',
+          compact: {
+            amount: '1000000000000000000',
+            arbiter: '0xArbiterAddress',
+            expires: '1732520000',
+            id: '0xTokenIDForResourceLock',
+            nonce: '0xUserAddressNonce',
+            sponsor: '0xUserAddress',
+            witnessHash: '0xWitnessHashValue',
+            witnessTypeString:
+              'ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)',
+          },
+        },
+        userSignature: '0xUserSignature',
+        smallocatorSignature: '0xSmallocatorSignature',
       },
     };
 
-    mockedAxios.mockRejectedValueOnce(error);
+    // Mock error response
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: 'Failed to broadcast' }),
+    });
 
-    await expect(
-      client.broadcast({
-        finalPayload: {
-          compact: {
-            arbiter: '0xArbiterAddress',
-            sponsor: '0xUserAddress',
-            nonce: '0xUserAddressNonce',
-            expires: '1732520000',
-            id: '0xTokenIDForResourceLock',
-            amount: '1000000000000000000',
-            witnessTypeString:
-              'ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)',
-            witnessHash: '0xWitnessHashValue',
-          },
-          userSignature: '0xUserSignature',
-          smallocatorSignature: '0xSmallocatorSignature',
-        },
-      })
-    ).rejects.toThrow('Broadcast API error: Invalid signature');
+    await expect(client.broadcast(mockRequest)).rejects.toThrow('Failed to broadcast message');
   });
 });

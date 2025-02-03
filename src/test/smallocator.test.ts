@@ -1,133 +1,145 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import axios from 'axios';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SmallocatorClient } from '../api/smallocator';
 
-// Mock axios
-vi.mock('axios');
-const mockedAxios = vi.mocked(axios);
+// Mock environment variables
+vi.stubEnv('VITE_SMALLOCATOR_URL', 'https://smallocator.xyz');
 
 describe('SmallocatorClient', () => {
   let client: SmallocatorClient;
 
   beforeEach(() => {
-    // Mock environment variable
-    vi.stubEnv('VITE_SMALLOCATOR_URL', 'https://smallocator.xyz');
     client = new SmallocatorClient();
+    localStorage.clear();
+    vi.clearAllMocks();
   });
 
   it('should get session payload', async () => {
     const mockResponse = {
-      data: {
-        payload: {
-          domain: 'your-dapp-domain.com',
-          address: '0xUserAddress',
-          uri: 'https://your-dapp-domain.com',
-          statement: 'Sign in to Smallocator',
-          version: '1',
-          chainId: 10,
-          nonce: 'unique_nonce_value',
-          issuedAt: '2025-02-03T10:00:00Z',
-          expirationTime: '2025-02-03T11:00:00Z',
-        },
+      payload: {
+        domain: 'compactx.xyz',
+        address: '0xUserAddress',
+        uri: 'https://compactx.xyz',
+        statement: 'Sign in to CompactX',
+        version: '1',
+        chainId: 10,
+        nonce: '123456',
+        issuedAt: new Date().toISOString(),
+        expirationTime: new Date(Date.now() + 3600000).toISOString(),
       },
     };
 
-    mockedAxios.mockResolvedValueOnce(mockResponse);
+    // Mock successful response
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse,
+    });
 
     const response = await client.getSessionPayload(10, '0xUserAddress');
-    expect(response).toEqual(mockResponse.data);
-    expect(mockedAxios).toHaveBeenCalledWith({
-      method: 'GET',
-      url: 'https://smallocator.xyz/session/10/0xUserAddress',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    expect(response).toEqual(mockResponse);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://smallocator.xyz/session/10/0xUserAddress',
+      expect.objectContaining({
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    );
   });
 
   it('should create session', async () => {
     const mockRequest = {
       signature: '0xUserSignedSignature',
       payload: {
-        domain: 'your-dapp-domain.com',
+        domain: 'compactx.xyz',
         address: '0xUserAddress',
-        uri: 'https://your-dapp-domain.com',
-        statement: 'Sign in to Smallocator',
+        uri: 'https://compactx.xyz',
+        statement: 'Sign in to CompactX',
         version: '1',
         chainId: 10,
-        nonce: 'unique_nonce_value',
-        issuedAt: '2025-02-03T10:00:00Z',
-        expirationTime: '2025-02-03T11:00:00Z',
+        nonce: '123456',
+        issuedAt: new Date().toISOString(),
+        expirationTime: new Date(Date.now() + 3600000).toISOString(),
       },
     };
 
     const mockResponse = {
-      data: {
-        sessionId: 'unique_session_id',
-      },
+      sessionId: 'unique_session_id',
     };
 
-    mockedAxios.mockResolvedValueOnce(mockResponse);
+    // Mock successful response
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse,
+    });
 
     const response = await client.createSession(mockRequest);
-    expect(response).toEqual(mockResponse.data);
-    expect(mockedAxios).toHaveBeenCalledWith({
-      method: 'POST',
-      url: 'https://smallocator.xyz/session',
-      data: mockRequest,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    expect(response).toEqual(mockResponse);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://smallocator.xyz/session',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(mockRequest),
+      })
+    );
   });
 
   it('should submit compact', async () => {
     const mockRequest = {
       chainId: '10',
       compact: {
+        amount: '1000000000000000000',
         arbiter: '0xArbiterAddress',
-        sponsor: '0xUserAddress',
-        nonce: '0xUserAddressNonce',
         expires: '1732520000',
         id: '0xTokenIDForResourceLock',
-        amount: '1000000000000000000',
-        witnessTypeString: 'ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)',
+        nonce: '0xUserAddressNonce',
+        sponsor: '0xUserAddress',
         witnessHash: '0xWitnessHashValue',
+        witnessTypeString: 'ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)',
       },
     };
 
     const mockResponse = {
-      data: {
-        hash: '0xComputedClaimHash',
-        signature: '0xSmallocatorSignature',
-        nonce: '0xUserAddressNonce',
-      },
+      success: true,
+      txHash: '0xTransactionHash',
     };
 
-    mockedAxios.mockResolvedValueOnce(mockResponse);
+    // Mock successful response
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse,
+    });
+
+    // Set session ID to test header inclusion
+    localStorage.setItem('sessionId', 'unique_session_id');
+    client = new SmallocatorClient(); // Reinitialize to pick up session ID
 
     const response = await client.submitCompact(mockRequest);
-    expect(response).toEqual(mockResponse.data);
-    expect(mockedAxios).toHaveBeenCalledWith({
-      method: 'POST',
-      url: 'https://smallocator.xyz/compact',
-      data: mockRequest,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    expect(response).toEqual(mockResponse);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://smallocator.xyz/compact',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': 'unique_session_id',
+        },
+        body: JSON.stringify(mockRequest),
+      })
+    );
   });
 
   it('should handle API errors', async () => {
-    const error = new Error('Invalid signature') as Error & {
-      isAxiosError: boolean;
-      response: { data: { message: string } };
-    };
-    error.isAxiosError = true;
-    error.response = {
-      data: {
-        message: 'Invalid signature',
-      },
-    };
+    // Mock error response
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: 'Invalid request' }),
+    });
 
-    mockedAxios.mockRejectedValueOnce(error);
-
-    await expect(client.getSessionPayload(10, '0xUserAddress')).rejects.toThrow(
-      'Smallocator API error: Invalid signature'
-    );
+    await expect(client.getSessionPayload(10, '0xUserAddress')).rejects.toThrow('Invalid request');
   });
 });

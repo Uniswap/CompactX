@@ -1,25 +1,14 @@
-import axios, { AxiosError } from 'axios';
-import { CompactMessage } from './smallocator';
+import { CompactRequest } from './smallocator';
 
 export interface BroadcastRequest {
   finalPayload: {
-    compact: CompactMessage;
+    compact: CompactRequest;
     userSignature: string;
     smallocatorSignature: string;
   };
 }
 
-export interface BroadcastResponse {
-  status: string;
-  message: string;
-}
-
-interface ErrorResponse {
-  message: string;
-}
-
-// API Client
-export class BroadcastClient {
+export class BroadcastApiClient {
   private baseUrl: string;
 
   constructor() {
@@ -30,36 +19,27 @@ export class BroadcastClient {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(method: 'GET' | 'POST', endpoint: string, data?: unknown): Promise<T> {
+  async broadcast(request: BroadcastRequest): Promise<{ success: boolean }> {
     try {
-      const response = await axios({
-        method,
-        url: `${this.baseUrl}${endpoint}`,
-        data,
+      const response = await fetch(`${this.baseUrl}/broadcast`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify(request),
       });
-      return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError<ErrorResponse>;
-        throw new Error(
-          `Broadcast API error: ${axiosError.response?.data?.message || axiosError.message}`
-        );
-      }
-      throw new Error(`Broadcast API error: ${(error as Error).message}`);
-    }
-  }
 
-  /**
-   * Broadcast the final signed compact message
-   * @param request - The final payload with all signatures
-   */
-  async broadcast(request: BroadcastRequest): Promise<BroadcastResponse> {
-    return this.request<BroadcastResponse>('POST', '/broadcast', request);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to broadcast message');
+      }
+
+      return response.json();
+    } catch {
+      throw new Error('Failed to broadcast message');
+    }
   }
 }
 
 // Export a singleton instance
-export const broadcast = new BroadcastClient();
+export const broadcast = new BroadcastApiClient();
