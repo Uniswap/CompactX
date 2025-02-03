@@ -24,15 +24,24 @@ export interface SessionResponse {
   payload: SessionPayload;
 }
 
+export interface Mandate {
+  recipient: string;
+  expires: string;
+  token: string;
+  minimumAmount: string;
+  baselinePriorityFee: string;
+  scalingFactor: string;
+  salt: `0x${string}`;
+}
+
 export interface CompactMessage {
   arbiter: string;
   sponsor: string;
-  nonce: string;
+  nonce: string | null;
   expires: string;
   id: string;
   amount: string;
-  witnessTypeString: string;
-  witnessHash: string;
+  mandate: Mandate;
 }
 
 export interface CompactRequest {
@@ -61,19 +70,24 @@ export const isCompactResponse = (data: unknown): data is CompactResponse => {
 export const isCompactRequest = (data: unknown): data is CompactRequest => {
   if (!data || typeof data !== 'object') return false;
   const request = data as CompactRequest;
-  
+
   if (typeof request.chainId !== 'string' || !request.compact) return false;
-  
+
   const compact = request.compact;
   return (
     typeof compact.arbiter === 'string' &&
     typeof compact.sponsor === 'string' &&
-    typeof compact.nonce === 'string' &&
+    (compact.nonce === null || typeof compact.nonce === 'string') &&
     typeof compact.expires === 'string' &&
     typeof compact.id === 'string' &&
     typeof compact.amount === 'string' &&
-    typeof compact.witnessTypeString === 'string' &&
-    typeof compact.witnessHash === 'string'
+    typeof compact.mandate.recipient === 'string' &&
+    typeof compact.mandate.expires === 'string' &&
+    typeof compact.mandate.token === 'string' &&
+    typeof compact.mandate.minimumAmount === 'string' &&
+    typeof compact.mandate.baselinePriorityFee === 'string' &&
+    typeof compact.mandate.scalingFactor === 'string' &&
+    typeof compact.mandate.salt === 'string'
   );
 };
 
@@ -153,11 +167,11 @@ export class SmallocatorClient {
     }
 
     const response = await this.request<CompactResponse>('POST', '/compact', request);
-    
+
     if (!isCompactResponse(response)) {
       throw new Error('Invalid compact response format');
     }
-    
+
     return response;
   }
 
@@ -171,3 +185,6 @@ export class SmallocatorClient {
 
 // Export a singleton instance
 export const smallocator = new SmallocatorClient();
+
+// Export methods from the singleton instance
+export const { submitCompact } = smallocator;

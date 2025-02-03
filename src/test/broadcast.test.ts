@@ -9,28 +9,34 @@ describe('BroadcastApiClient', () => {
     client = new BroadcastApiClient();
   });
 
-  it('should broadcast message successfully', async () => {
-    const mockRequest = {
-      finalPayload: {
+  const mockRequest = {
+    finalPayload: {
+      compact: {
+        chainId: '1',
         compact: {
-          chainId: '10',
-          compact: {
-            amount: '1000000000000000000',
-            arbiter: '0xArbiterAddress',
+          arbiter: '0x1234567890123456789012345678901234567890',
+          sponsor: '0x2234567890123456789012345678901234567890',
+          nonce: null,
+          expires: '1732520000',
+          id: '0x3234567890123456789012345678901234567890',
+          amount: '1000000000000000000',
+          mandate: {
+            recipient: '0x4234567890123456789012345678901234567890',
             expires: '1732520000',
-            id: '0xTokenIDForResourceLock',
-            nonce: '0xUserAddressNonce',
-            sponsor: '0xUserAddress',
-            witnessHash: '0xWitnessHashValue',
-            witnessTypeString:
-              'ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)',
+            token: '0x5234567890123456789012345678901234567890',
+            minimumAmount: '1000000000000000000',
+            baselinePriorityFee: '1000000000',
+            scalingFactor: '1000000000000000000',
+            salt: ('0x' + '00'.repeat(32)) as `0x${string}`,
           },
         },
-        userSignature: '0xUserSignature',
-        smallocatorSignature: '0xSmallocatorSignature',
       },
-    };
+      userSignature: ('0x' + '00'.repeat(65)) as `0x${string}`,
+      smallocatorSignature: ('0x' + '00'.repeat(65)) as `0x${string}`,
+    },
+  };
 
+  it('should broadcast message successfully', async () => {
     // Mock successful response
     global.fetch = vi.fn().mockResolvedValueOnce({
       ok: true,
@@ -52,27 +58,6 @@ describe('BroadcastApiClient', () => {
   });
 
   it('should handle broadcast errors', async () => {
-    const mockRequest = {
-      finalPayload: {
-        compact: {
-          chainId: '10',
-          compact: {
-            amount: '1000000000000000000',
-            arbiter: '0xArbiterAddress',
-            expires: '1732520000',
-            id: '0xTokenIDForResourceLock',
-            nonce: '0xUserAddressNonce',
-            sponsor: '0xUserAddress',
-            witnessHash: '0xWitnessHashValue',
-            witnessTypeString:
-              'ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)',
-          },
-        },
-        userSignature: '0xUserSignature',
-        smallocatorSignature: '0xSmallocatorSignature',
-      },
-    };
-
     // Mock error response
     global.fetch = vi.fn().mockResolvedValueOnce({
       ok: false,

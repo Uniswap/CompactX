@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
 import { SmallocatorClient } from '../api/smallocator';
 
 // Mock environment variables
@@ -12,6 +12,27 @@ describe('SmallocatorClient', () => {
     localStorage.clear();
     vi.clearAllMocks();
   });
+
+  const mockCompactRequest = {
+    chainId: '1',
+    compact: {
+      arbiter: '0x1234567890123456789012345678901234567890',
+      sponsor: '0x2234567890123456789012345678901234567890',
+      nonce: null,
+      expires: '1732520000',
+      id: '0x3234567890123456789012345678901234567890',
+      amount: '1000000000000000000',
+      mandate: {
+        recipient: '0x4234567890123456789012345678901234567890',
+        expires: '1732520000',
+        token: '0x5234567890123456789012345678901234567890',
+        minimumAmount: '1000000000000000000',
+        baselinePriorityFee: '1000000000',
+        scalingFactor: '1000000000000000000',
+        salt: ('0x' + '00'.repeat(32)) as `0x${string}`,
+      },
+    },
+  };
 
   it('should get session payload', async () => {
     const mockResponse = {
@@ -47,16 +68,16 @@ describe('SmallocatorClient', () => {
     );
   });
 
-  it('should create session', async () => {
+  it('should create a new session', async () => {
     const mockRequest = {
-      signature: '0xUserSignedSignature',
+      signature: ('0x' + '00'.repeat(65)) as `0x${string}`,
       payload: {
         domain: 'compactx.xyz',
-        address: '0xUserAddress',
+        address: '0x1234567890123456789012345678901234567890',
         uri: 'https://compactx.xyz',
         statement: 'Sign in to CompactX',
         version: '1',
-        chainId: 10,
+        chainId: 1,
         nonce: '123456',
         issuedAt: new Date().toISOString(),
         expirationTime: new Date(Date.now() + 3600000).toISOString(),
@@ -64,48 +85,37 @@ describe('SmallocatorClient', () => {
     };
 
     const mockResponse = {
-      sessionId: 'unique_session_id',
+      success: true,
+      payload: {
+        chainId: '1',
+        nonce: ('0x' + '00'.repeat(32)) as `0x${string}`,
+        signature: ('0x' + '00'.repeat(65)) as `0x${string}`,
+      },
     };
 
     // Mock successful response
-    global.fetch = vi.fn().mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => mockResponse,
     });
 
     const response = await client.createSession(mockRequest);
+
     expect(response).toEqual(mockResponse);
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://smallocator.xyz/session',
+    expect(fetch).toHaveBeenCalledWith(
+      `${import.meta.env.VITE_SMALLOCATOR_URL}/session`,
       expect.objectContaining({
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(mockRequest),
       })
     );
   });
 
   it('should submit compact', async () => {
-    const mockRequest = {
-      chainId: '10',
-      compact: {
-        amount: '1000000000000000000',
-        arbiter: '0xArbiterAddress',
-        expires: '1732520000',
-        id: '0xTokenIDForResourceLock',
-        nonce: '0xUserAddressNonce',
-        sponsor: '0xUserAddress',
-        witnessHash: '0xWitnessHashValue',
-        witnessTypeString: 'ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)',
-      },
-    };
-
     const mockResponse = {
-      hash: '0xTransactionHash',
-      signature: '0xSmallSignature',
-      nonce: '0xUserAddressNonce',
+      hash: ('0x' + '00'.repeat(32)) as `0x${string}`,
+      signature: ('0x' + '00'.repeat(65)) as `0x${string}`,
+      nonce: ('0x' + '00'.repeat(32)) as `0x${string}`,
     };
 
     // Mock successful response
@@ -118,7 +128,7 @@ describe('SmallocatorClient', () => {
     localStorage.setItem('sessionId', 'unique_session_id');
     client = new SmallocatorClient(); // Reinitialize to pick up session ID
 
-    const response = await client.submitCompact(mockRequest);
+    const response = await client.submitCompact(mockCompactRequest);
     expect(response).toEqual(mockResponse);
     expect(global.fetch).toHaveBeenCalledWith(
       'https://smallocator.xyz/compact',
@@ -128,7 +138,7 @@ describe('SmallocatorClient', () => {
           'Content-Type': 'application/json',
           'x-session-id': 'unique_session_id',
         },
-        body: JSON.stringify(mockRequest),
+        body: JSON.stringify(mockCompactRequest),
       })
     );
   });

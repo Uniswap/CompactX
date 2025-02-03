@@ -1,3 +1,5 @@
+import { Hex } from 'viem';
+
 export interface CompactMessage {
   arbiter: string;
   sponsor: string;
@@ -9,15 +11,13 @@ export interface CompactMessage {
 }
 
 export interface Mandate {
-  chainId: number;
-  tribunal: string;
   recipient: string;
   expires: string;
   token: string;
   minimumAmount: string;
   baselinePriorityFee: string;
   scalingFactor: string;
-  salt: string;
+  salt: Hex;
 }
 
 export interface SignedCompact extends CompactMessage {

@@ -22,7 +22,7 @@ describe('useCompactMessage', () => {
     minimumAmount: '1000000000000000000',
     baselinePriorityFee: '1000000000',
     scalingFactor: '1000000000000000000',
-    salt: '0x' + '00'.repeat(32),
+    salt: ('0x' + '00'.repeat(32)) as `0x${string}`,
   };
 
   const mockParams = {
@@ -55,7 +55,7 @@ describe('useCompactMessage', () => {
             { name: 'minimumAmount', type: 'uint256' },
             { name: 'baselinePriorityFee', type: 'uint256' },
             { name: 'scalingFactor', type: 'uint256' },
-            { name: 'salt', type: 'bytes32' }
+            { name: 'salt', type: 'bytes32' },
           ],
           [
             mockMandate.recipient as `0x${string}`,
@@ -64,7 +64,7 @@ describe('useCompactMessage', () => {
             BigInt(mockMandate.minimumAmount),
             BigInt(mockMandate.baselinePriorityFee),
             BigInt(mockMandate.scalingFactor),
-            mockMandate.salt as `0x${string}`
+            mockMandate.salt as `0x${string}`,
           ]
         )
       );
@@ -86,7 +86,7 @@ describe('useCompactMessage', () => {
     it('should throw if required fields are missing', () => {
       const { result } = renderHook(() => useCompactMessage());
       const invalidParams = { ...mockParams };
-      delete (invalidParams as any).inputTokenAmount;
+      delete (invalidParams as Partial<typeof mockParams>).inputTokenAmount;
 
       expect(() => result.current.assembleMessagePayload(invalidParams)).toThrow(
         'Missing required fields for compact message'
