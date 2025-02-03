@@ -791,9 +791,9 @@ Each operation should robustly handle error cases such as:
    - [X] **Commit all configuration files.**
 
 4. **Initial Testing Setup**
-   - [ ] **Configure Jest (or Vitest) for unit and integration tests.**
-   - [ ] **Create sample test files** (e.g., `src/__tests__/sample.test.ts`) to verify basic utilities.
-   - [ ] **Run tests to ensure everything is working.**
+   - [X] **Configure Jest (or Vitest) for unit and integration tests.**
+   - [X] **Create sample test files** (e.g., `src/__tests__/sample.test.ts`) to verify basic utilities.
+   - [X] **Run tests to ensure everything is working.**
 
 5. **Pre-Commit Hooks & CI/CD**
    - [ ] **Set up Husky and lint-staged:**  
