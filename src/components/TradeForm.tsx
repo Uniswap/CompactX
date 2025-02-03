@@ -4,50 +4,23 @@ import { useAccount, useChainId } from 'wagmi';
 import { SettingOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useCustomTokens } from '../hooks/useCustomTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
+import { useTokens } from '../hooks/useTokens';
 import { formatUnits, parseUnits } from 'viem';
 
 interface Token {
-  chainId: number;
+  chainId?: number;
   address: string;
   name: string;
   symbol: string;
   decimals: number;
+  logoURI?: string;
 }
-
-// Hardcoded list of tokens per chain
-const TOKENS_BY_CHAIN: Record<number, Token[]> = {
-  1: [
-    {
-      chainId: 1,
-      address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-      name: 'Wrapped Ether',
-      symbol: 'WETH',
-      decimals: 18,
-    },
-    {
-      chainId: 1,
-      address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-      name: 'USD Coin',
-      symbol: 'USDC',
-      decimals: 6,
-    },
-    {
-      chainId: 1,
-      address: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
-      name: 'Dai Stablecoin',
-      symbol: 'DAI',
-      decimals: 18,
-    },
-  ],
-  // Add more chains as needed
-};
 
 // Supported chains for output token
 const SUPPORTED_CHAINS = [
   { id: 1, name: 'Ethereum' },
-  { id: 137, name: 'Polygon' },
-  { id: 42161, name: 'Arbitrum' },
-  // Add more chains as needed
+  { id: 10, name: 'Optimism' },
+  { id: 8453, name: 'Base' },
 ];
 
 export interface TradeFormValues {
@@ -63,6 +36,7 @@ export function TradeForm() {
   const chainId = useChainId();
   const { getCustomTokens } = useCustomTokens();
   const { useQuote } = useCalibrator();
+  const { inputTokens, outputTokens } = useTokens();
   const [form] = Form.useForm<TradeFormValues>();
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [selectedOutputChain, setSelectedOutputChain] = useState(chainId);
@@ -79,16 +53,15 @@ export function TradeForm() {
   const customTokens = getCustomTokens(chainId);
 
   // Get tokens for input (current chain) and output (selected chain)
-  const inputTokens = [...(TOKENS_BY_CHAIN[chainId] || []), ...customTokens];
-  const outputTokens = TOKENS_BY_CHAIN[selectedOutputChain] || [];
+  const allTokens = [...(inputTokens || []), ...customTokens];
 
   // Format tokens for Select options
-  const inputTokenOptions = inputTokens.map((token: Token) => ({
+  const inputTokenOptions = allTokens.map((token: Token) => ({
     label: `${token.symbol} - ${token.name}`,
     value: token.address,
   }));
 
-  const outputTokenOptions = outputTokens.map((token: Token) => ({
+  const outputTokenOptions = (outputTokens || []).map((token: Token) => ({
     label: `${token.symbol} - ${token.name}`,
     value: token.address,
   }));
@@ -97,7 +70,7 @@ export function TradeForm() {
   const { data: quote, isLoading, error } = useQuote(quoteParams);
 
   const handleFormSubmit = async (values: TradeFormValues) => {
-    const inputToken = inputTokens.find(token => token.address === values.inputToken);
+    const inputToken = allTokens.find(token => token.address === values.inputToken);
     if (!inputToken) return;
 
     // Update quote params to trigger API call
@@ -112,7 +85,7 @@ export function TradeForm() {
   };
 
   // Find output token to get decimals for formatting
-  const outputToken = outputTokens.find(
+  const outputToken = (outputTokens || []).find(
     token => token.address === form.getFieldValue('outputToken')
   );
 
@@ -122,7 +95,12 @@ export function TradeForm() {
         title="Swap"
         style={{ width: '100%', maxWidth: 500 }}
         extra={
-          <Button type="text" icon={<SettingOutlined />} onClick={() => setSettingsVisible(true)} />
+          <Button 
+            type="text" 
+            icon={<SettingOutlined />} 
+            onClick={() => setSettingsVisible(true)}
+            aria-label="Settings"
+          />
         }
       >
         <Form
@@ -152,12 +130,14 @@ export function TradeForm() {
                   stringMode
                   bordered={false}
                   controls={false}
+                  aria-label="Input Amount"
                 />
               </Form.Item>
               <Form.Item name="inputToken" noStyle>
                 <Select
                   style={{ width: '40%' }}
                   options={inputTokenOptions}
+                  aria-label="Input Token"
                   bordered={false}
                   suffixIcon={null}
                 />
@@ -177,24 +157,25 @@ export function TradeForm() {
           <div className="rounded-lg bg-gray-100 p-4 dark:bg-gray-800">
             <div className="mb-2 text-sm text-gray-500">Buy</div>
             <Space.Compact style={{ width: '100%' }}>
-              <div style={{ width: '60%' }} className="text-2xl">
-                {quote && outputToken
-                  ? formatUnits(quote.data.mandate.minimumAmount, outputToken.decimals)
+              <div style={{ width: '60%' }} className="text-2xl" data-testid="quote-amount">
+                {quote?.data?.minimumAmount && outputToken
+                  ? Number(formatUnits(BigInt(quote.data.minimumAmount), outputToken.decimals)).toString()
                   : '0.00'}
               </div>
               <Form.Item name="outputToken" noStyle>
                 <Select
                   style={{ width: '40%' }}
                   options={outputTokenOptions}
+                  aria-label="Output Token"
                   bordered={false}
                   suffixIcon={null}
                 />
               </Form.Item>
             </Space.Compact>
-            {quote && (
+            {quote?.data?.dispensationUSD && (
               <div className="mt-1 text-sm text-gray-500">
                 <Space>
-                  <span>Fee: {quote.context.dispensationUSD}</span>
+                  <span>Fee: {quote.data.dispensationUSD}</span>
                   <Tooltip title="Fee includes gas costs and protocol fees">
                     <InfoCircleOutlined />
                   </Tooltip>
@@ -240,6 +221,7 @@ export function TradeForm() {
               label: chain.name,
               value: chain.id,
             }))}
+            aria-label="Output Chain"
           />
         </Form.Item>
 
@@ -248,7 +230,14 @@ export function TradeForm() {
           name="slippageTolerance"
           rules={[{ required: true, message: 'Please enter slippage tolerance' }]}
         >
-          <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.1} precision={1} />
+          <InputNumber
+            style={{ width: '100%' }}
+            min={0}
+            max={100}
+            step={0.1}
+            precision={1}
+            aria-label="Slippage Tolerance"
+          />
         </Form.Item>
       </Modal>
     </>
