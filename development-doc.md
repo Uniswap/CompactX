@@ -71,6 +71,24 @@ To keep development simple and minimize unnecessary complexity, we are using the
 - **Husky & lint-staged:** For pre-commit hooks.
 - **GitHub Actions:** For continuous integration (CI) to run linting, type checking, and tests on every push/commit.
 
+### Environment Variables
+
+The application uses the following environment variables:
+
+```
+# WalletConnect Project ID (Required for wallet connections)
+VITE_WALLETCONNECT_PROJECT_ID=""
+
+# API Configuration
+VITE_API_URL="http://localhost:3000"
+VITE_API_TIMEOUT=30000
+
+# Feature Flags
+VITE_ENABLE_TESTNET=false
+```
+
+Copy `.env.example` to `.env` and fill in the required values. Get a WalletConnect Project ID from [WalletConnect Cloud](https://cloud.walletconnect.com/).
+
 ---
 
 ## 3. Type Definitions
@@ -169,18 +187,19 @@ Below is a detailed explanation of the payloads and flows for each external API.
   - **Response Example:**
     ```json
     {
-    "payload": {
-    "domain": "your-dapp-domain.com",
-    "address": "0xUserAddress",
-    "uri": "https://your-dapp-domain.com",
-    "statement": "Sign in to Smallocator",
-    "version": "1",
-    "chainId": 10,
-    "nonce": "unique_nonce_value",
-    "issuedAt": "2025-02-03T10:00:00Z",
-    "expirationTime": "2025-02-03T11:00:00Z"
+      "payload": {
+        "domain": "your-dapp-domain.com",
+        "address": "0xUserAddress",
+        "uri": "https://your-dapp-domain.com",
+        "statement": "Sign in to Smallocator",
+        "version": "1",
+        "chainId": 10,
+        "nonce": "unique_nonce_value",
+        "issuedAt": "2025-02-03T10:00:00Z",
+        "expirationTime": "2025-02-03T11:00:00Z"
+      }
     }
-    }
+    ```
 
 ````
 
@@ -206,8 +225,9 @@ Below is a detailed explanation of the payloads and flows for each external API.
 - **Response Example:**
   ```json
   {
-  "sessionId": "unique_session_id"
+    "sessionId": "unique_session_id"
   }
+  ```
 
 ````
 
@@ -234,10 +254,11 @@ Below is a detailed explanation of the payloads and flows for each external API.
 - **Response Example:**
   ```json
   {
-  "hash": "0xComputedClaimHash",
-  "signature": "0xSmallocatorSignature",
-  "nonce": "0xUserAddressNonce"
+    "hash": "0xComputedClaimHash",
+    "signature": "0xSmallocatorSignature",
+    "nonce": "0xUserAddressNonce"
   }
+  ```
 
 ````
 
@@ -275,21 +296,22 @@ Below is a detailed explanation of the payloads and flows for each external API.
   - **Request Payload:**
     ```json
     {
-    "finalPayload": {
-    "compact": {
-    "arbiter": "0xArbiterAddress",
-    "sponsor": "0xUserAddress",
-    "nonce": "0xUserAddressNonce",
-    "expires": "1732520000",
-    "id": "0xTokenIDForResourceLock",
-    "amount": "1000000000000000000",
-    "witnessTypeString": "ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)",
-    "witnessHash": "0xWitnessHashValue"
-    },
-    "userSignature": "0xUserSignature",
-    "smallocatorSignature": "0xSmallocatorSignature"
+      "finalPayload": {
+        "compact": {
+          "arbiter": "0xArbiterAddress",
+          "sponsor": "0xUserAddress",
+          "nonce": "0xUserAddressNonce",
+          "expires": "1732520000",
+          "id": "0xTokenIDForResourceLock",
+          "amount": "1000000000000000000",
+          "witnessTypeString": "ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)",
+          "witnessHash": "0xWitnessHashValue"
+        },
+        "userSignature": "0xUserSignature",
+        "smallocatorSignature": "0xSmallocatorSignature"
+      }
     }
-    }
+    ```
 
 ````
   - **Response Example:**
@@ -303,25 +325,26 @@ Below is a detailed explanation of the payloads and flows for each external API.
   - **Request Payload Example:**
     ```json
     {
-    "sponsor": "0xUserAddress",
-    "inputTokenChainId": 10,
-    "inputTokenAddress": "0xInputTokenAddress",
-    "inputTokenAmount": "1000000000000000000",
-    "outputTokenChainId": 8453,
-    "outputTokenAddress": "0xOutputTokenAddress",
-    "lockParameters": {
-    "allocatorId": "0xAllocatorId",
-    "resetPeriod": 600,
-    "isMultichain": false
-    },
-    "context": {
-    "slippageBips": 100,
-    "recipient": "0xUserAddress",
-    "baselinePriorityFee": "1000000000",
-    "scalingFactor": "1000000000100000000",
-    "expires": "1732520000"
+      "sponsor": "0xUserAddress",
+      "inputTokenChainId": 10,
+      "inputTokenAddress": "0xInputTokenAddress",
+      "inputTokenAmount": "1000000000000000000",
+      "outputTokenChainId": 8453,
+      "outputTokenAddress": "0xOutputTokenAddress",
+      "lockParameters": {
+        "allocatorId": "0xAllocatorId",
+        "resetPeriod": 600,
+        "isMultichain": false
+      },
+      "context": {
+        "slippageBips": 100,
+        "recipient": "0xUserAddress",
+        "baselinePriorityFee": "1000000000",
+        "scalingFactor": "1000000000100000000",
+        "expires": "1732520000"
+      }
     }
-    }
+    ```
 
 ````
   - **Response Payload Example:**
@@ -799,7 +822,7 @@ Each operation should robustly handle error cases such as:
 
    - [x] **Configure `tsconfig.json`** with strict mode enabled.
    - [x] **Set up ESLint and Prettier:**  
-         Create configuration files (e.g., `.eslintrc.js`, `.prettierrc`).
+          Create configuration files (e.g., `.eslintrc.js`, `.prettierrc`).
    - [x] **Commit all configuration files.**
 
 4. **Initial Testing Setup**
@@ -811,18 +834,18 @@ Each operation should robustly handle error cases such as:
 5. **Pre-Commit Hooks & CI/CD**
 
    - [x] **Set up Husky and lint-staged:**  
-         Configure pre-commit hooks to run:
+          Configure pre-commit hooks to run:
      - Type checking (`tsc --noEmit`)
      - Linting (`eslint .`)
      - Tests (`npm run test`)
    - [x] **Configure GitHub Actions:**  
-         Create a workflow file (e.g., `.github/workflows/ci.yml`) to run linting, type-checking, and tests on every commit/push.
+          Create a workflow file (e.g., `.github/workflows/ci.yml`) to run linting, type-checking, and tests on every commit/push.
 
 6. **Feature Development (Keep Changes Small & Tested)**
 
    - **Authentication Module**
-     - [ ] **Implement wallet connection** using wagmi and RainbowKit.
-     - [ ] **Create API client modules for smallocator’s authentication endpoints.**
+     - [x] **Implement wallet connection** using wagmi and RainbowKit.
+     - [ ] **Create API client modules for smallocator's authentication endpoints.**
      - [ ] **Write tests** for the sign-in flow and session storage.
    - **Balance Dashboard**
      - [ ] **Build components to display direct wallet balances** using viem (multicall) and wagmi hooks.
@@ -840,7 +863,7 @@ Each operation should robustly handle error cases such as:
      - [ ] **Write tests** to validate input handling and API response processing.
    - **Compact Message Signing & Broadcast Flow**
      - [ ] **Implement logic to assemble the compact message payload.**
-     - [ ] **Create API calls to smallocator’s `/compact` endpoint** and process the returned nonce and signature.
+     - [ ] **Create API calls to smallocator's `/compact` endpoint** and process the returned nonce and signature.
      - [ ] **Prompt the user to sign the payload** using EIP-712 (via viem/wagmi) and combine the signatures.
      - [ ] **Implement the broadcast step** by sending the final payload to the broadcast relay.
      - [ ] **Write tests** that simulate API responses (using mocks) to verify the complete signing flow.
@@ -857,7 +880,7 @@ Each operation should robustly handle error cases such as:
    - [ ] **Document all API payload formats, expected responses, and module interfaces.**
 
 9. **Deployment**
-   - [ ] **Build the frontend using Vite’s production build.**
+   - [ ] **Build the frontend using Vite's production build.**
    - [ ] **Deploy static files** to a hosting provider (e.g., Vercel or Netlify), ensuring correct configuration of environment variables (API endpoints, RPC URLs).
    - [ ] **Confirm that GitHub Actions continue enforcing quality standards** on every commit/push.
 
