@@ -1,5 +1,11 @@
 # Type checking
 npm run typecheck
 
-# Run lint-staged
+# Run all tests
+npm run test run
+
+# Verify build
+npm run build
+
+# Run lint-staged for formatting and specific file checks
 npx lint-staged
