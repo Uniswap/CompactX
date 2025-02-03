@@ -27,9 +27,15 @@ This document specifies a frontend-only application that enables users to perfor
    - **Code:** [The Compact Indexer](https://github.com/Uniswap/the-compact-indexer)
 
 4. **Calibrator (Quote Service):**
+
    - Provides swap parameters and quotes.
    - **API endpoint:** [https://calibrat0r.com/](https://calibrat0r.com/)
    - **Code:** [Calibrator](https://github.com/Uniswap/calibrator)
+
+5. **Broadcast Service:**
+   - Handles broadcasting the final signed compact message to the network.
+   - **API endpoint:** [https://broadcast-service.com/](https://broadcast-service.com/)
+   - **Code:** [Broadcast Service](https://github.com/Uniswap/broadcast-service)
 
 ### State Flow Overview
 
@@ -179,6 +185,44 @@ Below is a detailed explanation of the payloads and flows for each external API.
 
 ### 4.1. Smallocator (Session & Compact Signing)
 
+The Smallocator API client is implemented in `src/api/smallocator.ts`. It provides a type-safe interface for all Smallocator endpoints and handles error cases appropriately. Usage example:
+
+```typescript
+import { smallocator } from '../api/smallocator';
+
+// Get session payload
+const sessionResponse = await smallocator.getSessionPayload(10, address);
+
+// Create session with signed payload
+const sessionId = await smallocator.createSession({
+  signature,
+  payload: sessionResponse.payload,
+});
+
+// Submit compact for signing
+const compactResponse = await smallocator.submitCompact({
+  chainId: '10',
+  compact: compactMessage,
+});
+```
+
+### 4.2. Broadcast Service
+
+The broadcast service is implemented in `src/api/broadcast.ts`. It handles broadcasting the final signed compact message to the network. Usage example:
+
+```typescript
+import { broadcast } from '../api/broadcast';
+
+// Broadcast final payload
+const broadcastResponse = await broadcast.broadcast({
+  finalPayload: {
+    compact: compactMessage,
+    userSignature,
+    smallocatorSignature,
+  },
+});
+```
+
 #### Authentication Flow
 
 - **Step 1: Get Session Payload (GET /session/:chainId/:address)**
@@ -202,7 +246,6 @@ Below is a detailed explanation of the payloads and flows for each external API.
     ```
 
 ````
-
 - **Step 2: Create Session (POST /session)**
   - **Request Payload:**
     ```json
@@ -230,7 +273,6 @@ Below is a detailed explanation of the payloads and flows for each external API.
   ```
 
 ````
-
 #### Compact Message Signing Flow
 
 - **Step 3: Submit Compact (POST /compact)**
@@ -261,7 +303,6 @@ Below is a detailed explanation of the payloads and flows for each external API.
   ```
 
 ````
-
 - **Step 4: Final User Signature (EIP-712)**
   - **Payload to Sign:**
     ```json
@@ -317,7 +358,7 @@ Below is a detailed explanation of the payloads and flows for each external API.
   - **Response Example:**
     ```json
 { "status": "success", "message": "Trade broadcasted successfully" }
-````
+```
 
 ### 4.2. Calibrator (Quote API)
 
@@ -347,17 +388,19 @@ Below is a detailed explanation of the payloads and flows for each external API.
     ```
 
 ````
-  - **Response Payload Example:**
-    ```json
-{
+
+- **Response Payload Example:**
+  ```json
+  {
   "quote": {
-    "inputTokenAmount": "1000000000000000000",
-    "expectedOutputAmount": "990000000000000000",
-    "fee": "10000000000000000",
-    "estimatedGas": "21000",
-    "validUntil": "1732520000"
+  "inputTokenAmount": "1000000000000000000",
+  "expectedOutputAmount": "990000000000000000",
+  "fee": "10000000000000000",
+  "estimatedGas": "21000",
+  "validUntil": "1732520000"
   }
-}
+  }
+
 ````
 
 ---
@@ -397,7 +440,7 @@ const Layout: React.FC<PropsWithChildren> = ({ children }) => {
     </div>
   );
 };
-```
+````
 
 #### Feature Components
 
@@ -708,6 +751,7 @@ interface ImportMetaEnv {
   VITE_SMALLOCATOR_URL: string;
   VITE_CALIBRATOR_URL: string;
   VITE_INDEXER_URL: string;
+  VITE_BROADCAST_URL: string;
 }
 ```
 
@@ -757,7 +801,7 @@ interface ImportMetaEnv {
   - Implement session management with **smallocator**.
   - Request a server signature for the compact message.
   - Implement the user signature flow (using EIP-712 via **viem/wagmi**).
-  - Combine signatures and broadcast the final payload.
+  - Combine signatures and broadcast the final payload using the **Broadcast Service**.
 - **Success Criteria:**
   - Session persists as expected.
   - Signatures are combined correctly.
@@ -845,7 +889,7 @@ Each operation should robustly handle error cases such as:
 
    - **Authentication Module**
      - [x] **Implement wallet connection** using wagmi and RainbowKit.
-     - [ ] **Create API client modules for smallocator's authentication endpoints.**
+     - [x] **Create API client modules for smallocator's authentication endpoints.**
      - [ ] **Write tests** for the sign-in flow and session storage.
    - **Balance Dashboard**
      - [ ] **Build components to display direct wallet balances** using viem (multicall) and wagmi hooks.
