@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
+import type { CalibratorQuoteResponse, GetQuoteParams } from '../types';
 
 interface CalibratorQuoteRequest {
   sponsor: string;
@@ -22,84 +23,32 @@ interface CalibratorQuoteRequest {
   };
 }
 
-interface CalibratorQuoteResponse {
-  data: {
-    arbiter: string;
-    sponsor: string;
-    nonce: string | null;
-    expires: string;
-    id: string;
-    amount: string;
-    mandate: {
-      chainId: number;
-      tribunal: string;
-      recipient: string;
-      expires: string;
-      token: string;
-      minimumAmount: string;
-      baselinePriorityFee: string;
-      scalingFactor: string;
-      salt: string;
-    };
-  };
-  context: {
-    dispensation: string;
-    dispensationUSD: string;
-    spotOutputAmount: string;
-    quoteOutputAmountDirect: string;
-    quoteOutputAmountNet: string;
-    deltaAmount: string;
-    witnessHash: string;
-  };
-}
-
-interface GetQuoteParams {
-  inputTokenChainId: number;
-  inputTokenAddress: string;
-  inputTokenAmount: string;
-  outputTokenChainId: number;
-  outputTokenAddress: string;
-  slippageBips: number;
-  allocatorId?: string;
-}
-
 export function useCalibrator() {
   const { address } = useAccount();
 
-  const getQuote = async ({
-    inputTokenChainId,
-    inputTokenAddress,
-    inputTokenAmount,
-    outputTokenChainId,
-    outputTokenAddress,
-    slippageBips,
-    allocatorId = '0x000000000000000000000000', // Default allocator ID
-  }: GetQuoteParams): Promise<CalibratorQuoteResponse> => {
+  const getQuote = async (params: GetQuoteParams): Promise<CalibratorQuoteResponse> => {
     if (!address) {
       throw new Error('Wallet not connected');
     }
 
-    // Current timestamp + 24 hours in seconds
-    const expires = Math.floor(Date.now() / 1000 + 86400).toString();
-
-    const request: CalibratorQuoteRequest = {
+    const quoteRequest: CalibratorQuoteRequest = {
       sponsor: address,
-      inputTokenChainId,
-      inputTokenAddress,
-      inputTokenAmount,
-      outputTokenChainId,
-      outputTokenAddress,
+      inputTokenChainId: params.inputTokenChainId,
+      inputTokenAddress: params.inputTokenAddress,
+      inputTokenAmount: params.inputTokenAmount,
+      outputTokenChainId: params.outputTokenChainId,
+      outputTokenAddress: params.outputTokenAddress,
       lockParameters: {
-        allocatorId,
+        allocatorId: params.allocatorId || '0',
         resetPeriod: 0,
         isMultichain: false,
       },
       context: {
-        slippageBips,
+        slippageBips: params.slippageBips,
         recipient: address,
-        baselinePriorityFee: '1000000000', // 1 gwei
-        scalingFactor: '1000000000100000000', // 1.0000000001
-        expires,
+        baselinePriorityFee: '0',
+        scalingFactor: '0',
+        expires: Math.floor(Date.now() / 1000 + 300).toString(), // 5 minutes from now
       },
     };
 
@@ -108,7 +57,7 @@ export function useCalibrator() {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(request),
+      body: JSON.stringify(quoteRequest),
     });
 
     if (!response.ok) {
@@ -120,7 +69,7 @@ export function useCalibrator() {
 
   const useQuote = (params: GetQuoteParams | undefined) => {
     return useQuery({
-      queryKey: ['calibrator', 'quote', params],
+      queryKey: ['quote', params],
       queryFn: () => getQuote(params!),
       enabled: !!params && !!address,
     });

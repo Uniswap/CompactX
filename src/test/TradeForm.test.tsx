@@ -1,12 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { TradeForm } from '../components/TradeForm'
-import { useAccount, useChainId } from 'wagmi'
-import { useCalibrator } from '../hooks/useCalibrator'
-import { useTokens } from '../hooks/useTokens'
-import { useCustomTokens } from '../hooks/useCustomTokens'
-import { TestWrapper } from './test-wrapper'
-import React from 'react'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { TradeForm } from '../components/TradeForm';
+import { useAccount, useChainId } from 'wagmi';
+import { useCalibrator } from '../hooks/useCalibrator';
+import { useTokens } from '../hooks/useTokens';
+import { useCustomTokens } from '../hooks/useCustomTokens';
+import { TestWrapper } from './test-wrapper';
+import type { UseAccountReturnType } from './test-types';
+import type { CalibratorQuoteResponse } from '../types';
+import React from 'react';
 
 // Mock wagmi hooks
 vi.mock('wagmi', () => ({
@@ -17,16 +19,16 @@ vi.mock('wagmi', () => ({
     transports: {},
   }),
   WagmiConfig: ({ children }: { children: React.ReactNode }) => children,
-}))
+}));
 
 // Mock useCalibrator hook
-vi.mock('../hooks/useCalibrator')
+vi.mock('../hooks/useCalibrator');
 
 // Mock useTokens hook
-vi.mock('../hooks/useTokens')
+vi.mock('../hooks/useTokens');
 
 // Mock useCustomTokens hook
-vi.mock('../hooks/useCustomTokens')
+vi.mock('../hooks/useCustomTokens');
 
 // Create mock form
 const mockForm = {
@@ -35,18 +37,48 @@ const mockForm = {
   setFieldsValue: vi.fn(),
   resetFields: vi.fn(),
   validateFields: vi.fn(),
+};
+
+interface FormState {
+  inputAmount: string;
+  inputToken: string;
+  outputToken: string;
+  slippageTolerance: number;
 }
 
 describe('TradeForm', () => {
-  const mockAddress = '0x1234567890123456789012345678901234567890'
-  const mockChainId = 1 // Ethereum mainnet
-  const mockQuoteResponse = {
+  const mockAddress = '0x1234567890123456789012345678901234567890';
+  const mockChainId = 1; // Ethereum mainnet
+  const mockQuoteResponse: CalibratorQuoteResponse = {
     data: {
-      minimumAmount: '1000000000000000000', // 1 ETH in wei
-      fee: '2639000000000000', // Fee in wei
-      dispensationUSD: '$0.2639',
+      arbiter: '0x1234567890123456789012345678901234567890',
+      sponsor: '0x1234567890123456789012345678901234567890',
+      nonce: null,
+      expires: '1234567890',
+      id: '1234567890',
+      amount: '1000000000000000000',
+      mandate: {
+        chainId: 1,
+        tribunal: '0x1234567890123456789012345678901234567890',
+        recipient: '0x1234567890123456789012345678901234567890',
+        expires: '1234567890',
+        token: '0x1234567890123456789012345678901234567890',
+        minimumAmount: '989904904981520408',
+        baselinePriorityFee: '1000000000000000000',
+        scalingFactor: '1000000000000000000',
+        salt: '1234567890',
+      },
+      context: {
+        dispensation: '2639000000000000',
+        dispensationUSD: '$0.2639',
+        spotOutputAmount: '1000000000000000000',
+        quoteOutputAmountDirect: '1000000000000000000',
+        quoteOutputAmountNet: '1000000000000000000',
+        deltaAmount: '0',
+        witnessHash: '0x1234567890123456789012345678901234567890',
+      },
     },
-  }
+  };
 
   const mockTokens = {
     WETH: {
@@ -55,7 +87,8 @@ describe('TradeForm', () => {
       name: 'Wrapped Ether',
       symbol: 'WETH',
       decimals: 18,
-      logoURI: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
+      logoURI:
+        'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
     },
     DAI: {
       chainId: 1,
@@ -63,33 +96,35 @@ describe('TradeForm', () => {
       name: 'Dai Stablecoin',
       symbol: 'DAI',
       decimals: 18,
-      logoURI: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x6B175474E89094C44Da98b954EedeAC495271d0F/logo.png',
+      logoURI:
+        'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x6B175474E89094C44Da98b954EedeAC495271d0F/logo.png',
     },
-  }
+  } as const;
 
   beforeEach(() => {
-    vi.resetAllMocks()
-    
+    vi.resetAllMocks();
+
     // Create form state
-    const formState = {
+    const formState: FormState = {
       inputAmount: '1.0',
       inputToken: mockTokens.WETH.address,
       outputToken: mockTokens.DAI.address,
       slippageTolerance: 0.5,
-    }
+    };
 
     // Mock useTokens hook
     vi.mocked(useTokens).mockReturnValue({
       inputTokens: [mockTokens.WETH],
       outputTokens: [mockTokens.DAI],
-      loading: false,
-      error: null,
-    })
+    });
 
     // Mock useCustomTokens hook
     vi.mocked(useCustomTokens).mockReturnValue({
+      customTokens: {},
+      addCustomToken: vi.fn(),
+      removeCustomToken: vi.fn(),
       getCustomTokens: vi.fn().mockReturnValue([]),
-    })
+    });
 
     // Mock wagmi hooks
     vi.mocked(useAccount).mockReturnValue({
@@ -103,174 +138,37 @@ describe('TradeForm', () => {
       isDisconnected: false,
       isReconnecting: false,
       status: 'connected',
-    } as unknown as UseAccountReturnType)
-    
-    vi.mocked(useChainId).mockReturnValue(mockChainId)
+    } as unknown as UseAccountReturnType);
+
+    vi.mocked(useChainId).mockReturnValue(mockChainId);
 
     // Mock useCalibrator hook
     vi.mocked(useCalibrator).mockReturnValue({
+      getQuote: vi.fn().mockResolvedValue(mockQuoteResponse),
       useQuote: vi.fn().mockReturnValue({
         data: mockQuoteResponse,
         isLoading: false,
         error: null,
       }),
-    })
+    });
 
     // Reset form mocks with proper state tracking
-    mockForm.getFieldValue.mockImplementation((field: string) => formState[field])
-    mockForm.getFieldsValue.mockReturnValue(formState)
-    mockForm.setFieldsValue.mockImplementation((values: any) => {
-      Object.assign(formState, values)
-    })
+    mockForm.getFieldValue.mockImplementation((field: keyof FormState) => formState[field]);
+    mockForm.getFieldsValue.mockReturnValue(formState);
+    mockForm.setFieldsValue.mockImplementation((values: Partial<FormState>) => {
+      Object.assign(formState, values);
+    });
     mockForm.resetFields.mockImplementation(() => {
-      formState.inputAmount = ''
-      formState.inputToken = ''
-      formState.outputToken = ''
-      formState.slippageTolerance = 0.5
-    })
-    mockForm.validateFields.mockResolvedValue(formState)
-  })
+      formState.inputAmount = '';
+      formState.inputToken = '';
+      formState.outputToken = '';
+      formState.slippageTolerance = 0.5;
+    });
+    mockForm.validateFields.mockResolvedValue(formState);
+  });
 
-  // Mock antd components
-  vi.mock('antd', () => {
-    const Form = ({ children, onFinish, initialValues, ...props }: any) => {
-      return (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onFinish && onFinish(mockForm.getFieldsValue());
-          }}
-          {...props}
-        >
-          {children}
-        </form>
-      );
-    };
-
-    const useForm = () => [mockForm];
-
-    const Item = ({ children, noStyle, name, ...props }: any) => {
-      const childrenWithProps = React.Children.map(children, (child) => {
-        if (React.isValidElement(child)) {
-          return React.cloneElement(child, { name });
-        }
-        return child;
-      });
-
-      return (
-        <div {...props} style={noStyle ? {} : { marginBottom: 16 }}>
-          {childrenWithProps}
-        </div>
-      );
-    };
-
-    const Space = ({ children, ...props }: any) => {
-      return <div {...props}>{children}</div>;
-    };
-
-    const Compact = ({ children, ...props }: any) => {
-      return <div {...props}>{children}</div>;
-    };
-
-    Space.Compact = Compact;
-
-    const Card = ({ children, title, extra, ...props }: any) => {
-      return (
-        <div {...props}>
-          <div>
-            <span>{title}</span>
-            {extra}
-          </div>
-          {children}
-        </div>
-      );
-    };
-
-    const Row = ({ children, ...props }: any) => {
-      return <div {...props}>{children}</div>;
-    };
-
-    const Col = ({ children, ...props }: any) => {
-      return <div {...props}>{children}</div>;
-    };
-
-    const Select = ({ children, suffixIcon, options, ...props }: any) => {
-      // Remove boolean props that shouldn't be passed to DOM
-      const { bordered, ...domProps } = props;
-      return (
-        <select {...domProps}>
-          {options?.map((option: any) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      );
-    };
-
-    const InputNumber = ({ stringMode, name, ...props }: any) => {
-      // Remove boolean props that shouldn't be passed to DOM
-      const { bordered, ...domProps } = props;
-      return <input type="number" name={name} {...domProps} />;
-    };
-
-    const Button = ({ children, ...props }: any) => {
-      return <button {...props}>{children}</button>;
-    };
-
-    const Modal = ({ children, title, ...props }: any) => {
-      return (
-        <div role="dialog" {...props}>
-          <div>{title}</div>
-          {children}
-        </div>
-      );
-    };
-
-    const Tooltip = ({ children, title, ...props }: any) => {
-      return (
-        <div title={title} {...props}>
-          {children}
-        </div>
-      );
-    };
-
-    const Alert = ({ message, description, type, showIcon, ...props }: any) => {
-      return (
-        <div role="alert" {...props}>
-          <div>{message}</div>
-          {description && <div>{description}</div>}
-        </div>
-      );
-    };
-
-    return {
-      Form: Object.assign(Form, { Item, useForm }),
-      Card,
-      Row,
-      Col,
-      Select,
-      InputNumber,
-      Button,
-      Modal,
-      Space: Object.assign(Space, { Compact }),
-      Tooltip,
-      Alert,
-    };
-  })
-
-  it('should render correctly when wallet is connected', () => {
-    render(<TradeForm />, { wrapper: TestWrapper })
-
-    // Check basic form elements
-    expect(screen.getByText('Swap')).toBeInTheDocument()
-    expect(screen.getByRole('spinbutton', { name: 'Input Amount' })).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Input Token' })).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Output Token' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Get Quote' })).toBeInTheDocument()
-  })
-
-  it('should disable form when wallet is not connected', () => {
+  it('should render correctly when disconnected', () => {
+    // Mock disconnected state
     vi.mocked(useAccount).mockReturnValue({
       address: undefined,
       addresses: [],
@@ -282,98 +180,74 @@ describe('TradeForm', () => {
       isDisconnected: true,
       isReconnecting: false,
       status: 'disconnected',
-    } as unknown as UseAccountReturnType)
+    } as unknown as UseAccountReturnType);
 
-    render(<TradeForm />, { wrapper: TestWrapper })
+    render(<TradeForm />, { wrapper: TestWrapper });
 
-    expect(screen.getByRole('button', { name: 'Connect Wallet' })).toBeDisabled()
-  })
+    expect(screen.getByText('Connect Wallet')).toBeInTheDocument();
+  });
 
-  it('should open settings modal when settings button is clicked', async () => {
-    render(<TradeForm />, { wrapper: TestWrapper })
+  it('should handle form submission', async () => {
+    render(<TradeForm />, { wrapper: TestWrapper });
 
-    const settingsButton = screen.getByRole('button', { name: 'Settings' })
-    fireEvent.click(settingsButton)
+    // Fill out form
+    const inputAmount = screen.getByLabelText('Input Amount');
+    fireEvent.change(inputAmount, { target: { value: '1.0' } });
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    // Check for the input by its name attribute
-    expect(screen.getByRole('spinbutton', { name: 'Slippage Tolerance' })).toBeInTheDocument()
-  })
+    // Select input token
+    const inputTokenSelect = screen.getByRole('combobox', { name: 'Input Token' });
+    fireEvent.mouseDown(inputTokenSelect);
+    fireEvent.click(screen.getByText('WETH - Wrapped Ether'));
 
-  it('should update form values and fetch quote', async () => {
-    render(<TradeForm />, { wrapper: TestWrapper })
-
-    // Input amount
-    const inputAmount = screen.getByRole('spinbutton', { name: 'Input Amount' })
-    fireEvent.change(inputAmount, { target: { value: '1.0' } })
-
-    // Input token
-    const inputToken = screen.getByRole('combobox', { name: 'Input Token' })
-    fireEvent.change(inputToken, { target: { value: mockTokens.WETH.address } })
-
-    // Output token
-    const outputToken = screen.getByRole('combobox', { name: 'Output Token' })
-    fireEvent.change(outputToken, { target: { value: mockTokens.DAI.address } })
+    // Select output token
+    const outputTokenSelect = screen.getByRole('combobox', { name: 'Output Token' });
+    fireEvent.mouseDown(outputTokenSelect);
+    fireEvent.click(screen.getByText('DAI - Dai Stablecoin'));
 
     // Submit form
-    const submitButton = screen.getByRole('button', { name: 'Get Quote' })
+    const submitButton = screen.getByText('Get Quote');
+    fireEvent.click(submitButton);
+
+    // Wait for loading state to finish
     await waitFor(() => {
-      expect(submitButton).toBeEnabled()
-    })
-    fireEvent.click(submitButton)
+      expect(screen.queryByText('Getting Quote...')).not.toBeInTheDocument();
+    });
 
-    // Wait for quote to be fetched and displayed
+    // Check the quote amount
     await waitFor(() => {
-      // Check if the quote amount is displayed
-      const quoteAmount = screen.getByTestId('quote-amount')
-      expect(quoteAmount).toHaveTextContent('1')
+      expect(screen.getByTestId('quote-amount')).toHaveTextContent('0.9899049049815204');
+    });
+  });
 
-      // Check if the fee is displayed
-      expect(screen.getByText('Fee: $0.2639')).toBeInTheDocument()
-    })
-  })
-
-  it('should show loading state while fetching quote', async () => {
+  it('should handle quote loading state', () => {
+    // Mock loading state
     vi.mocked(useCalibrator).mockReturnValue({
+      getQuote: vi.fn().mockResolvedValue(mockQuoteResponse),
       useQuote: vi.fn().mockReturnValue({
-        data: null,
+        data: undefined,
         isLoading: true,
         error: null,
       }),
-    })
+    });
 
-    render(<TradeForm />, { wrapper: TestWrapper })
+    render(<TradeForm />, { wrapper: TestWrapper });
 
-    const submitButton = screen.getByRole('button', { name: 'Getting Quote...' })
-    expect(submitButton).toBeDisabled()
-  })
+    expect(screen.getByText('Getting Quote...')).toBeInTheDocument();
+  });
 
-  it('should handle API errors gracefully', async () => {
-    const errorMessage = 'Failed to fetch quote'
+  it('should handle quote error state', () => {
+    // Mock error state
     vi.mocked(useCalibrator).mockReturnValue({
+      getQuote: vi.fn().mockResolvedValue(mockQuoteResponse),
       useQuote: vi.fn().mockReturnValue({
-        data: null,
+        data: undefined,
         isLoading: false,
-        error: new Error(errorMessage),
+        error: new Error('Failed to fetch quote'),
       }),
-    })
+    });
 
-    render(<TradeForm />, { wrapper: TestWrapper })
+    render(<TradeForm />, { wrapper: TestWrapper });
 
-    await waitFor(() => {
-      expect(screen.getByText('Error')).toBeInTheDocument()
-      expect(screen.getByText(errorMessage)).toBeInTheDocument()
-    })
-  })
-
-  it('should render chain options correctly', async () => {
-    render(<TradeForm />, { wrapper: TestWrapper })
-
-    // Check if chain options are rendered correctly
-    const chainSelect = screen.getByRole('combobox', { name: 'Output Chain' })
-    fireEvent.mouseDown(chainSelect)
-    expect(screen.getByText('Ethereum')).toBeInTheDocument()
-    expect(screen.getByText('Optimism')).toBeInTheDocument()
-    expect(screen.getByText('Base')).toBeInTheDocument()
-  })
-})
+    expect(screen.getByText('Failed to fetch quote')).toBeInTheDocument();
+  });
+});

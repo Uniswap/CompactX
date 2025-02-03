@@ -18,7 +18,7 @@ This document specifies a frontend-only application that enables users to perfor
 
    - Manages user sessions and provides server-side signatures.
    - **API endpoint:** [https://smallocator.xyz](https://smallocator.xyz)
-   - **Code:** \*\*[Smallocator](https://github.com/Uniswap/smallocator)
+   - **Code:** [Smallocator](https://github.com/Uniswap/smallocator)
 
 3. **The Compact Indexer (Balance Tracking):**
 
@@ -84,6 +84,11 @@ The application uses the following environment variables:
 ```
 # WalletConnect Project ID (Required for wallet connections)
 VITE_WALLETCONNECT_PROJECT_ID=""
+
+# External API Endpoints
+VITE_SMALLOCATOR_URL="https://smallocator.xyz"
+VITE_CALIBRATOR_API_URL="https://calibrat0r.com"
+VITE_BROADCAST_URL=""
 
 # API Configuration
 VITE_API_URL="http://localhost:3000"
