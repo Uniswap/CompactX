@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Card, Form, InputNumber, Select, Modal, Button, Space, Alert } from 'antd';
+import { Card, Form, InputNumber, Select, Modal, Button, Space, Alert, Tooltip } from 'antd';
 import { useAccount, useChainId } from 'wagmi';
-import { SettingOutlined } from '@ant-design/icons';
+import { SettingOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useCustomTokens } from '../hooks/useCustomTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
+import { formatUnits, parseUnits } from 'viem';
 
 interface Token {
   chainId: number;
@@ -59,23 +60,26 @@ export interface TradeFormValues {
 
 export function TradeForm() {
   const { isConnected } = useAccount();
+  const chainId = useChainId();
   const { getCustomTokens } = useCustomTokens();
   const { useQuote } = useCalibrator();
   const [form] = Form.useForm<TradeFormValues>();
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [selectedOutputChain, setSelectedOutputChain] = useState(useChainId());
+  const [selectedOutputChain, setSelectedOutputChain] = useState(chainId);
   const [quoteParams, setQuoteParams] = useState<{
-    inputToken: string;
-    outputToken: string;
-    amount: string;
-    slippageTolerance: number;
+    inputTokenChainId: number;
+    inputTokenAddress: string;
+    inputTokenAmount: string;
+    outputTokenChainId: number;
+    outputTokenAddress: string;
+    slippageBips: number;
   }>();
 
   // Get custom tokens for the current chain
-  const customTokens = getCustomTokens(useChainId());
+  const customTokens = getCustomTokens(chainId);
 
   // Get tokens for input (current chain) and output (selected chain)
-  const inputTokens = [...(TOKENS_BY_CHAIN[useChainId()] || []), ...customTokens];
+  const inputTokens = [...(TOKENS_BY_CHAIN[chainId] || []), ...customTokens];
   const outputTokens = TOKENS_BY_CHAIN[selectedOutputChain] || [];
 
   // Format tokens for Select options
@@ -93,14 +97,24 @@ export function TradeForm() {
   const { data: quote, isLoading, error } = useQuote(quoteParams);
 
   const handleFormSubmit = async (values: TradeFormValues) => {
+    const inputToken = inputTokens.find(token => token.address === values.inputToken);
+    if (!inputToken) return;
+
     // Update quote params to trigger API call
     setQuoteParams({
-      inputToken: values.inputToken,
-      outputToken: values.outputToken,
-      amount: values.inputAmount,
-      slippageTolerance: values.slippageTolerance,
+      inputTokenChainId: chainId,
+      inputTokenAddress: values.inputToken,
+      inputTokenAmount: parseUnits(values.inputAmount, inputToken.decimals).toString(),
+      outputTokenChainId: selectedOutputChain,
+      outputTokenAddress: values.outputToken,
+      slippageBips: Math.floor(values.slippageTolerance * 100), // Convert percentage to basis points
     });
   };
+
+  // Find output token to get decimals for formatting
+  const outputToken = outputTokens.find(
+    token => token.address === form.getFieldValue('outputToken')
+  );
 
   return (
     <>
@@ -118,7 +132,7 @@ export function TradeForm() {
           onFinish={handleFormSubmit}
           initialValues={{
             slippageTolerance: 0.5,
-            outputChain: useChainId(),
+            outputChain: chainId,
           }}
         >
           {/* Input Amount & Token (Connected Chain) */}
@@ -164,7 +178,9 @@ export function TradeForm() {
             <div className="mb-2 text-sm text-gray-500">Buy</div>
             <Space.Compact style={{ width: '100%' }}>
               <div style={{ width: '60%' }} className="text-2xl">
-                {quote ? quote.price : '0.00'}
+                {quote && outputToken
+                  ? formatUnits(quote.data.mandate.minimumAmount, outputToken.decimals)
+                  : '0.00'}
               </div>
               <Form.Item name="outputToken" noStyle>
                 <Select
@@ -175,7 +191,16 @@ export function TradeForm() {
                 />
               </Form.Item>
             </Space.Compact>
-            <div className="mt-1 text-sm text-gray-500">${quote ? quote.price : '0.00'}</div>
+            {quote && (
+              <div className="mt-1 text-sm text-gray-500">
+                <Space>
+                  <span>Fee: {quote.context.dispensationUSD}</span>
+                  <Tooltip title="Fee includes gas costs and protocol fees">
+                    <InfoCircleOutlined />
+                  </Tooltip>
+                </Space>
+              </div>
+            )}
           </div>
 
           {error && (
