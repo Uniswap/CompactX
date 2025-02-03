@@ -785,10 +785,10 @@ Each operation should robustly handle error cases such as:
      ```
 
 3. **TypeScript & Linter Configuration**
-   - [ ] **Configure `tsconfig.json`** with strict mode enabled.
-   - [ ] **Set up ESLint and Prettier:**  
+   - [X] **Configure `tsconfig.json`** with strict mode enabled.
+   - [X] **Set up ESLint and Prettier:**  
      Create configuration files (e.g., `.eslintrc.js`, `.prettierrc`).
-   - [ ] **Commit all configuration files.**
+   - [X] **Commit all configuration files.**
 
 4. **Initial Testing Setup**
    - [ ] **Configure Jest (or Vitest) for unit and integration tests.**
