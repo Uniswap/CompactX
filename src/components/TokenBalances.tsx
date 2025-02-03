@@ -1,6 +1,12 @@
 import { useTokenBalances } from '../hooks/useTokenBalances';
 import { useLockedTokenBalances } from '../hooks/useLockedTokenBalances';
+import { useCustomTokens } from '../hooks/useCustomTokens';
+import { useCustomTokenBalances } from '../hooks/useCustomTokenBalances';
 import { formatUnits } from 'viem';
+import { useChainId } from 'wagmi';
+import { AddCustomToken } from './AddCustomToken';
+import { Button, Tooltip, Spin } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
 
 export function TokenBalances() {
   const {
@@ -13,17 +19,31 @@ export function TokenBalances() {
     isLoading: lockedLoading,
     error: lockedError,
   } = useLockedTokenBalances();
+  const chainId = useChainId();
+  const { getCustomTokens, removeCustomToken } = useCustomTokens();
 
-  if (directLoading || lockedLoading) {
+  const customTokens = chainId ? getCustomTokens(chainId) : [];
+  const {
+    balances: customBalances,
+    loading: customLoading,
+    error: customError,
+  } = useCustomTokenBalances(customTokens);
+
+  if (directLoading || lockedLoading || customLoading) {
     return <div>Loading balances...</div>;
   }
 
-  if (directError || lockedError) {
+  if (directError || lockedError || customError) {
     return <div>Error loading balances</div>;
   }
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Token Balances</h1>
+        <AddCustomToken />
+      </div>
+
       <div>
         <h2 className="text-lg font-semibold mb-2">Direct Balances</h2>
         {Object.entries(directBalances).map(([symbol, balance]) => (
@@ -32,6 +52,47 @@ export function TokenBalances() {
             <span>{formatUnits(balance, 18)}</span>
           </div>
         ))}
+
+        {/* Custom Tokens Section */}
+        {customTokens.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-md font-semibold mb-2">Custom Tokens</h3>
+            {customTokens.map(token => (
+              <div key={token.address} className="flex justify-between items-center py-2">
+                <div className="flex items-center">
+                  {token.logoURI && (
+                    <img
+                      src={token.logoURI}
+                      alt={token.symbol}
+                      className="w-6 h-6 mr-2 rounded-full"
+                    />
+                  )}
+                  <div>
+                    <span className="font-medium">{token.symbol}</span>
+                    <span className="text-sm text-gray-500 ml-2">{token.name}</span>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <span className="mr-4">
+                    {customBalances[token.address] ? (
+                      formatUnits(customBalances[token.address], token.decimals)
+                    ) : (
+                      <Spin size="small" />
+                    )}
+                  </span>
+                  <Tooltip title="Remove token">
+                    <Button
+                      type="text"
+                      icon={<DeleteOutlined />}
+                      onClick={() => removeCustomToken(token.chainId, token.address)}
+                      className="text-red-500 hover:text-red-700"
+                    />
+                  </Tooltip>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
