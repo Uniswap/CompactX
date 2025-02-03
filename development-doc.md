@@ -926,13 +926,13 @@ Each operation should robustly handle error cases such as:
      - [x] **Provide a UI for users to add new tokens** to their list, saving this list in localStorage.
      - [x] **Write tests** to verify that token balances display correctly.
    - **Trade Widget**
-     - [ ] **Develop a simple form** to capture:
+     - [x] **Develop a simple form** to capture:
        - Input token amount.
        - Dropdown for selecting the input token (from a hardcoded list that can be extended by the user).
        - Dropdown for selecting the output token (from a hardcoded list).
        - Slippage tolerance.
-     - [ ] **Connect the form to call the Calibrator API** and fetch a quote.
-     - [ ] **Write tests** to validate input handling and API response processing.
+     - [x] **Connect the form to call the Calibrator API** and fetch a quote.
+     - [x] **Write tests** to validate input handling and API response processing.
    - **Compact Message Signing & Broadcast Flow**
      - [ ] **Implement logic to assemble the compact message payload.**
      - [ ] **Create API calls to smallocator's `/compact` endpoint** and process the returned nonce and signature.
