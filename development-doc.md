@@ -8,22 +8,25 @@ This document specifies a frontend-only application that enables users to perfor
 
 ### Core Dependencies and Services
 
-1. **The Compact Contract (On-chain):**  
+1. **The Compact Contract (On-chain):**
+
    - Manages token locking and allocation for cross-chain swaps through compacts.
    - **Address:** `0x00000000000018DF021Ff2467dF97ff846E09f48` (deployed to Mainnet, Optimism, & Base)
    - **Code:** [The Compact](https://github.com/Uniswap/the-compact)
 
-2. **Smallocator (Authentication & Signing):**  
+2. **Smallocator (Authentication & Signing):**
+
    - Manages user sessions and provides server-side signatures.
    - **API endpoint:** [https://smallocator.xyz](https://smallocator.xyz)
-   - **Code:** **[Smallocator](https://github.com/Uniswap/smallocator)
+   - **Code:** \*\*[Smallocator](https://github.com/Uniswap/smallocator)
 
-3. **The Compact Indexer (Balance Tracking):**  
+3. **The Compact Indexer (Balance Tracking):**
+
    - Tracks locked token balances by indexing events from The Compact.
    - **GraphQL endpoint:** [https://the-compact-indexer-2.ponder-dev.com/](https://the-compact-indexer-2.ponder-dev.com/)
    - **Code:** [The Compact Indexer](https://github.com/Uniswap/the-compact-indexer)
 
-4. **Calibrator (Quote Service):**  
+4. **Calibrator (Quote Service):**
    - Provides swap parameters and quotes.
    - **API endpoint:** [https://calibrat0r.com/](https://calibrat0r.com/)
    - **Code:** [Calibrator](https://github.com/Uniswap/calibrator)
@@ -37,8 +40,9 @@ This document specifies a frontend-only application that enables users to perfor
   Depends on the wallet connection and is required for swap operations (managed via Smallocator).
 
 - **Token Balances:**  
-  Fetched from two sources:  
-  - Direct wallet balances (via viem multicall and wagmi).  
+  Fetched from two sources:
+
+  - Direct wallet balances (via viem multicall and wagmi).
   - Locked balances (via The Compact Indexer using @tanstack/react-query).
 
 - **Swap Parameters:**  
@@ -164,8 +168,8 @@ Below is a detailed explanation of the payloads and flows for each external API.
     URL: `/session/10/0xUserAddress` (example for Optimism)
   - **Response Example:**
     ```json
-{
-  "payload": {
+    {
+    "payload": {
     "domain": "your-dapp-domain.com",
     "address": "0xUserAddress",
     "uri": "https://your-dapp-domain.com",
@@ -175,9 +179,10 @@ Below is a detailed explanation of the payloads and flows for each external API.
     "nonce": "unique_nonce_value",
     "issuedAt": "2025-02-03T10:00:00Z",
     "expirationTime": "2025-02-03T11:00:00Z"
-  }
-}
-```
+    }
+    }
+
+````
 
 - **Step 2: Create Session (POST /session)**
   - **Request Payload:**
@@ -196,13 +201,15 @@ Below is a detailed explanation of the payloads and flows for each external API.
     "expirationTime": "2025-02-03T11:00:00Z"
   }
 }
-```
-  - **Response Example:**
-    ```json
-{
+````
+
+- **Response Example:**
+  ```json
+  {
   "sessionId": "unique_session_id"
-}
-```
+  }
+
+````
 
 #### Compact Message Signing Flow
 
@@ -222,15 +229,17 @@ Below is a detailed explanation of the payloads and flows for each external API.
     "witnessHash": "0xWitnessHashValue"
   }
 }
-```
-  - **Response Example:**
-    ```json
-{
+````
+
+- **Response Example:**
+  ```json
+  {
   "hash": "0xComputedClaimHash",
   "signature": "0xSmallocatorSignature",
   "nonce": "0xUserAddressNonce"
-}
-```
+  }
+
+````
 
 - **Step 4: Final User Signature (EIP-712)**
   - **Payload to Sign:**
@@ -257,61 +266,64 @@ Below is a detailed explanation of the payloads and flows for each external API.
     "Compact": [ ... ]
   }
 }
-```
-  - **User Action:**  
-    The user signs this payload using their wallet (via **viem**/wagmi), resulting in a signature (e.g., `"0xUserSignature"`).
+````
+
+- **User Action:**  
+  The user signs this payload using their wallet (via **viem**/wagmi), resulting in a signature (e.g., `"0xUserSignature"`).
 
 - **Step 5: Broadcast the Final Payload (POST /broadcast)**
   - **Request Payload:**
     ```json
-{
-  "finalPayload": {
+    {
+    "finalPayload": {
     "compact": {
-      "arbiter": "0xArbiterAddress",
-      "sponsor": "0xUserAddress",
-      "nonce": "0xUserAddressNonce",
-      "expires": "1732520000",
-      "id": "0xTokenIDForResourceLock",
-      "amount": "1000000000000000000",
-      "witnessTypeString": "ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)",
-      "witnessHash": "0xWitnessHashValue"
+    "arbiter": "0xArbiterAddress",
+    "sponsor": "0xUserAddress",
+    "nonce": "0xUserAddressNonce",
+    "expires": "1732520000",
+    "id": "0xTokenIDForResourceLock",
+    "amount": "1000000000000000000",
+    "witnessTypeString": "ExampleWitness exampleWitness)ExampleWitness(uint256 foo, bytes32 bar)",
+    "witnessHash": "0xWitnessHashValue"
     },
     "userSignature": "0xUserSignature",
     "smallocatorSignature": "0xSmallocatorSignature"
-  }
-}
-```
+    }
+    }
+
+````
   - **Response Example:**
     ```json
 { "status": "success", "message": "Trade broadcasted successfully" }
-```
+````
 
 ### 4.2. Calibrator (Quote API)
 
 - **Obtaining a Swap Quote (POST /quote)**
   - **Request Payload Example:**
     ```json
-{
-  "sponsor": "0xUserAddress",
-  "inputTokenChainId": 10,
-  "inputTokenAddress": "0xInputTokenAddress",
-  "inputTokenAmount": "1000000000000000000",
-  "outputTokenChainId": 8453,
-  "outputTokenAddress": "0xOutputTokenAddress",
-  "lockParameters": {
+    {
+    "sponsor": "0xUserAddress",
+    "inputTokenChainId": 10,
+    "inputTokenAddress": "0xInputTokenAddress",
+    "inputTokenAmount": "1000000000000000000",
+    "outputTokenChainId": 8453,
+    "outputTokenAddress": "0xOutputTokenAddress",
+    "lockParameters": {
     "allocatorId": "0xAllocatorId",
     "resetPeriod": 600,
     "isMultichain": false
-  },
-  "context": {
+    },
+    "context": {
     "slippageBips": 100,
     "recipient": "0xUserAddress",
     "baselinePriorityFee": "1000000000",
     "scalingFactor": "1000000000100000000",
     "expires": "1732520000"
-  }
-}
-```
+    }
+    }
+
+````
   - **Response Payload Example:**
     ```json
 {
@@ -323,7 +335,7 @@ Below is a detailed explanation of the payloads and flows for each external API.
     "validUntil": "1732520000"
   }
 }
-```
+````
 
 ---
 
@@ -415,7 +427,7 @@ const SwapContext = createContext<SwapContextType | undefined>(undefined);
 
 export const SwapStateProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [state, dispatch] = useReducer(swapReducer, initialState);
-  
+
   return (
     <SwapContext.Provider value={{ state, dispatch }}>
       {children}
@@ -454,12 +466,12 @@ export const useTokenBalances = (address: string, tokens: Token[]) => {
       // Fetch both direct and locked balances
       const [direct, locked] = await Promise.all([
         fetchDirectBalances(address, tokens),
-        fetchLockedBalances(address, tokens)
+        fetchLockedBalances(address, tokens),
       ]);
       return combineBalances(direct, locked);
     },
     enabled: Boolean(address && tokens.length),
-    staleTime: 10000 // 10 seconds
+    staleTime: 10000, // 10 seconds
   });
 };
 
@@ -470,7 +482,7 @@ export const useQuote = (params: QuoteRequest | null) => {
     queryFn: () => fetchQuote(params!),
     enabled: Boolean(params),
     staleTime: 5000, // 5 seconds
-    retry: false // Don't retry failed quotes
+    retry: false, // Don't retry failed quotes
   });
 };
 ```
@@ -512,7 +524,7 @@ export const handleApiError = (error: unknown): SwapError => {
       // ... other cases
     }
   }
-  
+
   if (error instanceof Error) {
     // Handle specific error types
     if (error.message.includes('insufficient balance')) {
@@ -523,12 +535,8 @@ export const handleApiError = (error: unknown): SwapError => {
       );
     }
   }
-  
-  return new SwapError(
-    'An unexpected error occurred',
-    'UNKNOWN_ERROR',
-    'Please try again later'
-  );
+
+  return new SwapError('An unexpected error occurred', 'UNKNOWN_ERROR', 'Please try again later');
 };
 ```
 
@@ -574,10 +582,10 @@ Implement runtime validation for API responses using TypeScript type guards:
 // src/utils/validation.ts
 export const isQuoteResponse = (data: unknown): data is QuoteResponse => {
   if (!data || typeof data !== 'object') return false;
-  
+
   const quote = (data as QuoteResponse).quote;
   if (!quote) return false;
-  
+
   return (
     typeof quote.inputTokenAmount === 'string' &&
     typeof quote.expectedOutputAmount === 'string' &&
@@ -590,7 +598,7 @@ export const isQuoteResponse = (data: unknown): data is QuoteResponse => {
 // Usage in API calls
 const fetchQuote = async (params: QuoteRequest): Promise<QuoteResponse> => {
   const response = await axios.post('/quote', params);
-  
+
   if (!isQuoteResponse(response.data)) {
     throw new SwapError(
       'Invalid quote response format',
@@ -598,7 +606,7 @@ const fetchQuote = async (params: QuoteRequest): Promise<QuoteResponse> => {
       'Please try again later'
     );
   }
-  
+
   return response.data;
 };
 ```
@@ -619,64 +627,64 @@ const INITIAL_CONFIG = {
   tokens: [
     // Mainnet tokens
     {
-      address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-      symbol: "WETH",
+      address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+      symbol: 'WETH',
       decimals: 18,
-      chainId: 1
+      chainId: 1,
     },
     {
-      address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-      symbol: "USDC",
+      address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+      symbol: 'USDC',
       decimals: 6,
-      chainId: 1
+      chainId: 1,
     },
     // Optimism tokens
     {
-      address: "0x4200000000000000000000000000000000000006",
-      symbol: "WETH",
+      address: '0x4200000000000000000000000000000000000006',
+      symbol: 'WETH',
       decimals: 18,
-      chainId: 10
+      chainId: 10,
     },
     {
-      address: "0x7F5c764cBc14f9669B88837ca1490cCa17c31607",
-      symbol: "USDC",
+      address: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
+      symbol: 'USDC',
       decimals: 6,
-      chainId: 10
+      chainId: 10,
     },
     // Base tokens
     {
-      address: "0x4200000000000000000000000000000000000006",
-      symbol: "WETH",
+      address: '0x4200000000000000000000000000000000000006',
+      symbol: 'WETH',
       decimals: 18,
-      chainId: 8453
+      chainId: 8453,
     },
     {
-      address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-      symbol: "USDC",
+      address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      symbol: 'USDC',
       decimals: 6,
-      chainId: 8453
-    }
+      chainId: 8453,
+    },
   ],
   defaultSlippage: 100, // 1%
   quoteRefreshInterval: 5000, // 5 seconds
-  sessionRefreshThreshold: 600000 // 10 minutes
+  sessionRefreshThreshold: 600000, // 10 minutes
 };
 
 // src/config/chains.ts
-import { mainnet, optimism, base } from 'wagmi/chains'
-import { getDefaultConfig } from '@rainbow-me/rainbowkit'
+import { mainnet, optimism, base } from 'wagmi/chains';
+import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 
 export const wagmiConfig = getDefaultConfig({
   appName: 'Cross-Chain Swap',
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
-  chains: [mainnet, optimism, base]
-})
+  chains: [mainnet, optimism, base],
+});
 
 interface ImportMetaEnv {
-  VITE_WALLETCONNECT_PROJECT_ID: string
-  VITE_SMALLOCATOR_URL: string
-  VITE_CALIBRATOR_URL: string 
-  VITE_INDEXER_URL: string
+  VITE_WALLETCONNECT_PROJECT_ID: string;
+  VITE_SMALLOCATOR_URL: string;
+  VITE_CALIBRATOR_URL: string;
+  VITE_INDEXER_URL: string;
 }
 ```
 
@@ -736,6 +744,7 @@ interface ImportMetaEnv {
 ### Error Handling Requirements
 
 Each operation should robustly handle error cases such as:
+
 - **Wallet Connection:**  
   Network issues, wrong chain, user rejection, wallet disconnection.
 - **Balance Fetching:**  
@@ -767,44 +776,50 @@ Each operation should robustly handle error cases such as:
 **_Note: As each task is completed, update the checklist items from `[ ]` to `[X]`._**
 
 1. **Repository Initialization**
-   - [X] **Create a new Git repository** (e.g., on GitHub).
-   - [X] **Initialize with a Vite React TypeScript template:**
+
+   - [x] **Create a new Git repository** (e.g., on GitHub).
+   - [x] **Initialize with a Vite React TypeScript template:**
      ```bash
      npm create vite@latest . --template react-ts
      npm install
      ```
 
 2. **Add Dependencies**
-   - [X] **Install essential packages:**
+
+   - [x] **Install essential packages:**
      ```bash
      npm install wagmi viem @rainbow-me/rainbowkit @tanstack/react-query axios
      ```
-   - [X] **Install development tools:**
+   - [x] **Install development tools:**
      ```bash
      npm install -D typescript eslint prettier jest husky lint-staged
      ```
 
 3. **TypeScript & Linter Configuration**
-   - [X] **Configure `tsconfig.json`** with strict mode enabled.
-   - [X] **Set up ESLint and Prettier:**  
-     Create configuration files (e.g., `.eslintrc.js`, `.prettierrc`).
-   - [X] **Commit all configuration files.**
+
+   - [x] **Configure `tsconfig.json`** with strict mode enabled.
+   - [x] **Set up ESLint and Prettier:**  
+         Create configuration files (e.g., `.eslintrc.js`, `.prettierrc`).
+   - [x] **Commit all configuration files.**
 
 4. **Initial Testing Setup**
-   - [X] **Configure Jest (or Vitest) for unit and integration tests.**
-   - [X] **Create sample test files** (e.g., `src/__tests__/sample.test.ts`) to verify basic utilities.
-   - [X] **Run tests to ensure everything is working.**
+
+   - [x] **Configure Jest (or Vitest) for unit and integration tests.**
+   - [x] **Create sample test files** (e.g., `src/__tests__/sample.test.ts`) to verify basic utilities.
+   - [x] **Run tests to ensure everything is working.**
 
 5. **Pre-Commit Hooks & CI/CD**
-   - [ ] **Set up Husky and lint-staged:**  
-     Configure pre-commit hooks to run:
+
+   - [x] **Set up Husky and lint-staged:**  
+         Configure pre-commit hooks to run:
      - Type checking (`tsc --noEmit`)
      - Linting (`eslint .`)
      - Tests (`npm run test`)
-   - [ ] **Configure GitHub Actions:**  
-     Create a workflow file (e.g., `.github/workflows/ci.yml`) to run linting, type-checking, and tests on every commit/push.
+   - [x] **Configure GitHub Actions:**  
+         Create a workflow file (e.g., `.github/workflows/ci.yml`) to run linting, type-checking, and tests on every commit/push.
 
 6. **Feature Development (Keep Changes Small & Tested)**
+
    - **Authentication Module**
      - [ ] **Implement wallet connection** using wagmi and RainbowKit.
      - [ ] **Create API client modules for smallocator’s authentication endpoints.**
@@ -831,11 +846,13 @@ Each operation should robustly handle error cases such as:
      - [ ] **Write tests** that simulate API responses (using mocks) to verify the complete signing flow.
 
 7. **Final Integration & QA**
+
    - [ ] **Verify that individual modules** (authentication, balance display, trade widget, signing flow) function correctly in isolation.
    - [ ] **Conduct end-to-end tests** simulating the entire swap process with mocked external API responses.
    - [ ] **Commit changes frequently** with clear, descriptive messages and update checklist items (mark each as `[X]` when completed).
 
 8. **Documentation**
+
    - [ ] **Update the README** with setup instructions, dependency details, and data flow diagrams.
    - [ ] **Document all API payload formats, expected responses, and module interfaces.**
 
@@ -851,7 +868,8 @@ Each operation should robustly handle error cases such as:
 - **Frontend-Only Architecture:**  
   All logic runs on the client. External APIs (smallocator, calibrator, indexer, broadcast) and blockchain interactions are invoked directly from the dapp.
 
-- **Use the Prescribed Tooling:**  
+- **Use the Prescribed Tooling:**
+
   - **Vite, React, TypeScript** for the application shell.
   - **wagmi** and **RainbowKit** for wallet connectivity.
   - **viem** for blockchain interactions (including multicall for token balance queries).
