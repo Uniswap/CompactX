@@ -1,10 +1,9 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
 # Type checking
 npm run typecheck
 
-# Run all tests
+# Run tests
 npm run test
 
 # Verify build
