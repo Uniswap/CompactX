@@ -914,7 +914,7 @@ Each operation should robustly handle error cases such as:
    - **Authentication Module**
      - [x] **Implement wallet connection** using wagmi and RainbowKit.
      - [x] **Create API client modules for smallocator's authentication endpoints.**
-     - [ ] **Write tests** for the sign-in flow and session storage.
+     - [x] **Write tests** for the sign-in flow and session storage.
    - **Balance Dashboard**
      - [ ] **Build components to display direct wallet balances** using viem (multicall) and wagmi hooks.
      - [ ] **Implement fetching of locked token balances** by querying The Compact Indexer using @tanstack/react-query.
