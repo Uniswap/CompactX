@@ -109,7 +109,7 @@ export function TradeForm() {
                   min={0}
                   step="0.000000000000000001"
                   stringMode
-                  bordered={false}
+                  variant="borderless"
                   controls={false}
                   aria-label="Input Amount"
                 />
@@ -119,7 +119,7 @@ export function TradeForm() {
                   style={{ width: '40%' }}
                   options={inputTokenOptions}
                   aria-label="Input Token"
-                  bordered={false}
+                  variant="borderless"
                   suffixIcon={null}
                 />
               </Form.Item>
@@ -148,7 +148,7 @@ export function TradeForm() {
                   style={{ width: '40%' }}
                   options={outputTokenOptions}
                   aria-label="Output Token"
-                  bordered={false}
+                  variant="borderless"
                   suffixIcon={null}
                 />
               </Form.Item>
