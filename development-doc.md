@@ -916,7 +916,7 @@ Each operation should robustly handle error cases such as:
      - [x] **Create API client modules for smallocator's authentication endpoints.**
      - [x] **Write tests** for the sign-in flow and session storage.
    - **Balance Dashboard**
-     - [ ] **Build components to display direct wallet balances** using viem (multicall) and wagmi hooks.
+     - [x] **Build components to display direct wallet balances** using viem (multicall) and wagmi hooks.
      - [ ] **Implement fetching of locked token balances** by querying The Compact Indexer using @tanstack/react-query.
      - [ ] **Provide a UI for users to add new tokens** to their list, saving this list in localStorage.
      - [ ] **Ensure the balance for the token being swapped into is displayed.**
