@@ -1,0 +1,10 @@
+# Critical configuration files that should not be modified without careful consideration
+tsconfig.*.json
+.husky/pre-commit
+.vscode/settings.json
+package-lock.json
+.gitignore
+.cursorignore
+
+# Environment files
+.env*
