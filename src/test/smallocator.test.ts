@@ -103,8 +103,9 @@ describe('SmallocatorClient', () => {
     };
 
     const mockResponse = {
-      success: true,
-      txHash: '0xTransactionHash',
+      hash: '0xTransactionHash',
+      signature: '0xSmallSignature',
+      nonce: '0xUserAddressNonce',
     };
 
     // Mock successful response

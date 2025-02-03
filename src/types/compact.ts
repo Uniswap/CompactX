@@ -1,12 +1,23 @@
 export interface CompactMessage {
   arbiter: string;
   sponsor: string;
-  nonce: string;
+  nonce: string | null;
   expires: string;
   id: string;
   amount: string;
-  witnessTypeString: string;
-  witnessHash: string;
+  mandate: Mandate;
+}
+
+export interface Mandate {
+  chainId: number;
+  tribunal: string;
+  recipient: string;
+  expires: string;
+  token: string;
+  minimumAmount: string;
+  baselinePriorityFee: string;
+  scalingFactor: string;
+  salt: string;
 }
 
 export interface SignedCompact extends CompactMessage {

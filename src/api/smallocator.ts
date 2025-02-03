@@ -24,24 +24,58 @@ export interface SessionResponse {
   payload: SessionPayload;
 }
 
+export interface CompactMessage {
+  arbiter: string;
+  sponsor: string;
+  nonce: string;
+  expires: string;
+  id: string;
+  amount: string;
+  witnessTypeString: string;
+  witnessHash: string;
+}
+
 export interface CompactRequest {
   chainId: string;
-  compact: {
-    amount: string;
-    arbiter: string;
-    expires: string;
-    id: string;
-    nonce: string;
-    sponsor: string;
-    witnessHash: string;
-    witnessTypeString: string;
-  };
+  compact: CompactMessage;
 }
 
 export interface CompactResponse {
-  success: boolean;
-  txHash: string;
+  hash: string;
+  signature: string;
+  nonce: string;
 }
+
+// Type guard for CompactResponse
+export const isCompactResponse = (data: unknown): data is CompactResponse => {
+  if (!data || typeof data !== 'object') return false;
+  const response = data as CompactResponse;
+  return (
+    typeof response.hash === 'string' &&
+    typeof response.signature === 'string' &&
+    typeof response.nonce === 'string'
+  );
+};
+
+// Type guard for CompactRequest
+export const isCompactRequest = (data: unknown): data is CompactRequest => {
+  if (!data || typeof data !== 'object') return false;
+  const request = data as CompactRequest;
+  
+  if (typeof request.chainId !== 'string' || !request.compact) return false;
+  
+  const compact = request.compact;
+  return (
+    typeof compact.arbiter === 'string' &&
+    typeof compact.sponsor === 'string' &&
+    typeof compact.nonce === 'string' &&
+    typeof compact.expires === 'string' &&
+    typeof compact.id === 'string' &&
+    typeof compact.amount === 'string' &&
+    typeof compact.witnessTypeString === 'string' &&
+    typeof compact.witnessHash === 'string'
+  );
+};
 
 export interface ErrorResponse {
   error: string;
@@ -114,7 +148,17 @@ export class SmallocatorClient {
    * @param request - The compact message request
    */
   async submitCompact(request: CompactRequest): Promise<CompactResponse> {
-    return this.request<CompactResponse>('POST', '/compact', request);
+    if (!isCompactRequest(request)) {
+      throw new Error('Invalid compact request format');
+    }
+
+    const response = await this.request<CompactResponse>('POST', '/compact', request);
+    
+    if (!isCompactResponse(response)) {
+      throw new Error('Invalid compact response format');
+    }
+    
+    return response;
   }
 
   /**
