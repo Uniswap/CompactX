@@ -7,6 +7,9 @@ import { useCalibrator } from '../hooks/useCalibrator';
 import { useTokens } from '../hooks/useTokens';
 import { formatUnits, parseUnits } from 'viem';
 import { Token, GetQuoteParams } from '../types';
+import { useCompactMessage } from '../hooks/useCompactMessage';
+import { useCompactSigner } from '../hooks/useCompactSigner';
+import { useBroadcast } from '../hooks/useBroadcast';
 
 // Supported chains for output token
 const SUPPORTED_CHAINS = [
@@ -28,10 +31,15 @@ export function TradeForm() {
   const { getCustomTokens } = useCustomTokens();
   const { useQuote } = useCalibrator();
   const { inputTokens, outputTokens } = useTokens();
+  const { assembleMessagePayload } = useCompactMessage();
+  const { signCompact } = useCompactSigner();
+  const { broadcast } = useBroadcast();
   const [form] = Form.useForm<TradeFormValues>();
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [selectedOutputChain, setSelectedOutputChain] = useState(chainId);
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
+  const [isSigning, setIsSigning] = useState(false);
+  const { data: quote, isLoading, error } = useQuote(quoteParams);
 
   const customTokens = getCustomTokens(chainId);
 
@@ -49,28 +57,65 @@ export function TradeForm() {
     value: token.address,
   }));
 
-  // Get quote based on form values
-  const { data: quote, isLoading, error } = useQuote(quoteParams);
-
-  const handleFormSubmit = async (values: TradeFormValues) => {
-    const inputToken = allTokens.find(token => token.address === values.inputToken);
-    if (!inputToken) return;
-
-    // Update quote params to trigger API call
-    setQuoteParams({
-      inputTokenChainId: chainId,
-      inputTokenAddress: values.inputToken,
-      inputTokenAmount: parseUnits(values.inputAmount, inputToken.decimals).toString(),
-      outputTokenChainId: selectedOutputChain,
-      outputTokenAddress: values.outputToken,
-      slippageBips: Math.round(values.slippageTolerance * 100),
-    });
-  };
-
   // Find output token to get decimals for formatting
   const outputToken = (outputTokens || []).find(
     token => token.address === form.getFieldValue('outputToken')
   );
+
+  const handleFormSubmit = async (values: TradeFormValues) => {
+    try {
+      const inputToken = allTokens.find(token => token.address === values.inputToken);
+      if (!inputToken) return;
+
+      // Update quote params to trigger API call
+      setQuoteParams({
+        inputTokenChainId: chainId,
+        inputTokenAddress: values.inputToken,
+        inputTokenAmount: parseUnits(values.inputAmount, inputToken.decimals).toString(),
+        outputTokenChainId: selectedOutputChain,
+        outputTokenAddress: values.outputToken,
+        slippageBips: Math.round(values.slippageTolerance * 100),
+      });
+
+      // Wait for quote to be ready
+      if (!quote?.data) return;
+
+      // Assemble the compact message payload
+      const payload = assembleMessagePayload({
+        inputTokenAmount: quote.data.amount,
+        inputTokenAddress: values.inputToken,
+        outputTokenAddress: values.outputToken,
+        chainId,
+        expirationTime: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+        tribunal: quote.data.mandate.tribunal,
+        mandate: {
+          recipient: quote.data.mandate.recipient,
+          expires: quote.data.mandate.expires,
+          token: quote.data.mandate.token,
+          minimumAmount: quote.data.mandate.minimumAmount,
+          baselinePriorityFee: quote.data.mandate.baselinePriorityFee,
+          scalingFactor: quote.data.mandate.scalingFactor,
+          salt: quote.data.mandate.salt as `0x${string}`,
+        },
+      });
+
+      setIsSigning(true);
+
+      // Get signatures from smallocator and user
+      const { userSignature, smallocatorSignature } = await signCompact(payload);
+
+      // Broadcast the signed compact
+      await broadcast(payload, userSignature, smallocatorSignature);
+
+      // Reset form
+      form.resetFields();
+    } catch (err) {
+      console.error('Error in trade flow:', err);
+      // message.error('Failed to process trade');
+    } finally {
+      setIsSigning(false);
+    }
+  };
 
   return (
     <>
@@ -94,6 +139,7 @@ export function TradeForm() {
           layout="vertical"
           onFinish={handleFormSubmit}
           initialValues={{ slippageTolerance: 0.5 }}
+          data-testid="trade-form"
         >
           <div className="rounded-lg bg-gray-100 p-4 dark:bg-gray-800">
             <div className="mb-2 text-sm text-gray-500">Sell</div>
@@ -112,6 +158,7 @@ export function TradeForm() {
                   variant="borderless"
                   controls={false}
                   aria-label="Input Amount"
+                  id="inputAmount"
                 />
               </Form.Item>
               <Form.Item name="inputToken" noStyle>
@@ -121,7 +168,19 @@ export function TradeForm() {
                   aria-label="Input Token"
                   variant="borderless"
                   suffixIcon={null}
-                />
+                  id="inputToken"
+                  data-testid="input-token-select"
+                >
+                  {allTokens.map((token: Token) => (
+                    <Select.Option
+                      key={token.address}
+                      value={token.address}
+                      data-testid={`token-option-${token.symbol}`}
+                    >
+                      {token.symbol} - {token.name}
+                    </Select.Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Space.Compact>
             <div className="mt-1 text-sm text-gray-500">
@@ -150,7 +209,19 @@ export function TradeForm() {
                   aria-label="Output Token"
                   variant="borderless"
                   suffixIcon={null}
-                />
+                  id="outputToken"
+                  data-testid="output-token-select"
+                >
+                  {(outputTokens || []).map((token: Token) => (
+                    <Select.Option
+                      key={token.address}
+                      value={token.address}
+                      data-testid={`token-option-${token.symbol}`}
+                    >
+                      {token.symbol} - {token.name}
+                    </Select.Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Space.Compact>
             {quote?.data?.context?.dispensationUSD && (
@@ -165,17 +236,23 @@ export function TradeForm() {
             )}
           </div>
 
-          <div className="mt-4">
+          <Form.Item>
             <Button
               type="primary"
               htmlType="submit"
-              loading={isLoading}
-              disabled={!isConnected}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-400"
+              disabled={!isConnected || !quote || isSigning}
+              loading={isLoading || isSigning}
+              block
             >
-              {!isConnected ? 'Connect Wallet' : isLoading ? 'Getting Quote...' : 'Get Quote'}
+              {!isConnected
+                ? 'Connect Wallet'
+                : isSigning
+                  ? 'Signing...'
+                  : isLoading
+                    ? 'Getting Quote...'
+                    : 'Swap'}
             </Button>
-          </div>
+          </Form.Item>
 
           {error && (
             <div className="mt-4">

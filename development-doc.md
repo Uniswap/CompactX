@@ -934,9 +934,9 @@ Each operation should robustly handle error cases such as:
      - [x] **Connect the form to call the Calibrator API** and fetch a quote.
      - [x] **Write tests** to validate input handling and API response processing.
    - **Compact Message Signing & Broadcast Flow**
-     - [ ] **Implement logic to assemble the compact message payload.**
-     - [ ] **Create API calls to smallocator's `/compact` endpoint** and process the returned nonce and signature.
-     - [ ] **Prompt the user to sign the payload** using EIP-712 (via viem/wagmi) and combine the signatures.
+     - [x] **Implement logic to assemble the compact message payload.**
+     - [x] **Create API calls to smallocator's `/compact` endpoint** and process the returned nonce and signature.
+     - [x] **Prompt the user to sign the payload** using EIP-712 (via viem/wagmi) and combine the signatures.
      - [ ] **Implement the broadcast step** by sending the final payload to the broadcast relay.
      - [ ] **Write tests** that simulate API responses (using mocks) to verify the complete signing flow.
 
