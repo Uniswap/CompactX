@@ -917,10 +917,9 @@ Each operation should robustly handle error cases such as:
      - [x] **Write tests** for the sign-in flow and session storage.
    - **Balance Dashboard**
      - [x] **Build components to display direct wallet balances** using viem (multicall) and wagmi hooks.
-     - [ ] **Implement fetching of locked token balances** by querying The Compact Indexer using @tanstack/react-query.
-     - [ ] **Provide a UI for users to add new tokens** to their list, saving this list in localStorage.
-     - [ ] **Ensure the balance for the token being swapped into is displayed.**
-     - [ ] **Write tests** to verify that token balances display correctly.
+     - [x] **Implement fetching of locked token balances** by querying The Compact Indexer using @tanstack/react-query.
+     - [x] **Provide a UI for users to add new tokens** to their list, saving this list in localStorage.
+     - [x] **Write tests** to verify that token balances display correctly.
    - **Trade Widget**
      - [ ] **Develop a simple form** to capture:
        - Input token amount.
