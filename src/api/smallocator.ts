@@ -110,15 +110,17 @@ export class SmallocatorClient {
   private baseUrl: string;
   private sessionId: string | null;
 
-  constructor() {
-    const baseUrl = import.meta.env.VITE_SMALLOCATOR_URL;
-    if (!baseUrl) {
+  constructor(baseUrl?: string) {
+    this.baseUrl = baseUrl || import.meta.env.VITE_SMALLOCATOR_URL;
+    if (!this.baseUrl) {
       throw new Error('VITE_SMALLOCATOR_URL environment variable is not set');
     }
-    this.baseUrl = baseUrl;
     this.sessionId = localStorage.getItem('sessionId');
   }
 
+  /**
+   * Make a request to the API
+   */
   private async request<T>(method: 'GET' | 'POST', endpoint: string, data?: unknown): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -128,6 +130,13 @@ export class SmallocatorClient {
       headers['x-session-id'] = this.sessionId;
     }
 
+    console.log('Making request:', {
+      url: `${this.baseUrl}${endpoint}`,
+      method,
+      headers,
+      body: data,
+    });
+
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method,
       headers,
@@ -135,9 +144,18 @@ export class SmallocatorClient {
     });
 
     const result = await response.json();
+    console.log('Got response:', {
+      ok: response.ok,
+      status: response.status,
+      result,
+    });
 
     if (!response.ok) {
-      throw new Error(result.error || 'Request failed');
+      const error = result.error || 'Request failed';
+      if (error.includes('Invalid session') || error.includes('expired')) {
+        this.clearSession();
+      }
+      throw new Error(error);
     }
 
     return result;
@@ -158,6 +176,11 @@ export class SmallocatorClient {
    */
   async createSession(request: CreateSessionRequest): Promise<{ sessionId: string }> {
     const response = await this.request<CreateSessionResponse>('POST', '/session', request);
+    // Store the session ID
+    if (response.session.id) {
+      localStorage.setItem('sessionId', response.session.id);
+      this.sessionId = response.session.id;
+    }
     return { sessionId: response.session.id };
   }
 
@@ -183,42 +206,42 @@ export class SmallocatorClient {
    * Verify the current session
    * @returns Object with valid status and optional error message
    */
-  async verifySession(): Promise<{ valid: boolean; error?: string; session?: SessionVerifyResponse['session'] }> {
+  async verifySession(): Promise<{
+    valid: boolean;
+    error?: string;
+    session?: SessionVerifyResponse['session'];
+  }> {
     if (!this.sessionId) {
       return { valid: false, error: 'No session found' };
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/session`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-session-id': this.sessionId,
-        },
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        const error = data.error || 'Session verification failed';
-        
-        // Clear session if it's invalid or expired
-        if (error.includes('Invalid session') || error.includes('expired')) {
-          this.clearSession();
-        }
-        
-        return { valid: false, error };
-      }
+      const response = await this.request<SessionVerifyResponse>('GET', '/session');
 
       // If we get a successful response, the session is valid
-      const data = await response.json() as SessionVerifyResponse;
-      return { valid: true, session: data.session };
+      return { valid: true, session: response.session };
     } catch (error) {
-      // Network errors or other unexpected issues
-      return { 
-        valid: false, 
-        error: error instanceof Error ? error.message : 'Session verification failed'
+      // Clear session if it's invalid or expired
+      if (
+        error instanceof Error &&
+        (error.message.includes('Invalid session') || error.message.includes('expired'))
+      ) {
+        this.clearSession();
+      }
+
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : 'Session verification failed',
       };
     }
+  }
+
+  /**
+   * Clear the current session
+   */
+  private clearSession() {
+    localStorage.removeItem('sessionId');
+    this.sessionId = null;
   }
 
   /**
@@ -227,14 +250,6 @@ export class SmallocatorClient {
    */
   setTestSessionId(sessionId: string | null) {
     this.sessionId = sessionId;
-  }
-
-  /**
-   * Clear the current session
-   */
-  clearSession() {
-    this.sessionId = null;
-    localStorage.removeItem('sessionId');
   }
 }
 

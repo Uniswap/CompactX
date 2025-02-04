@@ -136,17 +136,31 @@ describe('Authentication Flow', () => {
       // Mock the API response
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ valid: true }),
+        json: async () => ({
+          session: {
+            id: 'mock-session-id',
+            address: mockAddress,
+            expiresAt: new Date(Date.now() + 3600000).toISOString(),
+          },
+        }),
       });
 
       const response = await client.verifySession();
 
-      expect(response).toEqual({ valid: true });
+      expect(response).toEqual({
+        valid: true,
+        session: {
+          id: 'mock-session-id',
+          address: mockAddress,
+          expiresAt: expect.any(String),
+        },
+      });
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:3000/session/verify',
+        'http://localhost:3000/session',
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({
+            'Content-Type': 'application/json',
             'x-session-id': 'mock-session-id',
           }),
         })
@@ -162,13 +176,13 @@ describe('Authentication Flow', () => {
       });
 
       const response = await client.verifySession();
-      expect(response).toEqual({ valid: false });
+      expect(response).toEqual({ valid: false, error: 'Invalid session' });
     });
 
     it('should return invalid for missing session', async () => {
       client.setTestSessionId(null);
       const response = await client.verifySession();
-      expect(response).toEqual({ valid: false });
+      expect(response).toEqual({ valid: false, error: 'No session found' });
       expect(global.fetch).not.toHaveBeenCalled();
     });
   });

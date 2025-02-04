@@ -39,8 +39,8 @@ export function useAuth() {
 
       try {
         const { valid, error, session } = await smallocator.verifySession();
-        
-        if (!valid) {
+
+        if (!valid || !session) {
           setError(error || 'Session verification failed');
           setIsAuthenticated(false);
           setAddress(null);
@@ -48,7 +48,7 @@ export function useAuth() {
         }
 
         setIsAuthenticated(true);
-        setAddress(session?.address || null);
+        setAddress(session.address);
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Session verification failed');
@@ -73,7 +73,7 @@ export function useAuth() {
       // Get session payload for Optimism
       const chainId = 10;
       const response = await smallocator.getSessionPayload(chainId, walletAddress);
-      
+
       // The server already provides the correctly formatted payload
       const { session } = response;
 
@@ -105,6 +105,8 @@ export function useAuth() {
   const signOut = useCallback(() => {
     localStorage.removeItem('sessionId');
     setIsAuthenticated(false);
+    setAddress(null);
+    setError(null);
   }, []);
 
   return {
