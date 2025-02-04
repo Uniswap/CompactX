@@ -2,7 +2,7 @@ import { Form, Modal, Select, Space, InputNumber, Tooltip, Button } from 'antd';
 import { InfoCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAccount, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
 import { useCompactMessage } from '../hooks/useCompactMessage';
@@ -33,24 +33,55 @@ export function TradeForm() {
   const { signCompact } = useCompactSigner();
   const { broadcast } = useBroadcast();
   const [form] = Form.useForm<TradeFormValues>();
-  const [settingsForm] = Form.useForm();
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [selectedOutputChain, setSelectedOutputChain] = useState<number>(SUPPORTED_CHAINS[0].id);
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
   const [isSigning, setIsSigning] = useState(false);
   const { data: quote, isLoading, error } = useQuote(quoteParams);
+  const [selectedInputToken, setSelectedInputToken] = useState<
+    (typeof inputTokens)[0] | undefined
+  >();
+  const [selectedOutputToken, setSelectedOutputToken] = useState<
+    (typeof outputTokens)[0] | undefined
+  >();
 
-  // Get input token for quote
-  const inputToken = inputTokens.find(token => token.address === form.getFieldValue('inputToken'));
-  const outputToken = outputTokens.find(
-    token => token.address === form.getFieldValue('outputToken')
-  );
+  // Initialize form with empty values
+  useEffect(() => {
+    form.setFieldsValue({
+      inputToken: '',
+      outputToken: '',
+      inputAmount: '',
+      slippageTolerance: 0.5,
+    });
+  }, [form]);
+
+  // Watch for form field changes
+  const handleFieldsChange = () => {
+    const values = form.getFieldsValue();
+    const slippageTolerance = localStorage.getItem('slippageTolerance')
+      ? Number(localStorage.getItem('slippageTolerance'))
+      : 0.5;
+
+    if (values.inputToken && values.inputAmount && values.outputToken && selectedOutputChain) {
+      setQuoteParams({
+        inputTokenChainId: chainId,
+        inputTokenAddress: values.inputToken,
+        inputTokenAmount: values.inputAmount,
+        outputTokenChainId: selectedOutputChain,
+        outputTokenAddress: values.outputToken,
+        slippageBips: Math.round(slippageTolerance * 100),
+      });
+    }
+  };
 
   const handleFormSubmit = async (values: TradeFormValues) => {
     try {
-      if (!inputToken || !selectedOutputChain || !outputToken) return;
+      if (!selectedInputToken || !selectedOutputChain || !selectedOutputToken) return;
 
-      const slippageTolerance = settingsForm.getFieldValue('slippageTolerance') || 0.5;
+      // Get the slippage tolerance from local storage or use default
+      const slippageTolerance = localStorage.getItem('slippageTolerance')
+        ? Number(localStorage.getItem('slippageTolerance'))
+        : 0.5;
 
       // Update quote params to trigger API call
       setQuoteParams({
@@ -101,22 +132,15 @@ export function TradeForm() {
     }
   };
 
-  // Watch for form field changes
-  const handleFieldsChange = () => {
+  // Update selected tokens when form values change
+  useEffect(() => {
     const values = form.getFieldsValue();
-    const slippageTolerance = settingsForm.getFieldValue('slippageTolerance') || 0.5;
+    const newInputToken = inputTokens.find(token => token.address === values.inputToken);
+    const newOutputToken = outputTokens.find(token => token.address === values.outputToken);
 
-    if (values.inputToken && values.inputAmount && values.outputToken && selectedOutputChain) {
-      setQuoteParams({
-        inputTokenChainId: chainId,
-        inputTokenAddress: values.inputToken,
-        inputTokenAmount: values.inputAmount,
-        outputTokenChainId: selectedOutputChain,
-        outputTokenAddress: values.outputToken,
-        slippageBips: Math.round(slippageTolerance * 100),
-      });
-    }
-  };
+    setSelectedInputToken(newInputToken);
+    setSelectedOutputToken(newOutputToken);
+  }, [form, inputTokens, outputTokens]);
 
   if (!isConnected) {
     return (
@@ -157,7 +181,7 @@ export function TradeForm() {
                 variant="borderless"
                 controls={false}
                 stringMode
-                precision={inputToken?.decimals ?? 18}
+                precision={selectedInputToken?.decimals ?? 18}
                 aria-label="Input Amount"
               />
             </Form.Item>
@@ -175,7 +199,7 @@ export function TradeForm() {
               />
             </Form.Item>
           </Space.Compact>
-          {inputToken && <div className="mt-1 text-sm text-gray-500">${'0.00'}</div>}
+          {selectedInputToken && <div className="mt-1 text-sm text-gray-500">${'0.00'}</div>}
         </div>
 
         <div className="flex justify-center">↓</div>
@@ -184,9 +208,12 @@ export function TradeForm() {
           <div className="mb-2 text-sm text-gray-500">Buy</div>
           <Space.Compact style={{ width: '100%' }}>
             <div style={{ width: '60%' }} className="text-2xl" data-testid="quote-amount">
-              {quote?.data?.mandate?.minimumAmount && outputToken
+              {quote?.data?.mandate?.minimumAmount && selectedOutputToken
                 ? Number(
-                    formatUnits(BigInt(quote.data.mandate.minimumAmount), outputToken.decimals)
+                    formatUnits(
+                      BigInt(quote.data.mandate.minimumAmount),
+                      selectedOutputToken.decimals
+                    )
                   ).toString()
                 : '0.00'}
             </div>
@@ -242,15 +269,24 @@ export function TradeForm() {
           </div>
         )}
 
-        <Button
-          type="primary"
-          htmlType="submit"
-          loading={isSigning || isLoading}
-          disabled={!form.getFieldValue('inputToken') || !form.getFieldValue('outputToken')}
-          block
+        <Form.Item
+          noStyle
+          shouldUpdate={(prev, curr) =>
+            prev.inputToken !== curr.inputToken || prev.outputToken !== curr.outputToken
+          }
         >
-          {isSigning ? 'Signing...' : isLoading ? 'Getting Quote...' : 'Swap'}
-        </Button>
+          {({ getFieldValue }) => (
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={isSigning || isLoading}
+              disabled={!getFieldValue('inputToken') || !getFieldValue('outputToken')}
+              block
+            >
+              {isSigning ? 'Signing...' : isLoading ? 'Getting Quote...' : 'Swap'}
+            </Button>
+          )}
+        </Form.Item>
       </Form>
 
       <Modal
@@ -259,23 +295,43 @@ export function TradeForm() {
         onCancel={() => setSettingsVisible(false)}
         footer={null}
       >
-        <Form form={settingsForm} initialValues={{ slippageTolerance: 0.5 }}>
-          <Form.Item
-            label="Slippage Tolerance (%)"
-            name="slippageTolerance"
-            rules={[{ required: true, message: 'Please enter slippage tolerance' }]}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              max={100}
-              step={0.1}
-              precision={1}
-              aria-label="Slippage Tolerance"
-            />
-          </Form.Item>
-        </Form>
+        <SettingsForm onClose={() => setSettingsVisible(false)} />
       </Modal>
+    </div>
+  );
+}
+
+function SettingsForm({ onClose }: { onClose: () => void }) {
+  const [slippageTolerance, setSlippageTolerance] = useState(
+    Number(localStorage.getItem('slippageTolerance')) || 0.5
+  );
+
+  const handleSubmit = () => {
+    localStorage.setItem('slippageTolerance', slippageTolerance.toString());
+    onClose();
+  };
+
+  return (
+    <div className="py-4">
+      <div className="mb-6">
+        <label className="block text-sm font-medium mb-2">Slippage Tolerance (%)</label>
+        <InputNumber
+          value={slippageTolerance}
+          onChange={value => setSlippageTolerance(Number(value))}
+          style={{ width: '100%' }}
+          min={0}
+          max={100}
+          step={0.1}
+          precision={1}
+          aria-label="Slippage Tolerance"
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button onClick={onClose}>Cancel</Button>
+        <Button type="primary" onClick={handleSubmit}>
+          Save
+        </Button>
+      </div>
     </div>
   );
 }
