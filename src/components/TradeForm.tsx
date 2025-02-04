@@ -34,7 +34,7 @@ export function TradeForm() {
   const { broadcast } = useBroadcast();
   const [form] = Form.useForm<TradeFormValues>();
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [selectedOutputChain, setSelectedOutputChain] = useState<number>(SUPPORTED_CHAINS[0].id);
+  const [selectedOutputChain, setSelectedOutputChain] = useState<number | undefined>(undefined);
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
   const [isSigning, setIsSigning] = useState(false);
   const { data: quote, isLoading, error } = useQuote(quoteParams);
@@ -44,6 +44,15 @@ export function TradeForm() {
   const [selectedOutputToken, setSelectedOutputToken] = useState<
     (typeof outputTokens)[0] | undefined
   >();
+
+  // Reset output chain if it matches the new chain
+  useEffect(() => {
+    if (selectedOutputChain === chainId) {
+      setSelectedOutputChain(undefined);
+      setSelectedOutputToken(undefined);
+      form.setFieldsValue({ outputToken: undefined });
+    }
+  }, [chainId, selectedOutputChain, form]);
 
   // Initialize form with empty values
   useEffect(() => {
@@ -233,7 +242,7 @@ export function TradeForm() {
                   setSelectedOutputToken(undefined);
                   form.setFieldsValue({ outputToken: undefined });
                 }}
-                options={SUPPORTED_CHAINS.map(chain => ({
+                options={SUPPORTED_CHAINS.filter(chain => chain.id !== chainId).map(chain => ({
                   label: chain.name,
                   value: chain.id,
                 }))}
