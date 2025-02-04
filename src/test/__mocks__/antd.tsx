@@ -89,10 +89,11 @@ export const Select = Object.assign(
     </select>
   ),
   {
-    Option: ({ children, ...props }: ComponentProps<typeof AntSelect.Option>) => (
+    Option: ({ children, value, ...props }: ComponentProps<typeof AntSelect.Option>) => (
       <option
-        data-testid="ant-select-option"
+        data-testid={`ant-select-option-${value}`}
         {...(props as React.OptionHTMLAttributes<HTMLOptionElement>)}
+        value={value}
       >
         {children}
       </option>

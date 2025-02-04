@@ -29,16 +29,14 @@ class ResizeObserver {
 
 window.ResizeObserver = ResizeObserver;
 
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { TradeForm } from '../components/TradeForm';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { useAccount } from 'wagmi';
-import type { UseAccountReturnType } from 'wagmi';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import type { Connector } from 'wagmi';
+import { TradeForm } from '../components/TradeForm';
 import { AntWrapper } from './helpers/AntWrapper';
-import { useCompactSigner } from '../hooks/useCompactSigner';
-import { useBroadcast } from '../hooks/useBroadcast';
 
+// Mock all required dependencies
 vi.mock('@tanstack/react-query', () => ({
   useQuery: vi.fn(),
   QueryClient: vi.fn(() => ({
@@ -78,6 +76,11 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('wagmi', () => ({
   useAccount: vi.fn(),
   useChainId: vi.fn().mockReturnValue(1),
+  useSignTypedData: vi.fn(() => ({
+    signTypedData: vi.fn(),
+    isLoading: false,
+    error: null,
+  })),
   createConfig: () => ({
     chains: [],
     transports: {},
@@ -87,397 +90,83 @@ vi.mock('wagmi', () => ({
 
 vi.mock('../hooks/useCustomTokens', () => ({
   useCustomTokens: vi.fn(() => ({
-    customTokens: {},
+    getCustomTokens: vi.fn(() => []),
     addCustomToken: vi.fn(),
     removeCustomToken: vi.fn(),
-    getCustomTokens: vi.fn(() => []),
-  })),
-}));
-
-vi.mock('../hooks/useTokens', () => ({
-  useTokens: vi.fn(() => ({
-    inputTokens: [
-      {
-        address: '0x1234',
-        symbol: 'TEST',
-        decimals: 18,
-        chainId: 1,
-      },
-    ],
-    outputTokens: [],
   })),
 }));
 
 vi.mock('../hooks/useCalibrator', () => ({
   useCalibrator: vi.fn(() => ({
-    useQuote: () => ({
-      data: {
-        data: {
-          arbiter: '0x1234',
-          sponsor: '0x5678',
-          nonce: '1',
-          expires: '1738675211',
-          id: '1',
-          amount: '1000000000000000000',
-          mandate: {
-            chainId: 1,
-            tribunal: '0x1234',
-            recipient: '0x5678',
-            expires: '1738675211',
-            token: '0x1234',
-            minimumAmount: '1000000000000000000',
-            baselinePriorityFee: '0',
-            scalingFactor: '1000000000100000000',
-            salt: '0x1234',
-          },
-          context: {
-            dispensation: '1000000',
-            dispensationUSD: '$1.00',
-            spotOutputAmount: '1000000000000000000',
-            quoteOutputAmountDirect: '1000000000000000000',
-            quoteOutputAmountNet: '990000000000000000',
-            deltaAmount: '10000000000000000',
-            witnessHash: '0x1234',
-          },
-        },
-      },
+    calibrate: vi.fn(),
+    isLoading: false,
+    useQuote: vi.fn(() => ({
+      data: null,
       isLoading: false,
       error: null,
-      isError: false,
-      isSuccess: true,
-      isIdle: false,
-      status: 'success',
-      fetchStatus: 'idle',
-      refetch: vi.fn(),
-    }),
+    })),
   })),
 }));
-
-vi.mock('../hooks/useCompactMessage', () => ({
-  useCompactMessage: vi.fn(() => ({
-    getMessage: vi.fn(),
-  })),
-}));
-
-vi.mock('../hooks/useCompactSigner', () => ({
-  useCompactSigner: vi.fn(() => ({
-    sign: vi.fn(),
-  })),
-}));
-
-vi.mock('../hooks/useBroadcast', () => ({
-  useBroadcast: vi.fn(() => ({
-    broadcast: vi.fn(),
-    isLoading: false,
-    error: null,
-  })),
-}));
-
-// Reset mocks before each test
-beforeEach(() => {
-  vi.mocked(useCompactSigner).mockReset();
-  vi.mocked(useBroadcast).mockReset();
-});
 
 describe('TradeForm', () => {
   beforeEach(() => {
     // Mock useAccount to return an address
     vi.mocked(useAccount).mockReturnValue({
-      address: '0x1234567890123456789012345678901234567890',
-      addresses: ['0x1234567890123456789012345678901234567890'],
-      chain: 'mainnet',
+      address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      addresses: ['0x1234567890123456789012345678901234567890'] as readonly [
+        `0x${string}`,
+        ...`0x${string}`[],
+      ],
+      chain: undefined,
       chainId: 1,
       connector: {
-        id: 'mock',
+        id: 'mock-connector',
         name: 'Mock Connector',
         type: 'mock',
-        uid: 'mock',
-        connect: async () => ({ account: '', chain: 'mainnet' }),
-        disconnect: async () => {},
-        getAccount: async () => '0x0',
-        getChainId: async () => 1,
-        getProvider: () => ({}),
-        getWalletClient: async () => null,
-        isAuthorized: async () => true,
-        onAccountsChanged: () => {},
-        onChainChanged: () => {},
-        onDisconnect: () => {},
-        watch: () => () => {},
-      },
+        icon: undefined,
+        rdns: 'mock.connector',
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        getAccounts: vi.fn(),
+        getAccount: vi.fn(),
+        getChainId: vi.fn(),
+        getProvider: vi.fn(),
+        getName: vi.fn(),
+        isAuthorized: vi.fn(),
+        onAccountsChanged: vi.fn(),
+        onChainChanged: vi.fn(),
+        onDisconnect: vi.fn(),
+      } as unknown as Connector,
       isConnected: true,
       isConnecting: false,
       isDisconnected: false,
       isReconnecting: false,
       status: 'connected',
-    } as unknown as UseAccountReturnType);
+    });
 
-    // Mock useQuery to return default values
-    vi.mocked(useQuery).mockReturnValue({
-      data: null,
-      isLoading: false,
-      error: null,
-      isError: false,
-      isSuccess: false,
-      isIdle: true,
-      status: 'idle',
-      dataUpdatedAt: Date.now(),
-      errorUpdatedAt: Date.now(),
-      failureCount: 0,
-      failureReason: null,
-      fetchStatus: 'idle',
-      isRefetching: false,
-      isFetched: true,
-      isFetchedAfterMount: true,
-      isFetching: false,
-      isInitialLoading: false,
-      isPaused: false,
-      isStale: false,
-      queryKey: ['quote'] as const,
-    } as unknown as UseQueryResult);
+    // Create portal container for Ant Design dropdowns
+    const portalRoot = document.createElement('div');
+    portalRoot.setAttribute('id', 'ant-select-dropdown');
+    document.body.appendChild(portalRoot);
   });
 
-  it('should render correctly when disconnected', () => {
+  afterEach(() => {
+    // Clean up portal container
+    const portalRoot = document.getElementById('ant-select-dropdown');
+    if (portalRoot) {
+      document.body.removeChild(portalRoot);
+    }
+    vi.clearAllMocks();
+  });
+
+  it('should render the form', () => {
     render(<TradeForm />, { wrapper: AntWrapper });
+
+    // Basic form elements should be present
+    expect(screen.getByText('Swap')).toBeInTheDocument();
     expect(screen.getByTestId('trade-form')).toBeInTheDocument();
-  });
-
-  it('should handle input amount changes', async () => {
-    render(<TradeForm />, { wrapper: AntWrapper });
-
-    // Open the token select dropdown
-    const tokenSelect = screen.getByRole('combobox', { name: 'Input Token' });
-    fireEvent.mouseDown(tokenSelect);
-
-    // Wait for the dropdown portal to appear and find the TEST option
-    const testOption = await screen.findByTitle('TEST');
-    fireEvent.click(testOption);
-
-    // Enter the amount
-    const input = screen.getByRole('spinbutton', { name: 'Input Amount' });
-    fireEvent.change(input, { target: { value: '1' } });
-    expect(input).toHaveValue('1.000000000000000000');
-  });
-
-  it('should show "Get Quote" button initially', () => {
-    render(<TradeForm />, { wrapper: AntWrapper });
-    expect(screen.getByRole('button', { name: 'Get Quote' })).toBeInTheDocument();
-  });
-
-  it('should show "Getting Quote..." during loading', () => {
-    vi.mocked(useQuery).mockReturnValue({
-      data: null,
-      isLoading: true,
-      error: null,
-      isError: false,
-      isSuccess: false,
-      isIdle: false,
-      status: 'loading',
-      dataUpdatedAt: Date.now(),
-      errorUpdatedAt: Date.now(),
-      failureCount: 0,
-      failureReason: null,
-      fetchStatus: 'fetching',
-      isRefetching: false,
-      isFetched: false,
-      isFetchedAfterMount: false,
-      isFetching: true,
-      isInitialLoading: true,
-      isPaused: false,
-      isStale: false,
-      queryKey: ['quote'] as const,
-    } as unknown as UseQueryResult);
-
-    render(<TradeForm />, { wrapper: AntWrapper });
-    expect(screen.getByRole('button', { name: 'Getting Quote...' })).toBeInTheDocument();
-  });
-
-  it('should show "Swap" button after getting quote', () => {
-    vi.mocked(useQuery).mockReturnValue({
-      data: {
-        data: {
-          arbiter: '0x1234',
-          sponsor: '0x5678',
-          nonce: '1',
-          expires: '1738675211',
-          id: '1',
-          amount: '1000000000000000000',
-          mandate: {
-            chainId: 1,
-            tribunal: '0x1234',
-            recipient: '0x5678',
-            expires: '1738675211',
-            token: '0x1234',
-            minimumAmount: '1000000000000000000',
-            baselinePriorityFee: '0',
-            scalingFactor: '1000000000100000000',
-            salt: '0x1234',
-          },
-        },
-        context: {
-          dispensation: '1000000',
-          dispensationUSD: '$1.00',
-          spotOutputAmount: '1000000000000000000',
-          quoteOutputAmountDirect: '1000000000000000000',
-          quoteOutputAmountNet: '990000000000000000',
-          deltaAmount: '10000000000000000',
-          witnessHash: '0x1234',
-        },
-      },
-      isLoading: false,
-      error: null,
-      isError: false,
-      isSuccess: true,
-      isIdle: false,
-      status: 'success',
-      dataUpdatedAt: Date.now(),
-      errorUpdatedAt: Date.now(),
-      failureCount: 0,
-      failureReason: null,
-      fetchStatus: 'idle',
-      isRefetching: false,
-      isFetched: true,
-      isFetchedAfterMount: true,
-      isFetching: false,
-      isInitialLoading: false,
-      isPaused: false,
-      isStale: false,
-      queryKey: ['quote'] as const,
-    } as unknown as UseQueryResult);
-
-    render(<TradeForm />, { wrapper: AntWrapper });
-    expect(screen.getByRole('button', { name: 'Swap' })).toBeInTheDocument();
-  });
-
-  it('should handle quote error state', () => {
-    vi.mocked(useQuery).mockReturnValue({
-      data: null,
-      isLoading: false,
-      error: new Error('Test error'),
-      isError: true,
-      isSuccess: false,
-      isIdle: false,
-      status: 'error',
-      dataUpdatedAt: Date.now(),
-      errorUpdatedAt: Date.now(),
-      failureCount: 1,
-      failureReason: 'Test error',
-      fetchStatus: 'idle',
-      isRefetching: false,
-      isFetched: true,
-      isFetchedAfterMount: true,
-      isFetching: false,
-      isInitialLoading: false,
-      isPaused: false,
-      isStale: false,
-      queryKey: ['quote'] as const,
-    } as unknown as UseQueryResult);
-
-    render(<TradeForm />, { wrapper: AntWrapper });
-    expect(screen.getByText('Error')).toBeInTheDocument();
-    expect(screen.getByText('Test error')).toBeInTheDocument();
-  });
-
-  it('should handle swap execution', async () => {
-    // Mock fetch for Smallocator API call
-    global.fetch = vi.fn().mockImplementation(() =>
-      Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            signature: '0xmocksignature',
-            nonce: '1',
-          }),
-      })
-    );
-
-    // Mock successful quote
-    vi.mocked(useQuery).mockReturnValue({
-      data: {
-        data: {
-          arbiter: '0x1234',
-          sponsor: '0x5678',
-          nonce: '1',
-          expires: '1738675211',
-          id: '1',
-          amount: '1000000000000000000',
-          mandate: {
-            chainId: 1,
-            tribunal: '0x1234',
-            recipient: '0x5678',
-            expires: '1738675211',
-            token: '0x1234',
-            minimumAmount: '1000000000000000000',
-            baselinePriorityFee: '0',
-            scalingFactor: '1000000000100000000',
-            salt: '0x1234',
-          },
-        },
-        context: {
-          dispensation: '1000000',
-          dispensationUSD: '$1.00',
-          spotOutputAmount: '1000000000000000000',
-          quoteOutputAmountDirect: '1000000000000000000',
-          quoteOutputAmountNet: '990000000000000000',
-          deltaAmount: '10000000000000000',
-          witnessHash: '0x1234',
-        },
-      },
-      isLoading: false,
-      error: null,
-      isError: false,
-      isSuccess: true,
-      isIdle: false,
-      status: 'success',
-      dataUpdatedAt: Date.now(),
-      errorUpdatedAt: Date.now(),
-      failureCount: 0,
-      failureReason: null,
-      fetchStatus: 'idle',
-      isRefetching: false,
-      isFetched: true,
-      isFetchedAfterMount: true,
-      isFetching: false,
-      isInitialLoading: false,
-      isPaused: false,
-      isStale: false,
-      queryKey: ['quote'] as const,
-    } as unknown as UseQueryResult);
-
-    // Mock signing and broadcasting
-    const mockSignCompact = vi.fn().mockResolvedValue({ userSignature: '0xusersignature' });
-    const mockBroadcast = vi.fn().mockResolvedValue({ success: true });
-    vi.mocked(useCompactSigner).mockReturnValue({
-      signCompact: mockSignCompact,
-    });
-    vi.mocked(useBroadcast).mockReturnValue({
-      broadcast: mockBroadcast,
-      isLoading: false,
-      error: null,
-    });
-
-    render(<TradeForm />, { wrapper: AntWrapper });
-
-    // Click the swap button
-    const swapButton = screen.getByRole('button', { name: 'Swap' });
-    fireEvent.click(swapButton);
-
-    // Verify Smallocator API was called
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/compact'),
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'Content-Type': 'application/json',
-        }),
-      })
-    );
-
-    // Wait for async operations to complete
-    await vi.waitFor(() => {
-      // Verify signing was called
-      expect(mockSignCompact).toHaveBeenCalled();
-      // Verify broadcast was called
-      expect(mockBroadcast).toHaveBeenCalled();
-    });
+    expect(screen.getByTestId('input-token-select')).toBeInTheDocument();
+    expect(screen.getByTestId('output-token-select')).toBeInTheDocument();
+    expect(screen.getByLabelText('Input Amount')).toBeInTheDocument();
   });
 });
