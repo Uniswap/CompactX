@@ -55,14 +55,29 @@ export function TradeForm() {
     });
   }, [form]);
 
-  // Watch for form field changes
-  const handleFieldsChange = () => {
-    const values = form.getFieldsValue();
-    const slippageTolerance = localStorage.getItem('slippageTolerance')
-      ? Number(localStorage.getItem('slippageTolerance'))
-      : 0.5;
+  // Handle form value changes
+  const handleValuesChange = (
+    _changedValues: Partial<TradeFormValues>,
+    values: TradeFormValues
+  ) => {
+    // Update selected tokens
+    const newInputToken = inputTokens.find(token => token.address === values.inputToken);
+    const newOutputToken = outputTokens.find(token => token.address === values.outputToken);
 
+    if (newInputToken !== selectedInputToken) {
+      setSelectedInputToken(newInputToken);
+    }
+
+    if (newOutputToken !== selectedOutputToken) {
+      setSelectedOutputToken(newOutputToken);
+    }
+
+    // Update quote params if we have all required values
     if (values.inputToken && values.inputAmount && values.outputToken && selectedOutputChain) {
+      const slippageTolerance = localStorage.getItem('slippageTolerance')
+        ? Number(localStorage.getItem('slippageTolerance'))
+        : 0.5;
+
       setQuoteParams({
         inputTokenChainId: chainId,
         inputTokenAddress: values.inputToken,
@@ -132,16 +147,6 @@ export function TradeForm() {
     }
   };
 
-  // Update selected tokens when form values change
-  useEffect(() => {
-    const values = form.getFieldsValue();
-    const newInputToken = inputTokens.find(token => token.address === values.inputToken);
-    const newOutputToken = outputTokens.find(token => token.address === values.outputToken);
-
-    setSelectedInputToken(newInputToken);
-    setSelectedOutputToken(newOutputToken);
-  }, [form, inputTokens, outputTokens]);
-
   if (!isConnected) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -155,7 +160,7 @@ export function TradeForm() {
       <Form
         form={form}
         onFinish={handleFormSubmit}
-        onFieldsChange={handleFieldsChange}
+        onValuesChange={handleValuesChange}
         layout="vertical"
         className="flex flex-col gap-4"
         data-testid="trade-form"
@@ -224,7 +229,9 @@ export function TradeForm() {
                 value={selectedOutputChain}
                 onChange={value => {
                   setSelectedOutputChain(value);
-                  form.setFieldValue('outputToken', undefined);
+                  // Clear the output token without triggering the form's onChange
+                  setSelectedOutputToken(undefined);
+                  form.setFieldsValue({ outputToken: undefined });
                 }}
                 options={SUPPORTED_CHAINS.map(chain => ({
                   label: chain.name,
@@ -237,6 +244,10 @@ export function TradeForm() {
                   style={{ width: '40%' }}
                   placeholder="Token"
                   disabled={!selectedOutputChain}
+                  onChange={value => {
+                    const token = outputTokens.find(t => t.address === value);
+                    setSelectedOutputToken(token);
+                  }}
                   options={outputTokens
                     .filter(token => token.chainId === selectedOutputChain)
                     .map(token => ({
