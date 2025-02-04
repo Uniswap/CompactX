@@ -164,10 +164,9 @@ export function TradeForm() {
               <Form.Item name="inputToken" noStyle>
                 <Select
                   style={{ width: '40%' }}
+                  placeholder="Select token"
                   options={inputTokenOptions}
                   aria-label="Input Token"
-                  variant="borderless"
-                  suffixIcon={null}
                   id="inputToken"
                   data-testid="input-token-select"
                 >
@@ -177,7 +176,7 @@ export function TradeForm() {
                       value={token.address}
                       data-testid={`token-option-${token.symbol}`}
                     >
-                      {token.symbol} - {token.name}
+                      {token.symbol}
                     </Select.Option>
                   ))}
                 </Select>
@@ -205,10 +204,9 @@ export function TradeForm() {
               <Form.Item name="outputToken" noStyle>
                 <Select
                   style={{ width: '40%' }}
+                  placeholder="Select token"
                   options={outputTokenOptions}
                   aria-label="Output Token"
-                  variant="borderless"
-                  suffixIcon={null}
                   id="outputToken"
                   data-testid="output-token-select"
                 >
@@ -218,7 +216,7 @@ export function TradeForm() {
                       value={token.address}
                       data-testid={`token-option-${token.symbol}`}
                     >
-                      {token.symbol} - {token.name}
+                      {token.symbol}
                     </Select.Option>
                   ))}
                 </Select>
