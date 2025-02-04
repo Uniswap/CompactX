@@ -109,11 +109,11 @@ export function TradeForm() {
       });
 
       // Wait for quote to be ready
-      if (!quote?.data) return;
+      if (!quote?.context) return;
 
       // Assemble the compact message payload
       const payload = assembleMessagePayload({
-        inputTokenAmount: quote.data.amount,
+        inputTokenAmount: quote.context.quoteOutputAmountNet,
         inputTokenAddress: values.inputToken,
         outputTokenAddress: values.outputToken,
         chainId,
@@ -213,10 +213,10 @@ export function TradeForm() {
           <div className="mb-2 text-sm text-gray-500">Buy</div>
           <Space.Compact style={{ width: '100%' }}>
             <div style={{ width: '60%' }} className="text-2xl" data-testid="quote-amount">
-              {quote?.data?.mandate?.minimumAmount && selectedOutputToken
+              {quote?.context?.quoteOutputAmountNet && selectedOutputToken
                 ? Number(
                     formatUnits(
-                      BigInt(quote.data.mandate.minimumAmount),
+                      BigInt(quote.context.quoteOutputAmountNet),
                       selectedOutputToken.decimals
                     )
                   ).toString()
@@ -261,13 +261,31 @@ export function TradeForm() {
               </Form.Item>
             </Space.Compact>
           </Space.Compact>
-          {quote?.data?.context?.dispensationUSD && (
+          {quote?.context?.dispensationUSD && (
             <div className="mt-1 text-sm text-gray-500">
-              <Space>
-                <span>Fee: {quote.data.context.dispensationUSD}</span>
-                <Tooltip title="Fee includes gas costs and protocol fees">
-                  <InfoCircleOutlined />
-                </Tooltip>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Space>
+                  <span>Settlement Cost: {quote.context.dispensationUSD}</span>
+                  <Tooltip title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold">
+                    <InfoCircleOutlined />
+                  </Tooltip>
+                </Space>
+                {quote?.data?.mandate?.minimumAmount && selectedOutputToken && (
+                  <Space>
+                    <span>
+                      Minimum received:{' '}
+                      {Number(
+                        formatUnits(
+                          BigInt(quote.data.mandate.minimumAmount),
+                          selectedOutputToken.decimals
+                        )
+                      ).toString()}
+                    </span>
+                    <Tooltip title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides">
+                      <InfoCircleOutlined />
+                    </Tooltip>
+                  </Space>
+                )}
               </Space>
             </div>
           )}

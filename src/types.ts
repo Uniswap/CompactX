@@ -30,15 +30,15 @@ export interface CalibratorQuoteResponse {
       scalingFactor: string;
       salt: string;
     };
-    context: {
-      dispensation: string;
-      dispensationUSD: string;
-      spotOutputAmount: string;
-      quoteOutputAmountDirect: string;
-      quoteOutputAmountNet: string;
-      deltaAmount: string;
-      witnessHash: string;
-    };
+  };
+  context: {
+    dispensation: string;
+    dispensationUSD: string;
+    spotOutputAmount: string;
+    quoteOutputAmountDirect: string;
+    quoteOutputAmountNet: string;
+    deltaAmount: string;
+    witnessHash: string;
   };
 }
 
