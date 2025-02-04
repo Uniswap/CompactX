@@ -57,6 +57,18 @@ export interface CompactResponse {
   nonce: string;
 }
 
+export interface SessionVerifyResponse {
+  session: {
+    id: string;
+    address: string;
+    expiresAt: string;
+  };
+}
+
+export interface ErrorResponse {
+  error: string;
+}
+
 // Type guard for CompactResponse
 export const isCompactResponse = (data: unknown): data is CompactResponse => {
   if (!data || typeof data !== 'object') return false;
@@ -93,10 +105,6 @@ export const isCompactRequest = (data: unknown): data is CompactRequest => {
   );
 };
 
-export interface ErrorResponse {
-  error: string;
-}
-
 // API Client
 export class SmallocatorClient {
   private baseUrl: string;
@@ -111,12 +119,11 @@ export class SmallocatorClient {
     this.sessionId = localStorage.getItem('sessionId');
   }
 
-  protected async request<T>(method: 'GET' | 'POST', endpoint: string, data?: unknown): Promise<T> {
+  private async request<T>(method: 'GET' | 'POST', endpoint: string, data?: unknown): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
-    // Add session header if available
     if (this.sessionId) {
       headers['x-session-id'] = this.sessionId;
     }
@@ -151,11 +158,6 @@ export class SmallocatorClient {
    */
   async createSession(request: CreateSessionRequest): Promise<{ sessionId: string }> {
     const response = await this.request<CreateSessionResponse>('POST', '/session', request);
-    // Store the session ID
-    if (response.session.id) {
-      localStorage.setItem('sessionId', response.session.id);
-      this.sessionId = response.session.id;
-    }
     return { sessionId: response.session.id };
   }
 
@@ -179,14 +181,15 @@ export class SmallocatorClient {
 
   /**
    * Verify the current session
+   * @returns Object with valid status and optional error message
    */
-  async verifySession(): Promise<{ valid: boolean }> {
+  async verifySession(): Promise<{ valid: boolean; error?: string; session?: SessionVerifyResponse['session'] }> {
     if (!this.sessionId) {
-      return { valid: false };
+      return { valid: false, error: 'No session found' };
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/session/verify`, {
+      const response = await fetch(`${this.baseUrl}/session`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -194,9 +197,27 @@ export class SmallocatorClient {
         },
       });
 
-      return { valid: response.ok };
-    } catch {
-      return { valid: false };
+      if (!response.ok) {
+        const data = await response.json();
+        const error = data.error || 'Session verification failed';
+        
+        // Clear session if it's invalid or expired
+        if (error.includes('Invalid session') || error.includes('expired')) {
+          this.clearSession();
+        }
+        
+        return { valid: false, error };
+      }
+
+      // If we get a successful response, the session is valid
+      const data = await response.json() as SessionVerifyResponse;
+      return { valid: true, session: data.session };
+    } catch (error) {
+      // Network errors or other unexpected issues
+      return { 
+        valid: false, 
+        error: error instanceof Error ? error.message : 'Session verification failed'
+      };
     }
   }
 

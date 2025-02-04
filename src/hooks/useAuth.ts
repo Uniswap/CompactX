@@ -20,34 +20,49 @@ function formatMessage(session: SessionPayload): string {
 }
 
 export function useAuth() {
-  const { address, chainId } = useAccount();
-  const { signMessageAsync } = useSignMessage();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [address, setAddress] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const { address: walletAddress, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
 
   // Check if we have a valid session on mount
   useEffect(() => {
-    const sessionId = localStorage.getItem('sessionId');
-    if (!sessionId) {
-      setIsAuthenticated(false);
-      return;
-    }
-
-    // Verify session with backend
-    smallocator
-      .verifySession()
-      .then(() => setIsAuthenticated(true))
-      .catch(() => {
-        // If session is invalid, clear it
-        localStorage.removeItem('sessionId');
+    const verifyExistingSession = async () => {
+      const sessionId = localStorage.getItem('sessionId');
+      if (!sessionId) {
         setIsAuthenticated(false);
-      });
+        setAddress(null);
+        return;
+      }
+
+      try {
+        const { valid, error, session } = await smallocator.verifySession();
+        
+        if (!valid) {
+          setError(error || 'Session verification failed');
+          setIsAuthenticated(false);
+          setAddress(null);
+          return;
+        }
+
+        setIsAuthenticated(true);
+        setAddress(session?.address || null);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Session verification failed');
+        setIsAuthenticated(false);
+        setAddress(null);
+      }
+    };
+
+    verifyExistingSession();
   }, []);
 
   // Sign in with wallet
   const signIn = useCallback(async () => {
-    if (!address || !chainId) {
+    if (!walletAddress || !isConnected) {
       throw new Error('Wallet not connected');
     }
 
@@ -55,34 +70,36 @@ export function useAuth() {
     setError(null);
 
     try {
-      // Get session payload
-      const { session } = await smallocator.getSessionPayload(chainId, address);
+      // Get session payload for Optimism
+      const chainId = 10;
+      const response = await smallocator.getSessionPayload(chainId, walletAddress);
+      
+      // The server already provides the correctly formatted payload
+      const { session } = response;
 
-      // Format and sign the message
+      // Sign the message
       const message = formatMessage(session);
       const signature = await signMessageAsync({ message });
 
-      // Create session
-      const response = await smallocator.createSession({
+      // Create session with signed payload
+      const { sessionId } = await smallocator.createSession({
         signature,
-        payload: {
-          ...session,
-          chainId: parseInt(session.chainId.toString(), 10),
-        },
+        payload: session,
       });
 
-      // Store the session ID
-      localStorage.setItem('sessionId', response.sessionId);
+      // Store session ID
+      localStorage.setItem('sessionId', sessionId);
       setIsAuthenticated(true);
-      return response;
+      setAddress(walletAddress);
     } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to sign in');
-      setError(error);
-      throw error;
+      console.error('Sign in error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to sign in');
+      setIsAuthenticated(false);
+      setAddress(null);
     } finally {
       setIsLoading(false);
     }
-  }, [address, chainId, signMessageAsync]);
+  }, [walletAddress, isConnected, signMessageAsync]);
 
   // Sign out
   const signOut = useCallback(() => {
@@ -94,6 +111,7 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     error,
+    address,
     signIn,
     signOut,
   };
