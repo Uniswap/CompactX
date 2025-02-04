@@ -125,7 +125,7 @@ describe('useCalibrator', () => {
     const quoteParams = {
       inputTokenChainId: 10,
       inputTokenAddress: '0x4200000000000000000000000000000000000006',
-      inputTokenAmount: '1', // We'll let the hook scale this by decimals
+      inputTokenAmount: '1000000000000000000', // Already scaled by decimals
       outputTokenChainId: 8453,
       outputTokenAddress: '0x4200000000000000000000000000000000000006',
       slippageBips: 100,

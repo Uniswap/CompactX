@@ -42,23 +42,17 @@ export function useCalibrator() {
       throw new Error('Input token not found');
     }
 
-    // Scale input amount by token decimals
-    const scaledAmount = (
-      BigInt(params.inputTokenAmount) *
-      BigInt(10) ** BigInt(inputToken.decimals)
-    ).toString();
-
     const quoteRequest: CalibratorQuoteRequest = {
       sponsor: address,
       inputTokenChainId: params.inputTokenChainId,
       inputTokenAddress: params.inputTokenAddress,
-      inputTokenAmount: scaledAmount,
+      inputTokenAmount: params.inputTokenAmount,
       outputTokenChainId: params.outputTokenChainId,
       outputTokenAddress: params.outputTokenAddress,
       lockParameters: {
         allocatorId: params.allocatorId || '0',
-        resetPeriod: 0,
-        isMultichain: false,
+        resetPeriod: params.resetPeriod || 0,
+        isMultichain: params.isMultichain || false,
       },
       context: {
         slippageBips: params.slippageBips,

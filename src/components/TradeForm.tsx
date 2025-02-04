@@ -1,11 +1,10 @@
 import { Form, Modal, Select, Space, InputNumber, Tooltip, Button } from 'antd';
 import { InfoCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAccount, useChainId } from 'wagmi';
-import { formatUnits } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 import { useState, useEffect } from 'react';
 import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
-import { useCompactMessage } from '../hooks/useCompactMessage';
 import { useCompactSigner } from '../hooks/useCompactSigner';
 import { useBroadcast } from '../hooks/useBroadcast';
 import { GetQuoteParams } from '../types';
@@ -29,7 +28,6 @@ export function TradeForm() {
   const chainId = useChainId();
   const { inputTokens, outputTokens } = useTokens();
   const { useQuote } = useCalibrator();
-  const { assembleMessagePayload } = useCompactMessage();
   const { signCompact } = useCompactSigner();
   const { broadcast } = useBroadcast();
   const [form] = Form.useForm<TradeFormValues>();
@@ -82,72 +80,107 @@ export function TradeForm() {
     }
 
     // Update quote params if we have all required values
-    if (values.inputToken && values.inputAmount && values.outputToken && selectedOutputChain) {
+    if (
+      values.inputToken &&
+      values.inputAmount &&
+      values.outputToken &&
+      selectedOutputChain &&
+      newInputToken
+    ) {
       const slippageTolerance = localStorage.getItem('slippageTolerance')
         ? Number(localStorage.getItem('slippageTolerance'))
         : 0.5;
 
+      // Convert decimal input to token units
+      const tokenUnits = parseUnits(values.inputAmount, newInputToken.decimals).toString();
+
       setQuoteParams({
         inputTokenChainId: chainId,
         inputTokenAddress: values.inputToken,
-        inputTokenAmount: values.inputAmount,
+        inputTokenAmount: tokenUnits,
         outputTokenChainId: selectedOutputChain,
         outputTokenAddress: values.outputToken,
         slippageBips: Math.round(slippageTolerance * 100),
+        allocatorId: '1223867955028248789127899354',
+        resetPeriod: 600,
+        isMultichain: true,
       });
     }
   };
 
-  const handleFormSubmit = async (values: TradeFormValues) => {
+  const handleFormSubmit = async () => {
     try {
-      if (!selectedInputToken || !selectedOutputChain || !selectedOutputToken) return;
-
-      // Get the slippage tolerance from local storage or use default
-      const slippageTolerance = localStorage.getItem('slippageTolerance')
-        ? Number(localStorage.getItem('slippageTolerance'))
-        : 0.5;
-
-      // Update quote params to trigger API call
-      setQuoteParams({
-        inputTokenChainId: chainId,
-        inputTokenAddress: values.inputToken,
-        inputTokenAmount: values.inputAmount,
-        outputTokenChainId: selectedOutputChain,
-        outputTokenAddress: values.outputToken,
-        slippageBips: Math.round(slippageTolerance * 100),
-      });
-
-      // Wait for quote to be ready
-      if (!quote?.context) return;
-
-      // Assemble the compact message payload
-      const payload = assembleMessagePayload({
-        inputTokenAmount: quote.context.quoteOutputAmountNet,
-        inputTokenAddress: values.inputToken,
-        outputTokenAddress: values.outputToken,
-        chainId,
-        expirationTime: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-        tribunal: quote.data.mandate.tribunal,
-        mandate: {
-          recipient: quote.data.mandate.recipient,
-          expires: quote.data.mandate.expires,
-          token: quote.data.mandate.token,
-          minimumAmount: quote.data.mandate.minimumAmount,
-          baselinePriorityFee: quote.data.mandate.baselinePriorityFee,
-          scalingFactor: quote.data.mandate.scalingFactor,
-          salt: quote.data.mandate.salt as `0x${string}`,
-        },
-      });
-
       setIsSigning(true);
 
-      // Get signatures from smallocator and user
-      const { userSignature, smallocatorSignature } = await signCompact(payload);
+      // Ensure we have a quote
+      if (!quote?.data || !quote.context) {
+        throw new Error('No quote available');
+      }
 
-      // Broadcast the signed compact
-      await broadcast(payload, userSignature, smallocatorSignature);
+      // Create compact message from the quote data
+      const mandate = {
+        ...quote.data.mandate,
+        salt: quote.data.mandate.salt.startsWith('0x')
+          ? (quote.data.mandate.salt as `0x${string}`)
+          : (`0x${quote.data.mandate.salt}` as `0x${string}`),
+      };
 
-      // Reset form
+      const compactMessage = {
+        arbiter: quote.data.arbiter,
+        sponsor: quote.data.sponsor,
+        nonce: null, // Initialize as null, will be set from Smallocator response
+        expires: quote.data.expires,
+        id: quote.data.id,
+        amount: quote.data.amount,
+        mandate,
+      };
+
+      // Submit to Smallocator to get their signature
+      const smallocatorResponse = await fetch(`${import.meta.env.VITE_SMALLOCATOR_URL}/compact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': localStorage.getItem('sessionId') || '',
+        },
+        body: JSON.stringify({
+          chainId: quote.data.mandate.chainId.toString(),
+          compact: compactMessage,
+        }),
+      });
+
+      if (!smallocatorResponse.ok) {
+        throw new Error('Failed to get Smallocator signature');
+      }
+
+      const { signature: smallocatorSignature, nonce } = await smallocatorResponse.json();
+
+      // Create a new message with the nonce from Smallocator
+      const messageWithNonce = {
+        ...compactMessage,
+        nonce,
+      };
+
+      // Sign with user's wallet
+      const signature = await signCompact({
+        chainId: quote.data.mandate.chainId.toString(),
+        compact: messageWithNonce,
+      });
+
+      // Broadcast the final signed compact
+      const broadcastResponse = await broadcast(
+        {
+          chainId: quote.data.mandate.chainId.toString(),
+          compact: messageWithNonce,
+        },
+        signature.userSignature,
+        smallocatorSignature
+      );
+
+      if (!broadcastResponse.success) {
+        throw new Error('Failed to broadcast trade');
+      }
+
+      // Reset form on success
       form.resetFields();
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -223,12 +256,10 @@ export function TradeForm() {
           <Space.Compact style={{ width: '100%' }}>
             <div style={{ width: '60%' }} className="text-2xl" data-testid="quote-amount">
               {quote?.context?.quoteOutputAmountNet && selectedOutputToken
-                ? Number(
-                    formatUnits(
-                      BigInt(quote.context.quoteOutputAmountNet),
-                      selectedOutputToken.decimals
-                    )
-                  ).toString()
+                ? formatUnits(
+                    BigInt(quote.context.quoteOutputAmountNet),
+                    selectedOutputToken.decimals
+                  )
                 : '0.00'}
             </div>
             <Space.Compact style={{ width: '40%' }}>

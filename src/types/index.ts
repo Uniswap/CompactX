@@ -15,4 +15,6 @@ export interface GetQuoteParams {
   outputTokenAddress: string;
   slippageBips: number;
   allocatorId?: string;
+  resetPeriod?: number;
+  isMultichain?: boolean;
 }
