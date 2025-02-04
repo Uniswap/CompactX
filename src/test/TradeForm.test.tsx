@@ -94,7 +94,14 @@ vi.mock('../hooks/useCustomTokens', () => ({
 
 vi.mock('../hooks/useTokens', () => ({
   useTokens: vi.fn(() => ({
-    inputTokens: [],
+    inputTokens: [
+      {
+        address: '0x1234',
+        symbol: 'TEST',
+        decimals: 18,
+        chainId: 1,
+      },
+    ],
     outputTokens: [],
   })),
 }));
@@ -195,9 +202,18 @@ describe('TradeForm', () => {
     expect(screen.getByTestId('trade-form')).toBeInTheDocument();
   });
 
-  it('should handle input amount changes', () => {
+  it('should handle input amount changes', async () => {
     render(<TradeForm />, { wrapper: AntWrapper });
 
+    // Open the token select dropdown
+    const tokenSelect = screen.getByRole('combobox', { name: 'Input Token' });
+    fireEvent.mouseDown(tokenSelect);
+
+    // Wait for the dropdown portal to appear and find the TEST option
+    const testOption = await screen.findByTitle('TEST');
+    fireEvent.click(testOption);
+
+    // Enter the amount
     const input = screen.getByRole('spinbutton', { name: 'Input Amount' });
     fireEvent.change(input, { target: { value: '1' } });
     expect(input).toHaveValue('1.000000000000000000');

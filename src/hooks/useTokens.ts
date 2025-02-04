@@ -17,9 +17,7 @@ export function useTokens(): { inputTokens: Token[]; outputTokens: Token[] } {
   const inputTokens = [...defaultTokens, ...customTokens];
 
   // Get tokens from other supported chains for output token selection
-  const outputTokens = INITIAL_CONFIG.tokens.filter(
-    token => token.chainId !== chainId && INITIAL_CONFIG.supportedChains.includes(token.chainId)
-  ) as Token[];
+  const outputTokens = [...INITIAL_CONFIG.tokens] as Token[];
 
   return { inputTokens, outputTokens };
 }
