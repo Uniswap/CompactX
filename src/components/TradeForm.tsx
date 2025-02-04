@@ -154,7 +154,7 @@ export function TradeForm() {
                 style={{ width: '60%' }}
                 placeholder="0.0"
                 min={0}
-                bordered={false}
+                variant="borderless"
                 controls={false}
                 stringMode
                 precision={inputToken?.decimals ?? 18}
