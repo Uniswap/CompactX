@@ -121,7 +121,11 @@ export class SmallocatorClient {
   /**
    * Make a request to the API
    */
-  private async request<T>(method: 'GET' | 'POST', endpoint: string, data?: unknown): Promise<T> {
+  private async request<T>(
+    method: 'GET' | 'POST' | 'DELETE',
+    endpoint: string,
+    data?: unknown
+  ): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
@@ -137,13 +141,37 @@ export class SmallocatorClient {
       body: data,
     });
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method,
-      headers,
-      body: data ? JSON.stringify(data) : undefined,
-    });
+    let response;
+    try {
+      response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+      });
+    } catch (error) {
+      // Handle network errors
+      const message = error instanceof Error ? error.message : 'Network error';
+      console.error('Request failed:', message);
+      throw new Error(message);
+    }
 
-    const result = await response.json();
+    // Now we know we have a response
+    let result;
+    try {
+      result = await response.json();
+    } catch (error) {
+      // Response is not JSON
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+      // For DELETE requests, empty response is OK
+      if (method === 'DELETE' && response.ok) {
+        return {} as T;
+      }
+      const message = error instanceof Error ? error.message : 'Invalid Response Format';
+      throw new Error(message);
+    }
+
     console.log('Got response:', {
       ok: response.ok,
       status: response.status,
@@ -151,7 +179,7 @@ export class SmallocatorClient {
     });
 
     if (!response.ok) {
-      const error = result.error || 'Request failed';
+      const error = result.error || `Request failed with status ${response.status}`;
       if (error.includes('Invalid session') || error.includes('expired')) {
         this.clearSession();
       }
@@ -237,11 +265,65 @@ export class SmallocatorClient {
   }
 
   /**
+   * Delete the current session
+   */
+  public async deleteSession(): Promise<void> {
+    if (!this.sessionId) {
+      return;
+    }
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-session-id': this.sessionId,
+    };
+
+    let response: Response | undefined;
+
+    try {
+      response = await fetch(`${this.baseUrl}/session`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      if (!response) {
+        throw new Error('No response received from server');
+      }
+
+      if (!response.ok) {
+        let errorMessage = `Server error (${response.status})`;
+        try {
+          const result = await response.json();
+          if (result.error) {
+            errorMessage = result.error;
+          }
+        } catch {
+          // If we can't parse the error, use the default message
+        }
+        console.error('Server error during session deletion:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      // Success case - clear everything
+      this.sessionId = null;
+      localStorage.removeItem('sessionId');
+    } catch (error) {
+      // Handle network errors
+      const message = error instanceof Error ? error.message : 'Network error';
+      console.error('Network error during session deletion:', message);
+      throw error instanceof Error ? error : new Error(message);
+    }
+  }
+
+  /**
    * Clear the current session
    */
-  private clearSession() {
-    localStorage.removeItem('sessionId');
-    this.sessionId = null;
+  public async clearSession(): Promise<void> {
+    try {
+      await this.deleteSession();
+    } catch (error) {
+      console.error('Failed to clear session:', error);
+      throw error;
+    }
   }
 
   /**

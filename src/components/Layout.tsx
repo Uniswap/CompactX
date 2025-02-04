@@ -19,7 +19,13 @@ export const Layout = ({ children }: PropsWithChildren) => {
                 {isLoading ? (
                   <Spin size="small" />
                 ) : isAuthenticated ? (
-                  <Button onClick={signOut} type="link" danger>
+                  <Button
+                    onClick={() => {
+                      signOut().catch(console.error);
+                    }}
+                    type="link"
+                    danger
+                  >
                     Sign Out
                   </Button>
                 ) : (

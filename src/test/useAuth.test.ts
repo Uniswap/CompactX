@@ -187,17 +187,31 @@ describe('useAuth Hook', () => {
     localStorage.setItem('sessionId', sessionId);
     smallocator.setTestSessionId(sessionId);
 
-    // Mock successful session verification
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        valid: true,
-        session: {
-          id: sessionId,
-          address: '0x1234567890123456789012345678901234567890',
-          expiresAt: new Date(Date.now() + 3600000).toISOString(),
-        },
-      }),
+    // Mock successful session verification and session deletion
+    global.fetch = vi.fn().mockImplementation((url: string, options?: { method: string }) => {
+      if (url.endsWith('/session')) {
+        // Handle DELETE request
+        if (options?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({}),
+          });
+        }
+
+        // Handle GET request for session verification
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            valid: true,
+            session: {
+              id: sessionId,
+              address: '0x1234567890123456789012345678901234567890',
+              expiresAt: new Date(Date.now() + 3600000).toISOString(),
+            },
+          }),
+        });
+      }
+      return Promise.reject(new Error('Not found'));
     });
 
     const { result } = renderHook(() => useAuth());
@@ -209,12 +223,78 @@ describe('useAuth Hook', () => {
     });
 
     // Sign out
-    act(() => {
-      result.current.signOut();
+    await act(async () => {
+      await result.current.signOut();
     });
 
+    // Verify local state is cleared
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.address).toBe(null);
     expect(localStorage.getItem('sessionId')).toBe(null);
+
+    // Verify DELETE request was made
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/session'),
+      expect.objectContaining({ method: 'DELETE' })
+    );
+  });
+
+  it('should handle sign out when DELETE request fails', async () => {
+    const sessionId = 'test-session';
+    localStorage.setItem('sessionId', sessionId);
+    smallocator.setTestSessionId(sessionId);
+
+    // Mock successful session verification but failed deletion
+    global.fetch = vi.fn().mockImplementation((url: string, options?: { method: string }) => {
+      if (url.endsWith('/session')) {
+        // Handle DELETE request - simulate failure
+        if (options?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: async () => ({ error: 'Failed to delete session. Please try again later.' }),
+          });
+        }
+
+        // Handle GET request for session verification
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            valid: true,
+            session: {
+              id: sessionId,
+              address: '0x1234567890123456789012345678901234567890',
+              expiresAt: new Date(Date.now() + 3600000).toISOString(),
+            },
+          }),
+        });
+      }
+      return Promise.reject(new Error('Not found'));
+    });
+
+    const { result } = renderHook(() => useAuth());
+
+    // Wait for initial session verification
+    await waitFor(() => {
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
+    });
+
+    // Sign out
+    await act(async () => {
+      await result.current.signOut();
+    });
+
+    // Verify local state is still cleared even though DELETE failed
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.address).toBe(null);
+    expect(localStorage.getItem('sessionId')).toBe(null);
+    expect(result.current.error).toBe('Failed to delete session. Please try again later.');
+
+    // Verify DELETE request was made
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/session'),
+      expect.objectContaining({ method: 'DELETE' })
+    );
   });
 });

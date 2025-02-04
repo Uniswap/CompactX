@@ -102,12 +102,22 @@ export function useAuth() {
   }, [walletAddress, isConnected, signMessageAsync]);
 
   // Sign out
-  const signOut = useCallback(() => {
-    localStorage.removeItem('sessionId');
-    setIsAuthenticated(false);
-    setAddress(null);
-    setError(null);
-  }, []);
+  const signOut = async () => {
+    try {
+      await smallocator.clearSession();
+      setIsAuthenticated(false);
+      setAddress(null);
+      setError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to sign out';
+      console.error('Error during sign out:', message);
+      setError(message);
+      // Still clear local state even if server deletion fails
+      setIsAuthenticated(false);
+      setAddress(null);
+      localStorage.removeItem('sessionId');
+    }
+  };
 
   return {
     isAuthenticated,
