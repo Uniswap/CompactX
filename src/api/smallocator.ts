@@ -17,11 +17,13 @@ export interface CreateSessionRequest {
 }
 
 export interface CreateSessionResponse {
-  sessionId: string;
+  session: {
+    id: string;
+  };
 }
 
 export interface SessionResponse {
-  payload: SessionPayload;
+  session: SessionPayload;
 }
 
 export interface Mandate {
@@ -147,14 +149,14 @@ export class SmallocatorClient {
    * Create a new session with a signed payload
    * @param request - The signed session payload
    */
-  async createSession(request: CreateSessionRequest): Promise<CreateSessionResponse> {
+  async createSession(request: CreateSessionRequest): Promise<{ sessionId: string }> {
     const response = await this.request<CreateSessionResponse>('POST', '/session', request);
     // Store the session ID
-    if (response.sessionId) {
-      localStorage.setItem('sessionId', response.sessionId);
-      this.sessionId = response.sessionId;
+    if (response.session.id) {
+      localStorage.setItem('sessionId', response.session.id);
+      this.sessionId = response.session.id;
     }
-    return response;
+    return { sessionId: response.session.id };
   }
 
   /**
@@ -179,7 +181,39 @@ export class SmallocatorClient {
    * Verify the current session
    */
   async verifySession(): Promise<{ valid: boolean }> {
-    return this.request<{ valid: boolean }>('GET', '/session/verify');
+    if (!this.sessionId) {
+      return { valid: false };
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}/session/verify`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': this.sessionId,
+        },
+      });
+
+      return { valid: response.ok };
+    } catch {
+      return { valid: false };
+    }
+  }
+
+  /**
+   * Set a session ID for testing purposes
+   * @internal
+   */
+  setTestSessionId(sessionId: string | null) {
+    this.sessionId = sessionId;
+  }
+
+  /**
+   * Clear the current session
+   */
+  clearSession() {
+    this.sessionId = null;
+    localStorage.removeItem('sessionId');
   }
 }
 

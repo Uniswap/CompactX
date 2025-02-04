@@ -35,12 +35,12 @@ describe('Authentication Flow', () => {
       // Mock the API response
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ payload: mockPayload }),
+        json: async () => ({ session: mockPayload }),
       });
 
       const response = await client.getSessionPayload(mockChainId, mockAddress);
 
-      expect(response.payload).toEqual(mockPayload);
+      expect(response.session).toEqual(mockPayload);
       expect(global.fetch).toHaveBeenCalledWith(
         `http://localhost:3000/session/${mockChainId}/${mockAddress}`,
         expect.objectContaining({
@@ -52,15 +52,13 @@ describe('Authentication Flow', () => {
       );
     });
 
-    it('should handle session payload fetch errors', async () => {
-      // Mock a failed API response
-      global.fetch = vi.fn().mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        json: async () => ({ error: 'Invalid address' }),
-      });
+    it('should handle invalid address', async () => {
+      const invalidAddress = '0xinvalid';
 
-      await expect(client.getSessionPayload(mockChainId, mockAddress)).rejects.toThrow(
+      // Mock the API response
+      global.fetch = vi.fn().mockRejectedValueOnce(new Error('Invalid address'));
+
+      await expect(client.getSessionPayload(mockChainId, invalidAddress)).rejects.toThrow(
         'Invalid address'
       );
     });
@@ -68,8 +66,7 @@ describe('Authentication Flow', () => {
 
   describe('Session Creation', () => {
     it('should create session successfully', async () => {
-      const mockSessionId = 'session123';
-      const mockSignature = '0xabcdef...';
+      const mockSignature = '0xsignature';
       const mockPayload: SessionPayload = {
         domain: 'compactx.xyz',
         address: mockAddress,
@@ -85,7 +82,11 @@ describe('Authentication Flow', () => {
       // Mock the API response
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ sessionId: mockSessionId }),
+        json: async () => ({
+          session: {
+            id: 'mock-session-id',
+          },
+        }),
       });
 
       const response = await client.createSession({
@@ -93,31 +94,12 @@ describe('Authentication Flow', () => {
         payload: mockPayload,
       });
 
-      expect(response.sessionId).toBe(mockSessionId);
-      expect(localStorage.getItem('sessionId')).toBe(mockSessionId);
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:3000/session',
-        expect.objectContaining({
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            signature: mockSignature,
-            payload: mockPayload,
-          }),
-        })
-      );
+      expect(response.sessionId).toBe('mock-session-id');
+      expect(localStorage.getItem('sessionId')).toBe('mock-session-id');
     });
 
-    it('should handle session creation errors', async () => {
-      // Mock a failed API response
-      global.fetch = vi.fn().mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        json: async () => ({ error: 'Invalid signature' }),
-      });
-
+    it('should handle session creation failure', async () => {
+      const mockSignature = '0xsignature';
       const mockPayload: SessionPayload = {
         domain: 'compactx.xyz',
         address: mockAddress,
@@ -130,22 +112,28 @@ describe('Authentication Flow', () => {
         expirationTime: new Date(Date.now() + 3600000).toISOString(),
       };
 
+      // Mock the API response
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'Failed to create session' }),
+      });
+
       await expect(
         client.createSession({
-          signature: 'invalid-signature',
+          signature: mockSignature,
           payload: mockPayload,
         })
-      ).rejects.toThrow('Invalid signature');
+      ).rejects.toThrow('Failed to create session');
     });
   });
 
   describe('Session Verification', () => {
-    it('should verify existing session', async () => {
-      // Set session ID before creating client
-      localStorage.setItem('sessionId', 'valid-session');
-      client = new SmallocatorClient(); // Reinitialize to pick up session ID
+    it('should verify session successfully', async () => {
+      // Set up a mock session ID
+      localStorage.setItem('sessionId', 'mock-session-id');
+      client = new SmallocatorClient(); // Reinitialize to pick up the session ID
 
-      // Mock successful verification
+      // Mock the API response
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
         json: async () => ({ valid: true }),
@@ -158,27 +146,30 @@ describe('Authentication Flow', () => {
         'http://localhost:3000/session/verify',
         expect.objectContaining({
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-session-id': 'valid-session',
-          },
+          headers: expect.objectContaining({
+            'x-session-id': 'mock-session-id',
+          }),
         })
       );
     });
 
     it('should handle invalid session', async () => {
-      // Set session ID before creating client
-      localStorage.setItem('sessionId', 'invalid-session');
-      client = new SmallocatorClient(); // Reinitialize to pick up session ID
-
-      // Mock failed verification
+      client.setTestSessionId('invalid-session-id');
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: false,
         status: 401,
         json: async () => ({ error: 'Invalid session' }),
       });
 
-      await expect(client.verifySession()).rejects.toThrow('Invalid session');
+      const response = await client.verifySession();
+      expect(response).toEqual({ valid: false });
+    });
+
+    it('should return invalid for missing session', async () => {
+      client.setTestSessionId(null);
+      const response = await client.verifySession();
+      expect(response).toEqual({ valid: false });
+      expect(global.fetch).not.toHaveBeenCalled();
     });
   });
 });

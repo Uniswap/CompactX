@@ -44,28 +44,32 @@ describe('useAuth Hook', () => {
   });
 
   it('should handle sign in flow successfully', async () => {
+    const mockPayload = {
+      domain: 'compactx.xyz',
+      address: '0x1234567890123456789012345678901234567890',
+      uri: 'https://compactx.xyz',
+      statement: 'Sign in to CompactX',
+      version: '1',
+      chainId: 10,
+      nonce: '123456',
+      issuedAt: new Date().toISOString(),
+      expirationTime: new Date(Date.now() + 3600000).toISOString(),
+    };
+
     // Mock session payload response
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          payload: {
-            domain: 'compactx.xyz',
-            address: '0x1234567890123456789012345678901234567890',
-            uri: 'https://compactx.xyz',
-            statement: 'Sign in to CompactX',
-            version: '1',
-            chainId: 10,
-            nonce: '123456',
-            issuedAt: new Date().toISOString(),
-            expirationTime: new Date(Date.now() + 3600000).toISOString(),
-          },
-        }),
+        json: async () => ({ session: mockPayload }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ sessionId: 'test-session' }),
+        json: async () => ({
+          session: {
+            id: 'test-session',
+          },
+        }),
       });
 
     const { result } = renderHook(() => useAuth());
@@ -102,15 +106,28 @@ describe('useAuth Hook', () => {
   });
 
   it('should handle sign out', async () => {
+    // Set up initial authenticated state
     localStorage.setItem('sessionId', 'test-session');
+
+    // Mock successful session verification
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ valid: true }),
+    });
 
     const { result } = renderHook(() => useAuth());
 
     // Wait for initial session verification
-    await act(async () => {
+    await waitFor(() => {
+      expect(result.current.isAuthenticated).toBe(true);
+    });
+
+    // Sign out
+    act(() => {
       result.current.signOut();
     });
 
+    // Verify signed out state
     expect(result.current.isAuthenticated).toBe(false);
     expect(localStorage.getItem('sessionId')).toBeNull();
   });

@@ -1,8 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
-import { SmallocatorClient, SessionPayload } from '../api/smallocator';
+import { smallocator, type SessionPayload } from '../api/smallocator';
 
-const client = new SmallocatorClient();
+// Format the message according to EIP-4361
+function formatMessage(session: SessionPayload): string {
+  return [
+    `${session.domain} wants you to sign in with your Ethereum account:`,
+    session.address,
+    '',
+    session.statement,
+    '',
+    `URI: ${session.uri}`,
+    `Version: ${session.version}`,
+    `Chain ID: ${session.chainId}`,
+    `Nonce: ${session.nonce}`,
+    `Issued At: ${session.issuedAt}`,
+    `Expiration Time: ${session.expirationTime}`,
+  ].join('\n');
+}
 
 export function useAuth() {
   const { address, chainId } = useAccount();
@@ -14,17 +29,20 @@ export function useAuth() {
   // Check if we have a valid session on mount
   useEffect(() => {
     const sessionId = localStorage.getItem('sessionId');
-    if (sessionId) {
-      // Verify session with backend
-      client
-        .verifySession()
-        .then(() => setIsAuthenticated(true))
-        .catch(() => {
-          // If session is invalid, clear it
-          localStorage.removeItem('sessionId');
-          setIsAuthenticated(false);
-        });
+    if (!sessionId) {
+      setIsAuthenticated(false);
+      return;
     }
+
+    // Verify session with backend
+    smallocator
+      .verifySession()
+      .then(() => setIsAuthenticated(true))
+      .catch(() => {
+        // If session is invalid, clear it
+        localStorage.removeItem('sessionId');
+        setIsAuthenticated(false);
+      });
   }, []);
 
   // Sign in with wallet
@@ -38,18 +56,23 @@ export function useAuth() {
 
     try {
       // Get session payload
-      const { payload } = await client.getSessionPayload(chainId, address);
+      const { session } = await smallocator.getSessionPayload(chainId, address);
 
       // Format and sign the message
-      const message = formatMessage(payload);
+      const message = formatMessage(session);
       const signature = await signMessageAsync({ message });
 
       // Create session
-      const response = await client.createSession({
+      const response = await smallocator.createSession({
         signature,
-        payload,
+        payload: {
+          ...session,
+          chainId: parseInt(session.chainId.toString(), 10),
+        },
       });
 
+      // Store the session ID
+      localStorage.setItem('sessionId', response.sessionId);
       setIsAuthenticated(true);
       return response;
     } catch (err) {
@@ -74,19 +97,4 @@ export function useAuth() {
     signIn,
     signOut,
   };
-}
-
-// Format the message according to smallocator's format
-function formatMessage(payload: SessionPayload): string {
-  return `${payload.domain} wants you to sign in with your Ethereum account:
-${payload.address}
-
-${payload.statement}
-
-URI: ${payload.uri}
-Version: ${payload.version}
-Chain ID: ${payload.chainId}
-Nonce: ${payload.nonce}
-Issued At: ${payload.issuedAt}
-Expiration Time: ${payload.expirationTime}`;
 }

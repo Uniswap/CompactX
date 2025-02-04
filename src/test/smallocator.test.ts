@@ -35,28 +35,26 @@ describe('SmallocatorClient', () => {
   };
 
   it('should get session payload', async () => {
-    const mockResponse = {
-      payload: {
-        domain: 'compactx.xyz',
-        address: '0xUserAddress',
-        uri: 'https://compactx.xyz',
-        statement: 'Sign in to CompactX',
-        version: '1',
-        chainId: 10,
-        nonce: '123456',
-        issuedAt: new Date().toISOString(),
-        expirationTime: new Date(Date.now() + 3600000).toISOString(),
-      },
+    const mockPayload = {
+      domain: 'compactx.xyz',
+      address: '0xUserAddress',
+      uri: 'https://compactx.xyz',
+      statement: 'Sign in to CompactX',
+      version: '1',
+      chainId: 10,
+      nonce: '123456',
+      issuedAt: new Date().toISOString(),
+      expirationTime: new Date(Date.now() + 3600000).toISOString(),
     };
 
     // Mock successful response
     global.fetch = vi.fn().mockResolvedValueOnce({
       ok: true,
-      json: async () => mockResponse,
+      json: async () => ({ session: mockPayload }),
     });
 
     const response = await client.getSessionPayload(10, '0xUserAddress');
-    expect(response).toEqual(mockResponse);
+    expect(response).toEqual({ session: mockPayload });
     expect(global.fetch).toHaveBeenCalledWith(
       'https://smallocator.xyz/session/10/0xUserAddress',
       expect.objectContaining({
@@ -85,11 +83,8 @@ describe('SmallocatorClient', () => {
     };
 
     const mockResponse = {
-      success: true,
-      payload: {
-        chainId: '1',
-        nonce: ('0x' + '00'.repeat(32)) as `0x${string}`,
-        signature: ('0x' + '00'.repeat(65)) as `0x${string}`,
+      session: {
+        id: 'test-session-id',
       },
     };
 
@@ -101,7 +96,7 @@ describe('SmallocatorClient', () => {
 
     const response = await client.createSession(mockRequest);
 
-    expect(response).toEqual(mockResponse);
+    expect(response).toEqual({ sessionId: 'test-session-id' });
     expect(fetch).toHaveBeenCalledWith(
       `${import.meta.env.VITE_SMALLOCATOR_URL}/session`,
       expect.objectContaining({
