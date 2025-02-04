@@ -101,6 +101,23 @@ export function TradeForm() {
     }
   };
 
+  // Watch for form field changes
+  const handleFieldsChange = () => {
+    const values = form.getFieldsValue();
+    const slippageTolerance = settingsForm.getFieldValue('slippageTolerance') || 0.5;
+
+    if (values.inputToken && values.inputAmount && values.outputToken && selectedOutputChain) {
+      setQuoteParams({
+        inputTokenChainId: chainId,
+        inputTokenAddress: values.inputToken,
+        inputTokenAmount: values.inputAmount,
+        outputTokenChainId: selectedOutputChain,
+        outputTokenAddress: values.outputToken,
+        slippageBips: Math.round(slippageTolerance * 100),
+      });
+    }
+  };
+
   if (!isConnected) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -114,7 +131,8 @@ export function TradeForm() {
       <Form
         form={form}
         onFinish={handleFormSubmit}
-        initialValues={{ slippageTolerance: 0.5 }}
+        onFieldsChange={handleFieldsChange}
+        layout="vertical"
         className="flex flex-col gap-4"
         data-testid="trade-form"
       >

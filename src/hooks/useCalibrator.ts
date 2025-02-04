@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
+import { useTokens } from '../hooks/useTokens'; // Assuming this is where useTokens is defined
 import type { CalibratorQuoteResponse, GetQuoteParams } from '../types';
 
 interface CalibratorQuoteRequest {
@@ -25,17 +26,33 @@ interface CalibratorQuoteRequest {
 
 export function useCalibrator() {
   const { address } = useAccount();
+  const { inputTokens } = useTokens();
 
   const getQuote = async (params: GetQuoteParams): Promise<CalibratorQuoteResponse> => {
     if (!address) {
       throw new Error('Wallet not connected');
     }
 
+    // Find input token to get decimals
+    const inputToken = inputTokens.find(
+      token => token.address.toLowerCase() === params.inputTokenAddress.toLowerCase()
+    );
+
+    if (!inputToken) {
+      throw new Error('Input token not found');
+    }
+
+    // Scale input amount by token decimals
+    const scaledAmount = (
+      BigInt(params.inputTokenAmount) *
+      BigInt(10) ** BigInt(inputToken.decimals)
+    ).toString();
+
     const quoteRequest: CalibratorQuoteRequest = {
       sponsor: address,
       inputTokenChainId: params.inputTokenChainId,
       inputTokenAddress: params.inputTokenAddress,
-      inputTokenAmount: params.inputTokenAmount,
+      inputTokenAmount: scaledAmount,
       outputTokenChainId: params.outputTokenChainId,
       outputTokenAddress: params.outputTokenAddress,
       lockParameters: {
@@ -47,12 +64,12 @@ export function useCalibrator() {
         slippageBips: params.slippageBips,
         recipient: address,
         baselinePriorityFee: '0',
-        scalingFactor: '0',
+        scalingFactor: '1000000000100000000',
         expires: Math.floor(Date.now() / 1000 + 300).toString(), // 5 minutes from now
       },
     };
 
-    const response = await fetch(`${process.env.VITE_CALIBRATOR_API_URL}/quote`, {
+    const response = await fetch(`${import.meta.env.VITE_CALIBRATOR_API_URL}/quote`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
