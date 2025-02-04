@@ -36,6 +36,8 @@ import { useAccount } from 'wagmi';
 import type { UseAccountReturnType } from 'wagmi';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { AntWrapper } from './helpers/AntWrapper';
+import { useCompactSigner } from '../hooks/useCompactSigner';
+import { useBroadcast } from '../hooks/useBroadcast';
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: vi.fn(),
@@ -166,8 +168,16 @@ vi.mock('../hooks/useCompactSigner', () => ({
 vi.mock('../hooks/useBroadcast', () => ({
   useBroadcast: vi.fn(() => ({
     broadcast: vi.fn(),
+    isLoading: false,
+    error: null,
   })),
 }));
+
+// Reset mocks before each test
+beforeEach(() => {
+  vi.mocked(useCompactSigner).mockReset();
+  vi.mocked(useBroadcast).mockReset();
+});
 
 describe('TradeForm', () => {
   beforeEach(() => {
@@ -248,7 +258,12 @@ describe('TradeForm', () => {
     expect(input).toHaveValue('1.000000000000000000');
   });
 
-  it('should handle quote loading state', () => {
+  it('should show "Get Quote" button initially', () => {
+    render(<TradeForm />, { wrapper: AntWrapper });
+    expect(screen.getByRole('button', { name: 'Get Quote' })).toBeInTheDocument();
+  });
+
+  it('should show "Getting Quote..." during loading', () => {
     vi.mocked(useQuery).mockReturnValue({
       data: null,
       isLoading: true,
@@ -273,6 +288,64 @@ describe('TradeForm', () => {
     } as unknown as UseQueryResult);
 
     render(<TradeForm />, { wrapper: AntWrapper });
+    expect(screen.getByRole('button', { name: 'Getting Quote...' })).toBeInTheDocument();
+  });
+
+  it('should show "Swap" button after getting quote', () => {
+    vi.mocked(useQuery).mockReturnValue({
+      data: {
+        data: {
+          arbiter: '0x1234',
+          sponsor: '0x5678',
+          nonce: '1',
+          expires: '1738675211',
+          id: '1',
+          amount: '1000000000000000000',
+          mandate: {
+            chainId: 1,
+            tribunal: '0x1234',
+            recipient: '0x5678',
+            expires: '1738675211',
+            token: '0x1234',
+            minimumAmount: '1000000000000000000',
+            baselinePriorityFee: '0',
+            scalingFactor: '1000000000100000000',
+            salt: '0x1234',
+          },
+        },
+        context: {
+          dispensation: '1000000',
+          dispensationUSD: '$1.00',
+          spotOutputAmount: '1000000000000000000',
+          quoteOutputAmountDirect: '1000000000000000000',
+          quoteOutputAmountNet: '990000000000000000',
+          deltaAmount: '10000000000000000',
+          witnessHash: '0x1234',
+        },
+      },
+      isLoading: false,
+      error: null,
+      isError: false,
+      isSuccess: true,
+      isIdle: false,
+      status: 'success',
+      dataUpdatedAt: Date.now(),
+      errorUpdatedAt: Date.now(),
+      failureCount: 0,
+      failureReason: null,
+      fetchStatus: 'idle',
+      isRefetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      isFetching: false,
+      isInitialLoading: false,
+      isPaused: false,
+      isStale: false,
+      queryKey: ['quote'] as const,
+    } as unknown as UseQueryResult);
+
+    render(<TradeForm />, { wrapper: AntWrapper });
+    expect(screen.getByRole('button', { name: 'Swap' })).toBeInTheDocument();
   });
 
   it('should handle quote error state', () => {
@@ -300,5 +373,111 @@ describe('TradeForm', () => {
     } as unknown as UseQueryResult);
 
     render(<TradeForm />, { wrapper: AntWrapper });
+    expect(screen.getByText('Error')).toBeInTheDocument();
+    expect(screen.getByText('Test error')).toBeInTheDocument();
+  });
+
+  it('should handle swap execution', async () => {
+    // Mock fetch for Smallocator API call
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            signature: '0xmocksignature',
+            nonce: '1',
+          }),
+      })
+    );
+
+    // Mock successful quote
+    vi.mocked(useQuery).mockReturnValue({
+      data: {
+        data: {
+          arbiter: '0x1234',
+          sponsor: '0x5678',
+          nonce: '1',
+          expires: '1738675211',
+          id: '1',
+          amount: '1000000000000000000',
+          mandate: {
+            chainId: 1,
+            tribunal: '0x1234',
+            recipient: '0x5678',
+            expires: '1738675211',
+            token: '0x1234',
+            minimumAmount: '1000000000000000000',
+            baselinePriorityFee: '0',
+            scalingFactor: '1000000000100000000',
+            salt: '0x1234',
+          },
+        },
+        context: {
+          dispensation: '1000000',
+          dispensationUSD: '$1.00',
+          spotOutputAmount: '1000000000000000000',
+          quoteOutputAmountDirect: '1000000000000000000',
+          quoteOutputAmountNet: '990000000000000000',
+          deltaAmount: '10000000000000000',
+          witnessHash: '0x1234',
+        },
+      },
+      isLoading: false,
+      error: null,
+      isError: false,
+      isSuccess: true,
+      isIdle: false,
+      status: 'success',
+      dataUpdatedAt: Date.now(),
+      errorUpdatedAt: Date.now(),
+      failureCount: 0,
+      failureReason: null,
+      fetchStatus: 'idle',
+      isRefetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      isFetching: false,
+      isInitialLoading: false,
+      isPaused: false,
+      isStale: false,
+      queryKey: ['quote'] as const,
+    } as unknown as UseQueryResult);
+
+    // Mock signing and broadcasting
+    const mockSignCompact = vi.fn().mockResolvedValue({ userSignature: '0xusersignature' });
+    const mockBroadcast = vi.fn().mockResolvedValue({ success: true });
+    vi.mocked(useCompactSigner).mockReturnValue({
+      signCompact: mockSignCompact,
+    });
+    vi.mocked(useBroadcast).mockReturnValue({
+      broadcast: mockBroadcast,
+      isLoading: false,
+      error: null,
+    });
+
+    render(<TradeForm />, { wrapper: AntWrapper });
+
+    // Click the swap button
+    const swapButton = screen.getByRole('button', { name: 'Swap' });
+    fireEvent.click(swapButton);
+
+    // Verify Smallocator API was called
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/compact'),
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+        }),
+      })
+    );
+
+    // Wait for async operations to complete
+    await vi.waitFor(() => {
+      // Verify signing was called
+      expect(mockSignCompact).toHaveBeenCalled();
+      // Verify broadcast was called
+      expect(mockBroadcast).toHaveBeenCalled();
+    });
   });
 });

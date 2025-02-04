@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
 import { useTokens } from '../hooks/useTokens'; // Assuming this is where useTokens is defined
-import type { CalibratorQuoteResponse, GetQuoteParams } from '../types';
+import type { CalibratorQuoteResponse, GetQuoteParams } from '../types/index';
+import { mapSecondsToResetPeriod } from '../types/index';
 
 interface CalibratorQuoteRequest {
   sponsor: string;
@@ -51,7 +52,7 @@ export function useCalibrator() {
       outputTokenAddress: params.outputTokenAddress,
       lockParameters: {
         allocatorId: params.allocatorId || '0',
-        resetPeriod: params.resetPeriod || 0,
+        resetPeriod: params.resetPeriod ? mapSecondsToResetPeriod(params.resetPeriod) : 0,
         isMultichain: params.isMultichain || false,
       },
       context: {

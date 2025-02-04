@@ -108,7 +108,14 @@ export function TradeForm() {
     }
   };
 
-  const handleFormSubmit = async () => {
+  // Handle initial form submission to get quote
+  const handleFormSubmit = () => {
+    // Form submission now just validates the form
+    // Quote is automatically fetched via useQuote when form values change
+  };
+
+  // Handle the actual swap after quote is received
+  const handleSwap = async () => {
     try {
       setIsSigning(true);
 
@@ -183,7 +190,7 @@ export function TradeForm() {
       // Reset form on success
       form.resetFields();
     } catch (error) {
-      console.error('Error submitting form:', error);
+      console.error('Error executing swap:', error);
     } finally {
       setIsSigning(false);
     }
@@ -338,21 +345,25 @@ export function TradeForm() {
           </div>
         )}
 
-        <Form.Item
-          noStyle
-          shouldUpdate={(prev, curr) =>
-            prev.inputToken !== curr.inputToken || prev.outputToken !== curr.outputToken
-          }
-        >
-          {({ getFieldValue }) => (
+        <Form.Item noStyle>
+          {quote?.data && !error ? (
+            <Button
+              type="primary"
+              onClick={handleSwap}
+              loading={isSigning}
+              block
+            >
+              Swap
+            </Button>
+          ) : (
             <Button
               type="primary"
               htmlType="submit"
-              loading={isSigning || isLoading}
-              disabled={!getFieldValue('inputToken') || !getFieldValue('outputToken')}
+              loading={isLoading}
+              disabled={!form.getFieldValue('inputToken') || !form.getFieldValue('outputToken')}
               block
             >
-              {isSigning ? 'Signing...' : isLoading ? 'Getting Quote...' : 'Swap'}
+              {isLoading ? 'Getting Quote...' : 'Get Quote'}
             </Button>
           )}
         </Form.Item>
