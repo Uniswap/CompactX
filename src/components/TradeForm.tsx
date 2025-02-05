@@ -55,12 +55,14 @@ export function TradeForm() {
 
   // Initialize form with empty values
   useEffect(() => {
-    form.setFieldsValue({
-      inputToken: '',
-      outputToken: '',
-      inputAmount: '',
-      slippageTolerance: 0.5,
-    });
+    if (form) {
+      form.setFieldsValue({
+        inputToken: '',
+        outputToken: '',
+        inputAmount: '',
+        slippageTolerance: 0.5,
+      });
+    }
   }, [form]);
 
   // Handle form value changes
@@ -352,27 +354,22 @@ export function TradeForm() {
           </div>
         )}
 
-        <Form.Item noStyle>
-          {quote?.data && !error ? (
-            <Button
-              type="primary"
-              onClick={handleSwap}
-              loading={isSigning}
-              block
-            >
-              Swap
-            </Button>
-          ) : (
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={isLoading}
-              disabled={!form.getFieldValue('inputToken') || !form.getFieldValue('outputToken')}
-              block
-            >
-              {isLoading ? 'Getting Quote...' : 'Get Quote'}
-            </Button>
-          )}
+        <Form.Item>
+          <Button
+            type="primary"
+            onClick={handleSwap}
+            disabled={!isConnected || !quote?.data || isLoading || isSigning}
+            loading={isSigning}
+            block
+          >
+            {!isConnected
+              ? 'Connect Wallet'
+              : isSigning
+              ? 'Signing...'
+              : error
+              ? 'Try Again'
+              : 'Swap'}
+          </Button>
         </Form.Item>
       </Form>
 
