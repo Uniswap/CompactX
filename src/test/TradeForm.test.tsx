@@ -31,10 +31,51 @@ window.ResizeObserver = ResizeObserver;
 
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { useAccount } from 'wagmi';
-import type { Connector } from 'wagmi';
 import { TradeForm } from '../components/TradeForm';
 import { AntWrapper } from './helpers/AntWrapper';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Mock wagmi
+vi.mock('wagmi', () => {
+  return {
+    createConfig: () => ({
+      state: {
+        chainId: 1,
+        chains: [],
+        transport: {},
+      },
+    }),
+    WagmiConfig: ({ children }: { children: React.ReactNode }) => children,
+    useAccount: () => ({
+      address: '0x1234567890123456789012345678901234567890',
+      isConnected: true,
+    }),
+    useNetwork: () => ({
+      chain: { id: 1, name: 'Mainnet' },
+    }),
+    useChainId: () => 1,
+    http: () => ({
+      request: vi.fn(),
+    }),
+  };
+});
+
+// Create a simple wrapper component
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <AntWrapper>{children}</AntWrapper>
+    </QueryClientProvider>
+  );
+};
 
 // Mock all required dependencies
 vi.mock('@tanstack/react-query', () => ({
@@ -73,21 +114,6 @@ vi.mock('@tanstack/react-query', () => ({
   QueryClientProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-vi.mock('wagmi', () => ({
-  useAccount: vi.fn(),
-  useChainId: vi.fn().mockReturnValue(1),
-  useSignTypedData: vi.fn(() => ({
-    signTypedData: vi.fn(),
-    isLoading: false,
-    error: null,
-  })),
-  createConfig: () => ({
-    chains: [],
-    transports: {},
-  }),
-  WagmiConfig: ({ children }: { children: React.ReactNode }) => children,
-}));
-
 vi.mock('../hooks/useCustomTokens', () => ({
   useCustomTokens: vi.fn(() => ({
     getCustomTokens: vi.fn(() => []),
@@ -110,40 +136,6 @@ vi.mock('../hooks/useCalibrator', () => ({
 
 describe('TradeForm', () => {
   beforeEach(() => {
-    // Mock useAccount to return an address
-    vi.mocked(useAccount).mockReturnValue({
-      address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-      addresses: ['0x1234567890123456789012345678901234567890'] as readonly [
-        `0x${string}`,
-        ...`0x${string}`[],
-      ],
-      chain: undefined,
-      chainId: 1,
-      connector: {
-        id: 'mock-connector',
-        name: 'Mock Connector',
-        type: 'mock',
-        icon: undefined,
-        rdns: 'mock.connector',
-        connect: vi.fn(),
-        disconnect: vi.fn(),
-        getAccounts: vi.fn(),
-        getAccount: vi.fn(),
-        getChainId: vi.fn(),
-        getProvider: vi.fn(),
-        getName: vi.fn(),
-        isAuthorized: vi.fn(),
-        onAccountsChanged: vi.fn(),
-        onChainChanged: vi.fn(),
-        onDisconnect: vi.fn(),
-      } as unknown as Connector,
-      isConnected: true,
-      isConnecting: false,
-      isDisconnected: false,
-      isReconnecting: false,
-      status: 'connected',
-    });
-
     // Create portal container for Ant Design dropdowns
     const portalRoot = document.createElement('div');
     portalRoot.setAttribute('id', 'ant-select-dropdown');
@@ -160,10 +152,12 @@ describe('TradeForm', () => {
   });
 
   it('should render the form', () => {
-    render(<TradeForm />, { wrapper: AntWrapper });
+    render(<TradeForm />, {
+      wrapper: createWrapper(),
+    });
 
     // Basic form elements should be present
-    expect(screen.getByText('Swap')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Swap' })).toBeInTheDocument();
     expect(screen.getByTestId('trade-form')).toBeInTheDocument();
     expect(screen.getByTestId('input-token-select')).toBeInTheDocument();
     expect(screen.getByTestId('output-token-select')).toBeInTheDocument();
