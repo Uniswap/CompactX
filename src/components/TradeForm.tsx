@@ -8,6 +8,7 @@ import { useCalibrator } from '../hooks/useCalibrator';
 import { useCompactSigner } from '../hooks/useCompactSigner';
 import { useBroadcast } from '../hooks/useBroadcast';
 import { GetQuoteParams } from '../types';
+import { CompactRequestPayload } from '../types/compact';
 
 // Supported chains for output token
 const SUPPORTED_CHAINS = [
@@ -159,14 +160,12 @@ export function TradeForm() {
       setStatusMessage('Broadcasting intent...');
 
       // Prepare the broadcast payload
-      const broadcastPayload = {
+      const broadcastPayload: CompactRequestPayload = {
         chainId: quote.data.mandate.chainId.toString(),
         compact: {
           ...compactMessage,
           nonce,
         },
-        sponsorSignature: userSignature,
-        allocatorSignature: smallocatorSignature
       };
 
       // Log the complete broadcast payload
@@ -179,9 +178,9 @@ export function TradeForm() {
 
       // Broadcast the final signed compact
       const broadcastResponse = await broadcast(
-        broadcastPayload.compact,
-        broadcastPayload.sponsorSignature,
-        broadcastPayload.allocatorSignature
+        broadcastPayload,
+        userSignature,
+        smallocatorSignature
       );
 
       if (!broadcastResponse.success) {
