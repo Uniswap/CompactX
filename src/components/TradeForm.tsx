@@ -35,6 +35,7 @@ export function TradeForm() {
   const [selectedOutputChain, setSelectedOutputChain] = useState<number | undefined>(undefined);
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
   const [isSigning, setIsSigning] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string>('');
   const { data: quote, isLoading, error } = useQuote(quoteParams);
   const [selectedInputToken, setSelectedInputToken] = useState<
     (typeof inputTokens)[0] | undefined
@@ -118,6 +119,7 @@ export function TradeForm() {
   const handleSwap = async () => {
     try {
       setIsSigning(true);
+      setStatusMessage('Requesting allocation...');
 
       // Ensure we have a quote
       if (!quote?.data || !quote.context) {
@@ -142,55 +144,54 @@ export function TradeForm() {
         mandate,
       };
 
-      // Submit to Smallocator to get their signature
-      const smallocatorResponse = await fetch(`${import.meta.env.VITE_SMALLOCATOR_URL}/compact`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-session-id': localStorage.getItem('sessionId') || '',
-        },
-        body: JSON.stringify({
-          chainId: quote.data.mandate.chainId.toString(),
-          compact: compactMessage,
-        }),
+      // Show allocation message before signing
+      setStatusMessage('Allocation received — sign to confirm...');
+
+      // Sign with user's wallet - this will handle getting smallocator signature first
+      const { userSignature, smallocatorSignature, nonce } = await signCompact({
+        chainId: quote.data.mandate.chainId.toString(),
+        compact: compactMessage,
       });
 
-      if (!smallocatorResponse.ok) {
-        throw new Error('Failed to get Smallocator signature');
-      }
+      // Show broadcasting message
+      setStatusMessage('Broadcasting intent...');
 
-      const { signature: smallocatorSignature, nonce } = await smallocatorResponse.json();
-
-      // Create a new message with the nonce from Smallocator
-      const messageWithNonce = {
-        ...compactMessage,
-        nonce,
+      // Prepare the broadcast payload
+      const broadcastPayload = {
+        chainId: quote.data.mandate.chainId.toString(),
+        compact: {
+          ...compactMessage,
+          nonce,
+        },
+        sponsorSignature: userSignature,
+        allocatorSignature: smallocatorSignature
       };
 
-      // Sign with user's wallet
-      const signature = await signCompact({
-        chainId: quote.data.mandate.chainId.toString(),
-        compact: messageWithNonce,
+      // Log the complete broadcast payload
+      console.log('Broadcasting payload:', {
+        compact: broadcastPayload.compact,
+        sponsorSignature: userSignature,
+        allocatorSignature: smallocatorSignature,
+        context: quote.context
       });
 
       // Broadcast the final signed compact
       const broadcastResponse = await broadcast(
-        {
-          chainId: quote.data.mandate.chainId.toString(),
-          compact: messageWithNonce,
-        },
-        signature.userSignature,
-        smallocatorSignature
+        broadcastPayload.compact,
+        broadcastPayload.sponsorSignature,
+        broadcastPayload.allocatorSignature
       );
 
       if (!broadcastResponse.success) {
         throw new Error('Failed to broadcast trade');
       }
 
-      // Reset form on success
+      // Reset form and status on success
       form.resetFields();
+      setStatusMessage('');
     } catch (error) {
       console.error('Error executing swap:', error);
+      setStatusMessage('');
     } finally {
       setIsSigning(false);
     }
@@ -342,6 +343,12 @@ export function TradeForm() {
           <div className="rounded-lg bg-red-100 p-4 text-red-700">
             <div className="font-bold">Error</div>
             <div>{error.message}</div>
+          </div>
+        )}
+
+        {statusMessage && (
+          <div className="mt-4 text-center text-blue-600">
+            {statusMessage}
           </div>
         )}
 

@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
-import { useSignTypedData } from 'wagmi';
+import { signTypedData } from '@wagmi/core';
 import { CompactRequestPayload } from '../types/compact';
-import { submitCompact } from '../api/smallocator';
+import { smallocator } from '../api/smallocator';
+import { config } from '../config/wallet';
+import { useChainId } from 'wagmi';
 
 export interface CompactSignature {
   userSignature: `0x${string}`;
@@ -12,19 +14,22 @@ export interface CompactSignature {
 const COMPACT_CONTRACT_ADDRESS = '0x00000000000018DF021Ff2467dF97ff846E09f48';
 
 export function useCompactSigner() {
-  const { signTypedData } = useSignTypedData();
+  const chainId = useChainId();
 
   return useMemo(
     () => ({
       signCompact: async (request: CompactRequestPayload): Promise<CompactSignature> => {
         // First, get the smallocator signature
-        const { signature: smallocatorSignature, nonce } = await submitCompact(request);
+        const { signature: smallocatorSignature, nonce } = await smallocator.submitCompact(request);
+        
+        // Log the smallocator response
+        console.log('Smallocator response:', { signature: smallocatorSignature, nonce });
 
         // Create the EIP-712 payload
         const domain = {
           name: 'The Compact',
           version: '1',
-          chainId: BigInt(request.chainId),
+          chainId: BigInt(chainId), // Use current chain ID instead of mandate chain ID
           verifyingContract: COMPACT_CONTRACT_ADDRESS as `0x${string}`,
         } as const;
 
@@ -34,9 +39,11 @@ export function useCompactSigner() {
           sponsor: request.compact.sponsor as `0x${string}`,
           nonce: BigInt(nonce),
           expires: BigInt(request.compact.expires),
-          id: request.compact.id as `0x${string}`,
+          id: BigInt(request.compact.id),
           amount: BigInt(request.compact.amount),
           mandate: {
+            chainId: BigInt(request.compact.mandate.chainId),
+            tribunal: request.compact.mandate.tribunal as `0x${string}`,
             recipient: request.compact.mandate.recipient as `0x${string}`,
             expires: BigInt(request.compact.mandate.expires),
             token: request.compact.mandate.token as `0x${string}`,
@@ -55,16 +62,18 @@ export function useCompactSigner() {
             { name: 'chainId', type: 'uint256' },
             { name: 'verifyingContract', type: 'address' },
           ],
-          CompactMessage: [
+          Compact: [
             { name: 'arbiter', type: 'address' },
             { name: 'sponsor', type: 'address' },
             { name: 'nonce', type: 'uint256' },
             { name: 'expires', type: 'uint256' },
-            { name: 'id', type: 'address' },
+            { name: 'id', type: 'uint256' },
             { name: 'amount', type: 'uint256' },
             { name: 'mandate', type: 'Mandate' },
           ],
           Mandate: [
+            { name: 'chainId', type: 'uint256' },
+            { name: 'tribunal', type: 'address' },
             { name: 'recipient', type: 'address' },
             { name: 'expires', type: 'uint256' },
             { name: 'token', type: 'address' },
@@ -76,20 +85,24 @@ export function useCompactSigner() {
         } as const;
 
         // Sign the message
-        const signature = (await signTypedData({
+        const userSignature = await signTypedData(config, {
           domain,
           message,
-          primaryType: 'CompactMessage',
+          primaryType: 'Compact',
           types,
-        })) as unknown as `0x${string}`;
+        });
+
+        if (!userSignature) {
+          throw new Error('Failed to get user signature');
+        }
 
         return {
-          userSignature: signature,
+          userSignature: userSignature as `0x${string}`,
           smallocatorSignature,
           nonce,
         };
       },
     }),
-    [signTypedData]
+    [chainId]
   );
 }
