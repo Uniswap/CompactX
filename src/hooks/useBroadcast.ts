@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BroadcastApiClient } from '../api/broadcast';
 import { CompactRequestPayload } from '../types/compact';
+import { BroadcastRequest, BroadcastContext } from '../types/broadcast';
 import { message } from 'antd';
 
 export function useBroadcast() {
@@ -11,17 +12,26 @@ export function useBroadcast() {
 
   const broadcast = async (
     payload: CompactRequestPayload,
-    userSignature: string,
-    smallocatorSignature: string
+    sponsorSignature: string,
+    allocatorSignature: string,
+    context: BroadcastContext
   ) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const finalPayload = {
-        compact: payload,
-        userSignature,
-        smallocatorSignature,
+      const finalPayload: BroadcastRequest['finalPayload'] = {
+        chainId: payload.chainId,
+        compact: {
+          ...payload.compact,
+          mandate: {
+            ...payload.compact.mandate,
+            chainId: Number(payload.chainId), // Ensure chainId is a number
+          }
+        },
+        sponsorSignature,
+        allocatorSignature,
+        context,
       };
 
       const result = await broadcastClient.broadcast({ finalPayload });

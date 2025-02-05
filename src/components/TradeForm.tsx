@@ -170,17 +170,35 @@ export function TradeForm() {
 
       // Log the complete broadcast payload
       console.log('Broadcasting payload:', {
-        compact: broadcastPayload.compact,
+        chainId: broadcastPayload.chainId,
+        compact: {
+          ...broadcastPayload.compact,
+          mandate: {
+            ...broadcastPayload.compact.mandate,
+            chainId: Number(broadcastPayload.chainId),
+          }
+        },
         sponsorSignature: userSignature,
         allocatorSignature: smallocatorSignature,
-        context: quote.context
+        context: {
+          ...quote.context,
+          // Add witness information
+          witnessTypeString: "Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)",
+          witnessHash: "0x..." // TODO: Calculate the actual witness hash
+        }
       });
 
       // Broadcast the final signed compact
       const broadcastResponse = await broadcast(
         broadcastPayload,
         userSignature,
-        smallocatorSignature
+        smallocatorSignature,
+        {
+          ...quote.context,
+          // Add witness information
+          witnessTypeString: "Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)",
+          witnessHash: "0x..." // TODO: Calculate the actual witness hash
+        }
       );
 
       if (!broadcastResponse.success) {
