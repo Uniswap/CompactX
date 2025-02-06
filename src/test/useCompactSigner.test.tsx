@@ -89,7 +89,21 @@ describe('useCompactSigner', () => {
 
     const signature = await result.current.signCompact(mockCompact);
 
-    expect(smallocatorModule.smallocator.submitCompact).toHaveBeenCalledWith(mockCompact);
+    // The hook now transforms the request to include witnessHash and witnessTypeString
+    expect(smallocatorModule.smallocator.submitCompact).toHaveBeenCalledWith({
+      chainId: mockCompact.chainId,
+      compact: {
+        arbiter: mockCompact.compact.arbiter,
+        sponsor: mockCompact.compact.sponsor,
+        nonce: mockCompact.compact.nonce,
+        expires: mockCompact.compact.expires,
+        id: mockCompact.compact.id,
+        amount: mockCompact.compact.amount,
+        witnessHash: expect.any(String), // Dynamic hash based on mandate
+        witnessTypeString:
+          'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+      },
+    });
     expect(signature).toEqual({
       userSignature: '0xUserSignature',
       smallocatorSignature: '0xSmallSignature',
