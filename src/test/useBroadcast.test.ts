@@ -86,7 +86,7 @@ describe('useBroadcast', () => {
           mandate: {
             ...mockPayload.compact.mandate,
             chainId: Number(mockPayload.chainId),
-            tribunal: '0x0000000000000000000000000000000000000000',
+            tribunal: mockPayload.compact.mandate.tribunal,
           },
         },
         sponsorSignature: mockUserSignature,

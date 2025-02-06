@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { broadcast } from '../api/broadcast';
 import { CompactRequestPayload } from '../types/compact';
-import { BroadcastRequest, BroadcastContext } from '../types/broadcast';
+import { BroadcastRequest, BroadcastContext, BroadcastMandate } from '../types/broadcast';
 import { message } from 'antd';
 
 export function useBroadcast() {
@@ -25,8 +25,8 @@ export function useBroadcast() {
           mandate: {
             ...payload.compact.mandate,
             chainId: Number(payload.chainId),
-            tribunal: '0x0000000000000000000000000000000000000000', // TODO: Get actual tribunal address
-          },
+            tribunal: (payload.compact.mandate as { tribunal?: string }).tribunal,
+          } as BroadcastMandate,
         },
         sponsorSignature,
         allocatorSignature,
