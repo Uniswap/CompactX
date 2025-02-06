@@ -4,6 +4,11 @@ import { CompactRequestPayload } from '../types/compact';
 import { smallocator } from '../api/smallocator';
 import { config } from '../config/wallet';
 import { useChainId } from 'wagmi';
+import { encodePacked, keccak256 } from 'viem';
+
+const WITNESS_TYPE_STRING = 'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
+
+const COMPACT_CONTRACT_ADDRESS = '0x00000000000018DF021Ff2467dF97ff846E09f48';
 
 export interface CompactSignature {
   userSignature: `0x${string}`;
@@ -11,16 +16,80 @@ export interface CompactSignature {
   nonce: string;
 }
 
-const COMPACT_CONTRACT_ADDRESS = '0x00000000000018DF021Ff2467dF97ff846E09f48';
-
 export function useCompactSigner() {
   const chainId = useChainId();
+
+  const deriveMandateHash = (mandate: {
+    chainId: number | string;
+    tribunal: string;
+    recipient: string;
+    expires: string;
+    token: string;
+    minimumAmount: string;
+    baselinePriorityFee: string;
+    scalingFactor: string;
+    salt: string;
+  }): `0x${string}` => {
+    const encodedParameters = encodePacked(
+      ['uint256', 'address', 'address', 'uint256', 'address', 'uint256', 'uint256', 'uint256', 'bytes32'],
+      [
+        BigInt(mandate.chainId),
+        mandate.tribunal as `0x${string}`,
+        mandate.recipient as `0x${string}`,
+        BigInt(parseInt(mandate.expires)),
+        mandate.token as `0x${string}`,
+        BigInt(mandate.minimumAmount),
+        BigInt(mandate.baselinePriorityFee),
+        BigInt(mandate.scalingFactor),
+        mandate.salt as `0x${string}`,
+      ]
+    );
+
+    return keccak256(encodedParameters);
+  };
 
   return useMemo(
     () => ({
       signCompact: async (request: CompactRequestPayload): Promise<CompactSignature> => {
+        // Derive the witness hash from the mandate
+        const witnessHash = deriveMandateHash({
+          chainId: request.chainId,
+          tribunal: request.compact.mandate.tribunal,
+          recipient: request.compact.mandate.recipient,
+          expires: request.compact.mandate.expires,
+          token: request.compact.mandate.token,
+          minimumAmount: request.compact.mandate.minimumAmount,
+          baselinePriorityFee: request.compact.mandate.baselinePriorityFee,
+          scalingFactor: request.compact.mandate.scalingFactor,
+          salt: request.compact.mandate.salt,
+        });
+        
+        // Prepare the compact submission for Smallocator - only with witness information
+        const smallocatorRequest = {
+          chainId: request.chainId,
+          compact: {
+            arbiter: request.compact.arbiter,
+            sponsor: request.compact.sponsor,
+            nonce: request.compact.nonce,
+            expires: request.compact.expires,
+            id: request.compact.id,
+            amount: request.compact.amount,
+            mandate: {
+              recipient: request.compact.mandate.recipient,
+              expires: request.compact.mandate.expires,
+              token: request.compact.mandate.token,
+              minimumAmount: request.compact.mandate.minimumAmount,
+              baselinePriorityFee: request.compact.mandate.baselinePriorityFee,
+              scalingFactor: request.compact.mandate.scalingFactor,
+              salt: request.compact.mandate.salt,
+            },
+            witnessHash,
+            witnessTypeString: WITNESS_TYPE_STRING,
+          },
+        };
+        
         // First, get the smallocator signature
-        const { signature: smallocatorSignature, nonce } = await smallocator.submitCompact(request);
+        const { signature: smallocatorSignature, nonce } = await smallocator.submitCompact(smallocatorRequest);
         
         // Log the smallocator response
         console.log('Smallocator response:', { signature: smallocatorSignature, nonce });
@@ -52,7 +121,7 @@ export function useCompactSigner() {
           },
         } as const;
 
-        // Define the EIP-712 types
+        // Define the EIP-712 types (unchanged)
         const types = {
           EIP712Domain: [
             { name: 'name', type: 'string' },

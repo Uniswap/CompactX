@@ -44,19 +44,17 @@ const mockUserSignature = ('0x' + '00'.repeat(65)) as `0x${string}`;
 const mockSmallocatorSignature = ('0x' + '00'.repeat(65)) as `0x${string}`;
 
 const mockContext = {
-  dispensation: '1000000000',
-  dispensationUSD: '1.00',
-  spotOutputAmount: '1000000000000000000',
-  quoteOutputAmountDirect: '990000000000000000',
-  quoteOutputAmountNet: '980000000000000000',
-  allocatorId: '1',
+  dispensation: "1000000000",
+  dispensationUSD: "1.00",
+  spotOutputAmount: "1000000000000000000",
+  quoteOutputAmountDirect: "990000000000000000",
+  quoteOutputAmountNet: "980000000000000000",
+  allocatorId: "1",
   resetPeriod: 0,
   isMultichain: true,
   slippageBips: 100,
-  witnessTypeString:
-    'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
-  witnessHash: '0x1234567890123456789012345678901234567890123456789012345678901234',
-  tribunal: '0x1234567890123456789012345678901234567890',
+  witnessTypeString: "Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)",
+  witnessHash: "0x1234567890123456789012345678901234567890123456789012345678901234"
 };
 
 describe('useBroadcast', () => {
@@ -70,12 +68,7 @@ describe('useBroadcast', () => {
     const { result } = renderHook(() => useBroadcast());
 
     await act(async () => {
-      const response = await result.current.broadcast(
-        mockPayload,
-        mockUserSignature,
-        mockSmallocatorSignature,
-        mockContext
-      );
+      const response = await result.current.broadcast(mockPayload, mockUserSignature, mockSmallocatorSignature, mockContext);
       expect(response).toEqual({ success: true });
     });
 
@@ -87,17 +80,13 @@ describe('useBroadcast', () => {
           mandate: {
             ...mockPayload.compact.mandate,
             chainId: Number(mockPayload.chainId),
-            tribunal: mockPayload.compact.mandate.tribunal,
-          },
+            tribunal: "0x0000000000000000000000000000000000000000",
+          }
         },
         sponsorSignature: mockUserSignature,
         allocatorSignature: mockSmallocatorSignature,
-        context: {
-          ...mockContext,
-          witnessHash: expect.any(String),
-          witnessTypeString: 'mandate',
-        },
-      },
+        context: mockContext,
+      }
     });
 
     expect(result.current.error).toBeNull();
@@ -110,18 +99,8 @@ describe('useBroadcast', () => {
 
     const { result } = renderHook(() => useBroadcast());
 
-    await act(async () => {
-      try {
-        await result.current.broadcast(
-          mockPayload,
-          mockUserSignature,
-          mockSmallocatorSignature,
-          mockContext
-        );
-      } catch (e) {
-        expect(e).toBe(error);
-      }
-    });
+    await expect(result.current.broadcast(mockPayload, mockUserSignature, mockSmallocatorSignature, mockContext))
+      .rejects.toThrow('Network error');
 
     expect(result.current.error).toBe(error);
     expect(message.error).toHaveBeenCalledWith('Network error');
@@ -132,22 +111,8 @@ describe('useBroadcast', () => {
 
     const { result } = renderHook(() => useBroadcast());
 
-    await act(async () => {
-      try {
-        await result.current.broadcast(
-          mockPayload,
-          mockUserSignature,
-          mockSmallocatorSignature,
-          mockContext
-        );
-      } catch (e) {
-        if (e instanceof Error) {
-          expect(e.message).toBe('Failed to broadcast transaction');
-        } else {
-          throw new Error('Expected error to be instance of Error');
-        }
-      }
-    });
+    await expect(result.current.broadcast(mockPayload, mockUserSignature, mockSmallocatorSignature, mockContext))
+      .rejects.toThrow('Failed to broadcast transaction');
 
     expect(message.error).toHaveBeenCalledWith('Failed to broadcast transaction');
   });
@@ -157,22 +122,8 @@ describe('useBroadcast', () => {
 
     const { result } = renderHook(() => useBroadcast());
 
-    await act(async () => {
-      try {
-        await result.current.broadcast(
-          mockPayload,
-          mockUserSignature,
-          mockSmallocatorSignature,
-          mockContext
-        );
-      } catch (e) {
-        if (e instanceof Error) {
-          expect(e.message).toBe('Failed to broadcast');
-        } else {
-          throw new Error('Expected error to be instance of Error');
-        }
-      }
-    });
+    await expect(result.current.broadcast(mockPayload, mockUserSignature, mockSmallocatorSignature, mockContext))
+      .rejects.toThrow('Failed to broadcast');
 
     expect(message.error).toHaveBeenCalledWith('Failed to broadcast');
   });

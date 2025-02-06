@@ -168,52 +168,19 @@ export function TradeForm() {
         },
       };
 
-      // Construct the broadcast context
-      const broadcastContext = {
-        // Quote-related information
-        dispensation: '0', // TODO: Get from quote
-        dispensationUSD: quote.context.dispensationUSD,
-        spotOutputAmount: '0', // TODO: Get from quote
-        quoteOutputAmountDirect: '0', // TODO: Get from quote
-        quoteOutputAmountNet: quote.context.quoteOutputAmountNet,
-
-        // Lock parameters
-        allocatorId: '0', // TODO: Get from allocator
-        resetPeriod: 0, // TODO: Get from quote
-        isMultichain: true, // TODO: Determine from quote
-
-        // Slippage information
-        slippageBips: Number(form.getFieldValue('slippageTolerance')),
-
-        // Witness information
-        witnessTypeString:
-          'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
-        witnessHash: '0x0000000000000000000000000000000000000000000000000000000000000000', // TODO: Calculate actual hash
-        tribunal: '0x0000000000000000000000000000000000000000', // TODO: Get actual tribunal address
-      };
-
       // Log the complete broadcast payload
       console.log('Broadcasting payload:', {
-        chainId: broadcastPayload.chainId,
-        compact: {
-          ...broadcastPayload.compact,
-          mandate: {
-            ...broadcastPayload.compact.mandate,
-            chainId: Number(broadcastPayload.chainId),
-            tribunal: '0x0000000000000000000000000000000000000000', // TODO: Get actual tribunal address
-          },
-        },
+        compact: broadcastPayload.compact,
         sponsorSignature: userSignature,
         allocatorSignature: smallocatorSignature,
-        context: broadcastContext,
+        context: quote.context
       });
 
       // Broadcast the final signed compact
       const broadcastResponse = await broadcast(
         broadcastPayload,
         userSignature,
-        smallocatorSignature,
-        broadcastContext
+        smallocatorSignature
       );
 
       if (!broadcastResponse.success) {
@@ -380,7 +347,11 @@ export function TradeForm() {
           </div>
         )}
 
-        {statusMessage && <div className="mt-4 text-center text-blue-600">{statusMessage}</div>}
+        {statusMessage && (
+          <div className="mt-4 text-center text-blue-600">
+            {statusMessage}
+          </div>
+        )}
 
         <Form.Item>
           <Button
@@ -393,10 +364,10 @@ export function TradeForm() {
             {!isConnected
               ? 'Connect Wallet'
               : isSigning
-                ? 'Signing...'
-                : error
-                  ? 'Try Again'
-                  : 'Swap'}
+              ? 'Signing...'
+              : error
+              ? 'Try Again'
+              : 'Swap'}
           </Button>
         </Form.Item>
       </Form>

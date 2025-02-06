@@ -9,29 +9,15 @@ export function useBroadcast() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const deriveMandateHash = (
-    mandate: BroadcastMandate,
-    chainId: number,
-    tribunalAddress: string
-  ): `0x${string}` => {
+  const deriveMandateHash = (mandate: BroadcastMandate, chainId: number, tribunalAddress: string): `0x${string}` => {
     const encodedParameters = encodePacked(
-      [
-        'uint256',
-        'address',
-        'address',
-        'uint256',
-        'address',
-        'uint256',
-        'uint256',
-        'uint256',
-        'bytes32',
-      ],
+      ['uint256', 'address', 'address', 'uint256', 'address', 'uint256', 'uint256', 'uint256', 'bytes32'],
       [
         BigInt(chainId),
-        tribunalAddress as `0x${string}`,
-        mandate.recipient as `0x${string}`,
+        tribunalAddress,
+        mandate.recipient,
         BigInt(parseInt(mandate.expires)),
-        mandate.token as `0x${string}`,
+        mandate.token,
         BigInt(mandate.minimumAmount),
         BigInt(mandate.baselinePriorityFee),
         BigInt(mandate.scalingFactor),
@@ -59,8 +45,8 @@ export function useBroadcast() {
       };
 
       const witnessHash = deriveMandateHash(
-        mandateWithTribunal,
-        Number(payload.chainId),
+        mandateWithTribunal, 
+        Number(payload.chainId), 
         mandateWithTribunal.tribunal
       );
 

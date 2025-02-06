@@ -1,4 +1,12 @@
-import { BroadcastRequest } from '../types/broadcast';
+import { CompactRequest } from './smallocator';
+
+export interface BroadcastRequest {
+  finalPayload: {
+    compact: CompactRequest;
+    userSignature: string;
+    smallocatorSignature: string;
+  };
+}
 
 export class BroadcastApiClient {
   private baseUrl: string;
@@ -12,19 +20,24 @@ export class BroadcastApiClient {
   }
 
   async broadcast(request: BroadcastRequest): Promise<{ success: boolean }> {
-    const response = await fetch(`${this.baseUrl}/broadcast`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+    try {
+      const response = await fetch(`${this.baseUrl}/broadcast`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Broadcast failed: ${response.statusText}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to broadcast message');
+      }
+
+      return response.json();
+    } catch {
+      throw new Error('Failed to broadcast message');
     }
-
-    return await response.json();
   }
 }
 
