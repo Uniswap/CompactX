@@ -25,7 +25,7 @@ export function useBroadcast() {
           mandate: {
             ...payload.compact.mandate,
             chainId: Number(payload.chainId),
-            tribunal: (payload.compact.mandate as { tribunal?: string }).tribunal,
+            tribunal: (payload.compact.mandate as unknown as { tribunal: string }).tribunal,
           } as BroadcastMandate,
         },
         sponsorSignature,
