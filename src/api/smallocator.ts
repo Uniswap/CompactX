@@ -43,7 +43,8 @@ export interface CompactMessage {
   expires: string;
   id: string;
   amount: string;
-  mandate: Mandate;
+  witnessHash: string;
+  witnessTypeString: string;
 }
 
 export interface CompactRequest {
@@ -81,13 +82,15 @@ export const isCompactResponse = (data: unknown): data is CompactResponse => {
 };
 
 // Type guard for CompactRequest
-export const isCompactRequest = (data: unknown): data is CompactRequest => {
+export function isCompactRequest(data: unknown): data is CompactRequest {
   if (!data || typeof data !== 'object') return false;
+  
   const request = data as CompactRequest;
-
-  if (typeof request.chainId !== 'string' || !request.compact) return false;
+  if (typeof request.chainId !== 'string') return false;
 
   const compact = request.compact;
+  if (!compact) return false;
+
   return (
     typeof compact.arbiter === 'string' &&
     typeof compact.sponsor === 'string' &&
@@ -95,13 +98,8 @@ export const isCompactRequest = (data: unknown): data is CompactRequest => {
     typeof compact.expires === 'string' &&
     typeof compact.id === 'string' &&
     typeof compact.amount === 'string' &&
-    typeof compact.mandate.recipient === 'string' &&
-    typeof compact.mandate.expires === 'string' &&
-    typeof compact.mandate.token === 'string' &&
-    typeof compact.mandate.minimumAmount === 'string' &&
-    typeof compact.mandate.baselinePriorityFee === 'string' &&
-    typeof compact.mandate.scalingFactor === 'string' &&
-    typeof compact.mandate.salt === 'string'
+    typeof compact.witnessHash === 'string' &&
+    typeof compact.witnessTypeString === 'string'
   );
 };
 

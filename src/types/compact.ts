@@ -18,8 +18,6 @@ export interface Mandate {
   baselinePriorityFee: string;
   scalingFactor: string;
   salt: Hex;
-  witnessHash?: Hex;
-  witnessTypeString?: string;
 }
 
 export interface SignedCompact extends CompactMessage {
