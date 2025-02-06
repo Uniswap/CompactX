@@ -9,6 +9,7 @@ import { useCompactSigner } from '../hooks/useCompactSigner';
 import { useBroadcast } from '../hooks/useBroadcast';
 import { GetQuoteParams } from '../types';
 import { CompactRequestPayload } from '../types/compact';
+import { BroadcastContext } from '../types/broadcast';
 
 // Supported chains for output token
 const SUPPORTED_CHAINS = [
@@ -168,19 +169,26 @@ export function TradeForm() {
         },
       };
 
+      // Prepare the full broadcast context
+      const broadcastContext: BroadcastContext = {
+        ...quote.context,
+        witnessHash: quote.context.witnessHash, // Use the actual witnessHash
+        witnessTypeString: 'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+      };
+
       // Log the complete broadcast payload
       console.log('Broadcasting payload:', {
         compact: broadcastPayload.compact,
         sponsorSignature: userSignature,
         allocatorSignature: smallocatorSignature,
-        context: quote.context
+        context: broadcastContext
       });
 
-      // Broadcast the final signed compact
       const broadcastResponse = await broadcast(
         broadcastPayload,
         userSignature,
-        smallocatorSignature
+        smallocatorSignature,
+        broadcastContext
       );
 
       if (!broadcastResponse.success) {

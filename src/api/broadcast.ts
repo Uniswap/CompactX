@@ -1,13 +1,4 @@
-import { CompactRequest } from './smallocator';
-
-export interface BroadcastRequest {
-  finalPayload: {
-    compact: CompactRequest;
-    userSignature: string;
-    smallocatorSignature: string;
-    context?: Record<string, string>;
-  };
-}
+import { BroadcastRequest } from '../types/broadcast';
 
 export class BroadcastApiClient {
   private baseUrl: string;

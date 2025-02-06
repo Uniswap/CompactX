@@ -17,8 +17,8 @@ export interface BroadcastContext {
   quoteOutputAmountDirect?: string;
   quoteOutputAmountNet?: string;
   deltaAmount?: string;
-  witnessHash?: string;
-  witnessTypeString?: string;
+  witnessHash: string;
+  witnessTypeString: string;
 }
 
 export interface BroadcastRequest {
@@ -35,6 +35,6 @@ export interface BroadcastRequest {
     };
     sponsorSignature: string;
     allocatorSignature: string;
-    context?: BroadcastContext;
+    context: BroadcastContext;
   };
 }

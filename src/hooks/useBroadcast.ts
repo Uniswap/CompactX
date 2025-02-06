@@ -55,7 +55,12 @@ export function useBroadcast() {
         sponsorSignature,
         allocatorSignature,
         context: {
-          ...context,
+          dispensation: context.dispensation,
+          dispensationUSD: context.dispensationUSD,
+          spotOutputAmount: context.spotOutputAmount,
+          quoteOutputAmountDirect: context.quoteOutputAmountDirect,
+          quoteOutputAmountNet: context.quoteOutputAmountNet,
+          deltaAmount: context.deltaAmount,
           witnessHash,
           witnessTypeString: 'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
         },
