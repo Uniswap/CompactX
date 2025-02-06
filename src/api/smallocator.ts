@@ -26,16 +26,6 @@ export interface SessionResponse {
   session: SessionPayload;
 }
 
-export interface Mandate {
-  recipient: string;
-  expires: string;
-  token: string;
-  minimumAmount: string;
-  baselinePriorityFee: string;
-  scalingFactor: string;
-  salt: `0x${string}`;
-}
-
 export interface CompactMessage {
   arbiter: string;
   sponsor: string;

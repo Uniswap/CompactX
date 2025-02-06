@@ -4,7 +4,7 @@ import { CompactRequestPayload } from '../types/compact';
 import { smallocator } from '../api/smallocator';
 import { config } from '../config/wallet';
 import { useChainId } from 'wagmi';
-import { encodePacked, keccak256 } from 'viem';
+import { encodeAbiParameters, toBytes, keccak256 } from 'viem';
 
 const WITNESS_TYPE_STRING = 'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
 
@@ -30,9 +30,26 @@ export function useCompactSigner() {
     scalingFactor: string;
     salt: string;
   }): `0x${string}` => {
-    const encodedParameters = encodePacked(
-      ['uint256', 'address', 'address', 'uint256', 'address', 'uint256', 'uint256', 'uint256', 'bytes32'],
+    // Calculate MANDATE_TYPEHASH to match Solidity's EIP-712 typed data
+    const MANDATE_TYPE_STRING =
+      'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)'
+    const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING))
+
+    const encodedData = encodeAbiParameters(
       [
+        { type: 'bytes32' }, // MANDATE_TYPEHASH
+        { type: 'uint256' }, // block.chainid
+        { type: 'address' }, // address(this)
+        { type: 'address' }, // mandate.recipient
+        { type: 'uint256' }, // mandate.expires
+        { type: 'address' }, // mandate.token
+        { type: 'uint256' }, // mandate.minimumAmount
+        { type: 'uint256' }, // mandate.baselinePriorityFee
+        { type: 'uint256' }, // mandate.scalingFactor
+        { type: 'bytes32' }, // mandate.salt
+      ],
+      [
+        MANDATE_TYPEHASH,
         BigInt(mandate.chainId),
         mandate.tribunal as `0x${string}`,
         mandate.recipient as `0x${string}`,
@@ -45,7 +62,7 @@ export function useCompactSigner() {
       ]
     );
 
-    return keccak256(encodedParameters);
+    return keccak256(encodedData);
   };
 
   return useMemo(

@@ -8,13 +8,11 @@ The broadcast server receives a payload with the following structure:
 
 ```typescript
 interface BroadcastRequest {
-  finalPayload: {
-    chainId: string;
-    compact: CompactMessage;
-    sponsorSignature: string;
-    allocatorSignature: string;
-    context: Context;                // Additional swap context
-  }
+  chainId: string;
+  compact: CompactMessage;
+  sponsorSignature: string;
+  allocatorSignature: string;
+  context: Context;                // Additional swap context
 }
 
 interface CompactMessage {
@@ -118,8 +116,7 @@ To implement a server that receives this payload:
 Example endpoint structure:
 ```typescript
 app.post('/broadcast', async (req, res) => {
-  const { finalPayload } = req.body;
-  const { compact, userSignature, smallocatorSignature, context } = finalPayload;
+  const { compact, sponsorSignature, allocatorSignature, context } = req.body;
   
   // Validate signatures and process swap
   // ...

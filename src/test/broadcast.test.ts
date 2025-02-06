@@ -10,7 +10,6 @@ describe('BroadcastApiClient', () => {
   });
 
   const mockRequest = {
-    finalPayload: {
       compact: {
         chainId: '1',
         compact: {
@@ -27,13 +26,21 @@ describe('BroadcastApiClient', () => {
             minimumAmount: '1000000000000000000',
             baselinePriorityFee: '1000000000',
             scalingFactor: '1000000000000000000',
-            salt: ('0x' + '00'.repeat(32)) as `0x${string}`,
+            salt: ('0x' + '01'.repeat(32)) as `0x${string}`,
           },
         },
       },
-      userSignature: ('0x' + '00'.repeat(65)) as `0x${string}`,
-      smallocatorSignature: ('0x' + '00'.repeat(65)) as `0x${string}`,
-    },
+      sponsorSignature: ('0x' + '00'.repeat(65)) as `0x${string}`,
+      allocatorSignature: ('0x' + '00'.repeat(65)) as `0x${string}`,
+      context: {
+        slippageBips: 100,
+        recipient: '0x1234567890123456789012345678901234567890',
+        baselinePriorityFee: '0',
+        scalingFactor: '1000000000100000000',
+        expires: '1732520000',
+        witnessTypeString: 'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+        witnessHash: '0x' + '02'.repeat(32),
+      }
   };
 
   it('should broadcast message successfully', async () => {

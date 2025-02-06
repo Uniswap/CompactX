@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import { broadcast } from '../api/broadcast';
 import { CompactRequestPayload } from '../types/compact';
-import { BroadcastRequest, BroadcastContext, BroadcastMandate } from '../types/broadcast';
+import { BroadcastRequest, BroadcastContext, Mandate } from '../types/broadcast';
 import { message } from 'antd';
-import { keccak256, encodePacked } from 'viem';
+import { keccak256, encodeAbiParameters, toBytes } from 'viem';
 
 export function useBroadcast() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const deriveMandateHash = (mandate: BroadcastMandate): `0x${string}` => {
-    const encodedParameters = encodePacked(
-      ['uint256', 'address', 'address', 'uint256', 'address', 'uint256', 'uint256', 'uint256', 'bytes32'],
+  const deriveMandateHash = (mandate: Mandate): `0x${string}` => {
+    const MANDATE_TYPE_STRING =
+      'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)'
+    const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING))
+    const encodedParameters = encodeAbiParameters(
+      ['bytes32', 'uint256', 'address', 'address', 'uint256', 'address', 'uint256', 'uint256', 'uint256', 'bytes32'].map(type => ({type})),
       [
+        MANDATE_TYPEHASH,
         BigInt(mandate.chainId),
         mandate.tribunal as `0x${string}`,
         mandate.recipient as `0x${string}`,
@@ -38,7 +42,7 @@ export function useBroadcast() {
     setError(null);
 
     try {
-      const mandateWithTribunal: BroadcastMandate = {
+      const mandateWithTribunal: Mandate = {
         ...payload.compact.mandate,
         chainId: Number(payload.chainId),
         tribunal: (payload.compact.mandate as unknown as { tribunal: string }).tribunal,
@@ -46,7 +50,7 @@ export function useBroadcast() {
 
       const witnessHash = deriveMandateHash(mandateWithTribunal);
 
-      const finalPayload: BroadcastRequest['finalPayload'] = {
+      const finalPayload: BroadcastRequest = {
         chainId: payload.chainId,
         compact: {
           ...payload.compact,
@@ -66,7 +70,7 @@ export function useBroadcast() {
         },
       };
 
-      const result = await broadcast.broadcast({ finalPayload });
+      const result = await broadcast.broadcast(finalPayload);
 
       if (result.success) {
         message.success('Transaction broadcast successfully');

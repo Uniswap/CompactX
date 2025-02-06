@@ -1,4 +1,4 @@
-export interface BroadcastMandate {
+export interface Mandate {
   chainId: number;
   tribunal: string;
   recipient: string;
@@ -7,7 +7,7 @@ export interface BroadcastMandate {
   minimumAmount: string;
   baselinePriorityFee: string;
   scalingFactor: string;
-  salt: string;
+  salt: `0x${string}`;
 }
 
 export interface BroadcastContext {
@@ -22,19 +22,17 @@ export interface BroadcastContext {
 }
 
 export interface BroadcastRequest {
-  finalPayload: {
-    chainId: string;
-    compact: {
-      arbiter: string;
-      sponsor: string;
-      nonce: string | null;
-      expires: string;
-      id: string;
-      amount: string;
-      mandate: BroadcastMandate;
-    };
-    sponsorSignature: string;
-    allocatorSignature: string;
-    context: BroadcastContext;
+  chainId: string;
+  compact: {
+    arbiter: string;
+    sponsor: string;
+    nonce: string | null;
+    expires: string;
+    id: string;
+    amount: string;
+    mandate: Mandate;
   };
+  sponsorSignature: string;
+  allocatorSignature: string;
+  context: BroadcastContext;
 }

@@ -244,11 +244,10 @@ import { broadcast } from '../api/broadcast';
 
 // Broadcast final payload
 const broadcastResponse = await broadcast.broadcast({
-  finalPayload: {
-    compact: compactMessage,
-    userSignature,
-    smallocatorSignature,
-  },
+  compact: compactMessage,
+  sponsorSignature,
+  allocatorSignature,
+  context,
 });
 ```
 
