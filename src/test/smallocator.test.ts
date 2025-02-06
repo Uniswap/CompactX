@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
-import { SmallocatorClient } from '../api/smallocator';
+import { SmallocatorClient, CompactRequest } from '../api/smallocator';
 
 // Mock environment variables
 vi.stubEnv('VITE_SMALLOCATOR_URL', 'https://smallocator.xyz');
@@ -13,7 +13,7 @@ describe('SmallocatorClient', () => {
     vi.clearAllMocks();
   });
 
-  const mockCompactRequest = {
+  const mockCompactRequest: CompactRequest = {
     chainId: '1',
     compact: {
       arbiter: '0x1234567890123456789012345678901234567890',
@@ -22,16 +22,9 @@ describe('SmallocatorClient', () => {
       expires: '1732520000',
       id: '0x3234567890123456789012345678901234567890',
       amount: '1000000000000000000',
-      mandate: {
-        recipient: '0x4234567890123456789012345678901234567890',
-        expires: '1732520000',
-        token: '0x5234567890123456789012345678901234567890',
-        minimumAmount: '1000000000000000000',
-        baselinePriorityFee: '1000000000',
-        scalingFactor: '1000000000000000000',
-        salt: ('0x' + '00'.repeat(32)) as `0x${string}`,
-      },
-    },
+      witnessHash: ('0x' + '02'.repeat(32)) as `0x${string}`,
+      witnessTypeString: 'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)'
+    }
   };
 
   it('should get session payload', async () => {

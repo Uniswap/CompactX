@@ -10,24 +10,24 @@ describe('BroadcastApiClient', () => {
   });
 
   const mockRequest = {
+      chainId: '1',
       compact: {
-        chainId: '1',
-        compact: {
-          arbiter: '0x1234567890123456789012345678901234567890',
-          sponsor: '0x2234567890123456789012345678901234567890',
-          nonce: null,
+        arbiter: '0x1234567890123456789012345678901234567890',
+        sponsor: '0x2234567890123456789012345678901234567890',
+        nonce: null,
+        expires: '1732520000',
+        id: '0x3234567890123456789012345678901234567890',
+        amount: '1000000000000000000',
+        mandate: {
+          chainId: 10,
+          tribunal: '0x6234567890123456789012345678901234567890',
+          recipient: '0x4234567890123456789012345678901234567890',
           expires: '1732520000',
-          id: '0x3234567890123456789012345678901234567890',
-          amount: '1000000000000000000',
-          mandate: {
-            recipient: '0x4234567890123456789012345678901234567890',
-            expires: '1732520000',
-            token: '0x5234567890123456789012345678901234567890',
-            minimumAmount: '1000000000000000000',
-            baselinePriorityFee: '1000000000',
-            scalingFactor: '1000000000000000000',
-            salt: ('0x' + '01'.repeat(32)) as `0x${string}`,
-          },
+          token: '0x5234567890123456789012345678901234567890',
+          minimumAmount: '1000000000000000000',
+          baselinePriorityFee: '1000000000',
+          scalingFactor: '1000000000000000000',
+          salt: ('0x' + '01'.repeat(32)) as `0x${string}`,
         },
       },
       sponsorSignature: ('0x' + '00'.repeat(65)) as `0x${string}`,

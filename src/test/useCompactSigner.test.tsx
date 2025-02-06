@@ -65,8 +65,9 @@ describe('useCompactSigner', () => {
     const wrapper = createWrapper();
     const { result } = renderHook(() => useCompactSigner(), { wrapper });
 
-    const mockCompact: CompactRequestPayload = {
+    const mockCompact: CompactRequestPayload & { tribunal: string } = {
       chainId: '1',
+      tribunal: '0x6234567890123456789012345678901234567890',
       compact: {
         arbiter: '0x1234567890123456789012345678901234567890',
         sponsor: '0x2234567890123456789012345678901234567890',
@@ -105,8 +106,9 @@ describe('useCompactSigner', () => {
       new Error('Smallocator error')
     );
 
-    const mockCompact: CompactRequestPayload = {
+    const mockCompact: CompactRequestPayload & { tribunal: string } = {
       chainId: '1',
+      tribunal: '0x6234567890123456789012345678901234567890',
       compact: {
         arbiter: '0x1234567890123456789012345678901234567890',
         sponsor: '0x2234567890123456789012345678901234567890',

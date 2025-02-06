@@ -45,23 +45,30 @@ export interface CalibratorQuoteResponse {
   data: {
     arbiter: string;
     sponsor: string;
+    nonce: string | null;
     expires: string;
     id: string;
     amount: string;
     mandate: {
-      salt: string;
       chainId: number;
-      minimumAmount: string;
+      tribunal: string;
       recipient: string;
       expires: string;
       token: string;
+      minimumAmount: string;
       baselinePriorityFee: string;
       scalingFactor: string;
+      salt: string;
     };
   };
   context: {
-    quoteOutputAmountNet: string;
+    dispensation: string;
     dispensationUSD: string;
+    spotOutputAmount: string;
+    quoteOutputAmountDirect: string;
+    quoteOutputAmountNet: string;
+    deltaAmount: string;
+    witnessHash: string;
   };
 }
 

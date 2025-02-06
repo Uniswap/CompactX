@@ -154,6 +154,7 @@ export function TradeForm() {
       // Sign with user's wallet - this will handle getting smallocator signature first
       const { userSignature, smallocatorSignature, nonce } = await signCompact({
         chainId: quote.data.mandate.chainId.toString(),
+        tribunal: quote.data.mandate.tribunal,
         compact: compactMessage,
       });
 

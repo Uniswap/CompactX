@@ -19,7 +19,7 @@ export interface CompactSignature {
 export function useCompactSigner() {
   const chainId = useChainId();
 
-  const deriveMandateHash = (mandate: {
+  interface MandateHashInput {
     chainId: number | string;
     tribunal: string;
     recipient: string;
@@ -29,7 +29,9 @@ export function useCompactSigner() {
     baselinePriorityFee: string;
     scalingFactor: string;
     salt: string;
-  }): `0x${string}` => {
+  }
+
+  const deriveMandateHash = (mandate: MandateHashInput): `0x${string}` => {
     // Calculate MANDATE_TYPEHASH to match Solidity's EIP-712 typed data
     const MANDATE_TYPE_STRING =
       'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)'
@@ -67,11 +69,11 @@ export function useCompactSigner() {
 
   return useMemo(
     () => ({
-      signCompact: async (request: CompactRequestPayload): Promise<CompactSignature> => {
+      signCompact: async (request: CompactRequestPayload & { tribunal: string }): Promise<CompactSignature> => {
         // Derive the witness hash from the mandate
         const witnessHash = deriveMandateHash({
           chainId: request.chainId,
-          tribunal: request.compact.mandate.tribunal,
+          tribunal: request.tribunal,
           recipient: request.compact.mandate.recipient,
           expires: request.compact.mandate.expires,
           token: request.compact.mandate.token,
