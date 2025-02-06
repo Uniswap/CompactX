@@ -26,6 +26,8 @@ export interface BroadcastCompactMessage {
   id: string;
   amount: string;
   mandate: BroadcastMandate;
+  witnessHash?: string;
+  witnessTypeString?: string;
 }
 
 /**
@@ -33,23 +35,24 @@ export interface BroadcastCompactMessage {
  */
 export interface BroadcastContext {
   // Quote-related information
-  dispensation: string;           // Amount of native tokens paid to relay the cross-chain message
-  dispensationUSD: string;        // USD value of the dispensation
-  spotOutputAmount: string;       // Implied amount of tokens received at spot price
-  quoteOutputAmountDirect: string;// Direct quote amount not including dispensation
-  quoteOutputAmountNet: string;   // Net amount after dispensation fees
+  dispensation: string; // Amount of native tokens paid to relay the cross-chain message
+  dispensationUSD: string; // USD value of the dispensation
+  spotOutputAmount: string; // Implied amount of tokens received at spot price
+  quoteOutputAmountDirect: string; // Direct quote amount not including dispensation
+  quoteOutputAmountNet: string; // Net amount after dispensation fees
 
   // Lock parameters
-  allocatorId: string;            // ID of the allocator handling the swap
-  resetPeriod: number;            // Reset period for the lock
-  isMultichain: boolean;          // Flag indicating if the resource lock supports multichain compacts
+  allocatorId: string; // ID of the allocator handling the swap
+  resetPeriod: number; // Reset period for the lock
+  isMultichain: boolean; // Flag indicating if the resource lock supports multichain compacts
 
   // Slippage information
-  slippageBips: number;          // User-provided slippage parameter in basis points
+  slippageBips: number; // User-provided slippage parameter in basis points
 
   // Witness information
-  witnessTypeString: string;      // EIP-712 type string for the mandate witness
-  witnessHash: string;           // Hash of the mandate witness
+  witnessTypeString: string; // EIP-712 type string for the mandate witness
+  witnessHash: string; // Hash of the mandate witness
+  tribunal: string;
 }
 
 /**
@@ -62,5 +65,5 @@ export interface BroadcastRequest {
     sponsorSignature: string;
     allocatorSignature: string;
     context: BroadcastContext;
-  }
+  };
 }

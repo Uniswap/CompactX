@@ -46,6 +46,7 @@ describe('BroadcastApiClient', () => {
         witnessTypeString:
           'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
         witnessHash: '0x1234567890123456789012345678901234567890123456789012345678901234',
+        tribunal: '0x1234567890123456789012345678901234567890',
       },
     },
   };

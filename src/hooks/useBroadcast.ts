@@ -3,10 +3,44 @@ import { broadcast } from '../api/broadcast';
 import { CompactRequestPayload } from '../types/compact';
 import { BroadcastRequest, BroadcastContext, BroadcastMandate } from '../types/broadcast';
 import { message } from 'antd';
+import { keccak256, encodePacked } from 'viem';
 
 export function useBroadcast() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+
+  const deriveMandateHash = (
+    mandate: BroadcastMandate,
+    chainId: number,
+    tribunalAddress: string
+  ): `0x${string}` => {
+    const encodedParameters = encodePacked(
+      [
+        'uint256',
+        'address',
+        'address',
+        'uint256',
+        'address',
+        'uint256',
+        'uint256',
+        'uint256',
+        'bytes32',
+      ],
+      [
+        BigInt(chainId),
+        tribunalAddress as `0x${string}`,
+        mandate.recipient as `0x${string}`,
+        BigInt(parseInt(mandate.expires)),
+        mandate.token as `0x${string}`,
+        BigInt(mandate.minimumAmount),
+        BigInt(mandate.baselinePriorityFee),
+        BigInt(mandate.scalingFactor),
+        mandate.salt,
+      ]
+    );
+
+    return keccak256(encodedParameters);
+  };
 
   const broadcastTx = async (
     payload: CompactRequestPayload,
@@ -18,19 +52,31 @@ export function useBroadcast() {
     setError(null);
 
     try {
+      const mandateWithTribunal: BroadcastMandate = {
+        ...payload.compact.mandate,
+        chainId: Number(payload.chainId),
+        tribunal: (payload.compact.mandate as unknown as { tribunal: string }).tribunal,
+      };
+
+      const witnessHash = deriveMandateHash(
+        mandateWithTribunal,
+        Number(payload.chainId),
+        mandateWithTribunal.tribunal
+      );
+
       const finalPayload: BroadcastRequest['finalPayload'] = {
         chainId: payload.chainId,
         compact: {
           ...payload.compact,
-          mandate: {
-            ...payload.compact.mandate,
-            chainId: Number(payload.chainId),
-            tribunal: (payload.compact.mandate as unknown as { tribunal: string }).tribunal,
-          } as BroadcastMandate,
+          mandate: mandateWithTribunal,
         },
         sponsorSignature,
         allocatorSignature,
-        context,
+        context: {
+          ...context,
+          witnessHash,
+          witnessTypeString: 'mandate',
+        },
       };
 
       const result = await broadcast.broadcast({ finalPayload });
