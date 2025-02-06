@@ -55,17 +55,26 @@ export function TradeForm() {
     }
   }, [chainId, selectedOutputChain, form]);
 
-  // Initialize form with empty values
+  // Initialize form with empty values and default output chain
   useEffect(() => {
     if (form) {
+      // Reset form values
       form.setFieldsValue({
         inputToken: '',
         outputToken: '',
         inputAmount: '',
         slippageTolerance: 0.5,
       });
+
+      // Get available output chains and select the first one
+      const availableChains = SUPPORTED_CHAINS.filter(
+        chain => chain.id !== chainId && chain.id !== 1
+      );
+      if (availableChains.length > 0) {
+        setSelectedOutputChain(availableChains[0].id);
+      }
     }
-  }, [form]);
+  }, [form, chainId]);
 
   // Handle form value changes
   const handleValuesChange = (
@@ -174,7 +183,8 @@ export function TradeForm() {
       const broadcastContext: BroadcastContext = {
         ...quote.context,
         witnessHash: quote.context.witnessHash, // Use the actual witnessHash
-        witnessTypeString: 'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+        witnessTypeString:
+          'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
       };
 
       // Log the complete broadcast payload
@@ -182,7 +192,7 @@ export function TradeForm() {
         compact: broadcastPayload.compact,
         sponsorSignature: userSignature,
         allocatorSignature: smallocatorSignature,
-        context: broadcastContext
+        context: broadcastContext,
       });
 
       const broadcastResponse = await broadcast(
@@ -291,7 +301,9 @@ export function TradeForm() {
                   setSelectedOutputToken(undefined);
                   form.setFieldsValue({ outputToken: undefined });
                 }}
-                options={SUPPORTED_CHAINS.filter(chain => chain.id !== chainId).map(chain => ({
+                options={SUPPORTED_CHAINS.filter(
+                  chain => chain.id !== chainId && chain.id !== 1
+                ).map(chain => ({
                   label: chain.name,
                   value: chain.id,
                 }))}
@@ -356,11 +368,7 @@ export function TradeForm() {
           </div>
         )}
 
-        {statusMessage && (
-          <div className="mt-4 text-center text-blue-600">
-            {statusMessage}
-          </div>
-        )}
+        {statusMessage && <div className="mt-4 text-center text-blue-600">{statusMessage}</div>}
 
         <Form.Item>
           <Button
@@ -373,10 +381,10 @@ export function TradeForm() {
             {!isConnected
               ? 'Connect Wallet'
               : isSigning
-              ? 'Signing...'
-              : error
-              ? 'Try Again'
-              : 'Swap'}
+                ? 'Signing...'
+                : error
+                  ? 'Try Again'
+                  : 'Swap'}
           </Button>
         </Form.Item>
       </Form>
