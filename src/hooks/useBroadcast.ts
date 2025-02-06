@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BroadcastApiClient } from '../api/broadcast';
+import { broadcast } from '../api/broadcast';
 import { CompactRequestPayload } from '../types/compact';
 import { BroadcastRequest, BroadcastContext } from '../types/broadcast';
 import { message } from 'antd';
@@ -8,9 +8,7 @@ export function useBroadcast() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const broadcastClient = new BroadcastApiClient();
-
-  const broadcast = async (
+  const broadcastTx = async (
     payload: CompactRequestPayload,
     sponsorSignature: string,
     allocatorSignature: string,
@@ -27,15 +25,15 @@ export function useBroadcast() {
           mandate: {
             ...payload.compact.mandate,
             chainId: Number(payload.chainId),
-            tribunal: "0x0000000000000000000000000000000000000000", // TODO: Get actual tribunal address
-          }
+            tribunal: '0x0000000000000000000000000000000000000000', // TODO: Get actual tribunal address
+          },
         },
         sponsorSignature,
         allocatorSignature,
         context,
       };
 
-      const result = await broadcastClient.broadcast({ finalPayload });
+      const result = await broadcast.broadcast({ finalPayload });
 
       if (result.success) {
         message.success('Transaction broadcast successfully');
@@ -54,7 +52,7 @@ export function useBroadcast() {
   };
 
   return {
-    broadcast,
+    broadcast: broadcastTx,
     isLoading,
     error,
   };

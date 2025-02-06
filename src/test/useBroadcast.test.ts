@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useBroadcast } from '../hooks/useBroadcast';
 import { renderHook, act } from '@testing-library/react';
+import { useBroadcast } from '../hooks/useBroadcast';
 import { message } from 'antd';
-import { BroadcastApiClient } from '../api/broadcast';
+import { broadcast } from '../api/broadcast';
 
 vi.mock('antd', () => ({
   message: {
@@ -11,16 +11,10 @@ vi.mock('antd', () => ({
   },
 }));
 
-vi.stubEnv('VITE_BROADCAST_URL', 'http://localhost:3000');
-
-class MockBroadcastApiClient extends BroadcastApiClient {
-  broadcast = vi.fn().mockResolvedValue({ success: true });
-}
-
 vi.mock('../api/broadcast', () => ({
-  BroadcastApiClient: vi.fn().mockImplementation(() => {
-    return new MockBroadcastApiClient();
-  })
+  broadcast: {
+    broadcast: vi.fn(),
+  },
 }));
 
 const mockPayload = {
@@ -46,22 +40,23 @@ const mockPayload = {
   },
 };
 
+const mockUserSignature = ('0x' + '00'.repeat(65)) as `0x${string}`;
+const mockSmallocatorSignature = ('0x' + '00'.repeat(65)) as `0x${string}`;
+
 const mockContext = {
-  dispensation: "1000000000",
-  dispensationUSD: "1.00",
-  spotOutputAmount: "1000000000000000000",
-  quoteOutputAmountDirect: "990000000000000000",
-  quoteOutputAmountNet: "980000000000000000",
-  allocatorId: "1",
+  dispensation: '1000000000',
+  dispensationUSD: '1.00',
+  spotOutputAmount: '1000000000000000000',
+  quoteOutputAmountDirect: '990000000000000000',
+  quoteOutputAmountNet: '980000000000000000',
+  allocatorId: '1',
   resetPeriod: 0,
   isMultichain: true,
   slippageBips: 100,
-  witnessTypeString: "Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)",
-  witnessHash: "0x1234567890123456789012345678901234567890123456789012345678901234"
+  witnessTypeString:
+    'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+  witnessHash: '0x1234567890123456789012345678901234567890123456789012345678901234',
 };
-
-const mockUserSignature = ('0x' + '00'.repeat(65)) as `0x${string}`;
-const mockSmallocatorSignature = ('0x' + '00'.repeat(65)) as `0x${string}`;
 
 describe('useBroadcast', () => {
   beforeEach(() => {
@@ -69,58 +64,111 @@ describe('useBroadcast', () => {
   });
 
   it('should broadcast successfully', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ success: true }),
-    });
+    vi.mocked(broadcast.broadcast).mockResolvedValueOnce({ success: true });
 
     const { result } = renderHook(() => useBroadcast());
 
     await act(async () => {
-      await result.current.broadcast(mockPayload, mockUserSignature, mockSmallocatorSignature, mockContext);
+      const response = await result.current.broadcast(
+        mockPayload,
+        mockUserSignature,
+        mockSmallocatorSignature,
+        mockContext
+      );
+      expect(response).toEqual({ success: true });
     });
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/broadcast'),
-      expect.objectContaining({
-        method: 'POST',
-        body: expect.stringContaining(mockUserSignature),
-      })
-    );
+    expect(broadcast.broadcast).toHaveBeenCalledWith({
+      finalPayload: {
+        chainId: mockPayload.chainId,
+        compact: {
+          ...mockPayload.compact,
+          mandate: {
+            ...mockPayload.compact.mandate,
+            chainId: Number(mockPayload.chainId),
+            tribunal: '0x0000000000000000000000000000000000000000',
+          },
+        },
+        sponsorSignature: mockUserSignature,
+        allocatorSignature: mockSmallocatorSignature,
+        context: mockContext,
+      },
+    });
+
+    expect(result.current.error).toBeNull();
     expect(message.success).toHaveBeenCalledWith('Transaction broadcast successfully');
   });
 
-  it('should handle broadcast failure', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ message: 'Network error' }),
-    });
+  it('should handle broadcast error', async () => {
+    const error = new Error('Network error');
+    vi.mocked(broadcast.broadcast).mockRejectedValueOnce(error);
 
     const { result } = renderHook(() => useBroadcast());
 
     await act(async () => {
-      await expect(
-        result.current.broadcast(mockPayload, mockUserSignature, mockSmallocatorSignature, mockContext)
-      ).rejects.toThrow();
+      try {
+        await result.current.broadcast(
+          mockPayload,
+          mockUserSignature,
+          mockSmallocatorSignature,
+          mockContext
+        );
+      } catch (e) {
+        expect(e).toBe(error);
+      }
     });
 
-    expect(message.error).toHaveBeenCalled();
-    expect(result.current.error).toBeTruthy();
+    expect(result.current.error).toBe(error);
+    expect(message.error).toHaveBeenCalledWith('Network error');
+  });
+
+  it('should handle broadcast failure', async () => {
+    vi.mocked(broadcast.broadcast).mockResolvedValueOnce({ success: false });
+
+    const { result } = renderHook(() => useBroadcast());
+
+    await act(async () => {
+      try {
+        await result.current.broadcast(
+          mockPayload,
+          mockUserSignature,
+          mockSmallocatorSignature,
+          mockContext
+        );
+      } catch (e) {
+        if (e instanceof Error) {
+          expect(e.message).toBe('Failed to broadcast transaction');
+        } else {
+          throw new Error('Expected error to be instance of Error');
+        }
+      }
+    });
+
+    expect(message.error).toHaveBeenCalledWith('Failed to broadcast transaction');
   });
 
   it('should handle broadcast error', async () => {
-    const errorMock = new MockBroadcastApiClient();
-    errorMock.broadcast.mockRejectedValueOnce(new Error('Failed to broadcast message'));
-    vi.mocked(BroadcastApiClient).mockImplementationOnce(() => errorMock);
+    vi.mocked(broadcast.broadcast).mockRejectedValueOnce(new Error('Failed to broadcast'));
 
     const { result } = renderHook(() => useBroadcast());
 
     await act(async () => {
-      await expect(
-        result.current.broadcast(mockPayload, mockUserSignature, mockSmallocatorSignature, mockContext)
-      ).rejects.toThrow('Failed to broadcast message');
+      try {
+        await result.current.broadcast(
+          mockPayload,
+          mockUserSignature,
+          mockSmallocatorSignature,
+          mockContext
+        );
+      } catch (e) {
+        if (e instanceof Error) {
+          expect(e.message).toBe('Failed to broadcast');
+        } else {
+          throw new Error('Expected error to be instance of Error');
+        }
+      }
     });
 
-    expect(result.current.error).toBeInstanceOf(Error);
+    expect(message.error).toHaveBeenCalledWith('Failed to broadcast');
   });
 });
