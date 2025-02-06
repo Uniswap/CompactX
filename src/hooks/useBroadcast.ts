@@ -26,7 +26,8 @@ export function useBroadcast() {
           ...payload.compact,
           mandate: {
             ...payload.compact.mandate,
-            chainId: Number(payload.chainId), // Ensure chainId is a number
+            chainId: Number(payload.chainId),
+            tribunal: "0x0000000000000000000000000000000000000000", // TODO: Get actual tribunal address
           }
         },
         sponsorSignature,
