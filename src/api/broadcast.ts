@@ -5,6 +5,7 @@ export interface BroadcastRequest {
     compact: CompactRequest;
     userSignature: string;
     smallocatorSignature: string;
+    context?: Record<string, string>;
   };
 }
 
