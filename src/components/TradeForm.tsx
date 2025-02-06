@@ -256,6 +256,15 @@ export function TradeForm() {
                 variant="borderless"
                 controls={false}
                 stringMode
+                formatter={(value: string | number | undefined): string => {
+                  if (!value) return '';
+                  const stringValue = value.toString();
+                  // Special case: if the input is just "0", preserve it
+                  if (stringValue === '0') return '0';
+                  // Remove trailing zeros after decimal point
+                  return stringValue.replace(/\.?0+$/, '');
+                }}
+                parser={(value: string | undefined): string => value?.replace(/[^\d.]/g, '') || ''}
                 precision={selectedInputToken?.decimals ?? 18}
                 aria-label="Input Amount"
               />
