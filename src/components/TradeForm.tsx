@@ -162,7 +162,8 @@ export function TradeForm() {
 
       // Sign with user's wallet - this will handle getting smallocator signature first
       const { userSignature, smallocatorSignature, nonce } = await signCompact({
-        chainId: quote.data.mandate.chainId.toString(),
+        chainId: quote.data.mandate.chainId.toString(), // Use output chainId for witness hash and smallocator
+        currentChainId: chainId.toString(), // Use current chainId for EIP-712 domain
         tribunal: quote.data.mandate.tribunal,
         compact: compactMessage,
       });
@@ -172,7 +173,7 @@ export function TradeForm() {
 
       // Prepare the broadcast payload
       const broadcastPayload: CompactRequestPayload = {
-        chainId: quote.data.mandate.chainId.toString(),
+        chainId: chainId.toString(), // Use current chainId for broadcast
         compact: {
           ...compactMessage,
           nonce,

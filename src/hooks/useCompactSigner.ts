@@ -69,10 +69,10 @@ export function useCompactSigner() {
 
   return useMemo(
     () => ({
-      signCompact: async (request: CompactRequestPayload & { tribunal: string }): Promise<CompactSignature> => {
-        // Derive the witness hash from the mandate
+      signCompact: async (request: CompactRequestPayload & { tribunal: string, currentChainId: string }): Promise<CompactSignature> => {
+        // Derive the witness hash from the mandate using the output chainId
         const witnessHash = deriveMandateHash({
-          chainId: request.chainId,
+          chainId: request.chainId, // Use output chainId for witness hash
           tribunal: request.tribunal,
           recipient: request.compact.mandate.recipient,
           expires: request.compact.mandate.expires,
@@ -85,7 +85,7 @@ export function useCompactSigner() {
         
         // Prepare the compact submission for Smallocator - only with witness information
         const smallocatorRequest = {
-          chainId: request.chainId,
+          chainId: request.chainId, // Use output chainId for smallocator
           compact: {
             arbiter: request.compact.arbiter,
             sponsor: request.compact.sponsor,
@@ -104,11 +104,11 @@ export function useCompactSigner() {
         // Log the smallocator response
         console.log('Smallocator response:', { signature: smallocatorSignature, nonce });
 
-        // Create the EIP-712 payload
+        // Create the EIP-712 payload using the current chainId
         const domain = {
           name: 'The Compact',
           version: '1',
-          chainId: BigInt(chainId), // Use current chain ID instead of mandate chain ID
+          chainId: BigInt(request.currentChainId), // Use current chainId for EIP-712 domain
           verifyingContract: COMPACT_CONTRACT_ADDRESS as `0x${string}`,
         } as const;
 
