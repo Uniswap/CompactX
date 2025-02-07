@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useCompactMessage } from '../hooks/useCompactMessage';
 import { useAccount } from 'wagmi';
-import { getAddress, keccak256, encodeAbiParameters } from 'viem';
+import { getAddress, keccak256, encodeAbiParameters, toBytes } from 'viem';
 
 vi.mock('wagmi', () => ({
   useAccount: vi.fn(),
@@ -23,6 +23,8 @@ describe('useCompactMessage', () => {
     baselinePriorityFee: '1000000000',
     scalingFactor: '1000000000000000000',
     salt: ('0x' + '00'.repeat(32)) as `0x${string}`,
+    chainId: 1,
+    tribunal: mockTribunal,
   };
 
   const mockParams = {
@@ -46,25 +48,35 @@ describe('useCompactMessage', () => {
       const payload = result.current.assembleMessagePayload(mockParams);
 
       // Compute expected witness hash
+      const MANDATE_TYPE_STRING =
+        'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
+      const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING));
+
       const expectedWitnessHash = keccak256(
         encodeAbiParameters(
           [
-            { name: 'recipient', type: 'address' },
-            { name: 'expires', type: 'uint256' },
-            { name: 'token', type: 'address' },
-            { name: 'minimumAmount', type: 'uint256' },
-            { name: 'baselinePriorityFee', type: 'uint256' },
-            { name: 'scalingFactor', type: 'uint256' },
-            { name: 'salt', type: 'bytes32' },
+            { type: 'bytes32' }, // MANDATE_TYPEHASH
+            { type: 'uint256' }, // chainId
+            { type: 'address' }, // tribunal
+            { type: 'address' }, // mandate.recipient
+            { type: 'uint256' }, // mandate.expires
+            { type: 'address' }, // mandate.token
+            { type: 'uint256' }, // mandate.minimumAmount
+            { type: 'uint256' }, // mandate.baselinePriorityFee
+            { type: 'uint256' }, // mandate.scalingFactor
+            { type: 'bytes32' }, // mandate.salt
           ],
           [
-            mockMandate.recipient as `0x${string}`,
+            MANDATE_TYPEHASH as Hex,
+            BigInt(mockMandate.chainId),
+            mockMandate.tribunal as Address,
+            mockMandate.recipient as Address,
             BigInt(mockMandate.expires),
-            mockMandate.token as `0x${string}`,
+            mockMandate.token as Address,
             BigInt(mockMandate.minimumAmount),
             BigInt(mockMandate.baselinePriorityFee),
             BigInt(mockMandate.scalingFactor),
-            mockMandate.salt as `0x${string}`,
+            mockMandate.salt as Hex,
           ]
         )
       );
@@ -78,7 +90,11 @@ describe('useCompactMessage', () => {
           expires: mockParams.expirationTime.toString(),
           id: expectedWitnessHash,
           amount: mockParams.inputTokenAmount,
-          mandate: mockMandate,
+          mandate: {
+            ...mockMandate,
+            chainId: mockParams.chainId,
+            tribunal: mockParams.tribunal,
+          },
         },
       });
     });

@@ -1,9 +1,13 @@
 import { useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import { CompactMessage, CompactRequestPayload } from '../types/compact';
-import { getAddress, keccak256, encodeAbiParameters, Hex } from 'viem';
+import { getAddress, keccak256, encodeAbiParameters, Hex, toBytes, Address } from 'viem';
 
-const COMPACT_CONTRACT_ADDRESS = '0x00000000000018DF021Ff2467dF97ff846E09f48';
+const ARBITERS: { [chainId: number]: string } = {
+  1: '0x00000000000018DF021Ff2467dF97ff846E09f48',  // Ethereum
+  10: '0x00000000000018DF021Ff2467dF97ff846E09f48', // Optimism
+  8453: '0x00000000000018DF021Ff2467dF97ff846E09f48', // Base
+};
 
 export interface AssembleMessageParams {
   inputTokenAmount: string;
@@ -13,6 +17,7 @@ export interface AssembleMessageParams {
   expirationTime: number; // Unix timestamp in seconds
   tribunal: string;
   mandate: Mandate;
+  quote: any; // Add quote to the params
 }
 
 export interface Mandate {
@@ -23,6 +28,8 @@ export interface Mandate {
   baselinePriorityFee: string;
   scalingFactor: string;
   salt: Hex;
+  chainId?: number;
+  tribunal?: string;
 }
 
 export function useCompactMessage() {
@@ -38,6 +45,7 @@ export function useCompactMessage() {
         expirationTime,
         tribunal,
         mandate,
+        quote,
       }: AssembleMessageParams): CompactRequestPayload => {
         // Ensure all required fields are present
         if (
@@ -48,7 +56,8 @@ export function useCompactMessage() {
           !expirationTime ||
           !tribunal ||
           !mandate ||
-          !address
+          !address ||
+          !quote
         ) {
           throw new Error('Missing required fields for compact message');
         }
@@ -75,39 +84,19 @@ export function useCompactMessage() {
           throw new Error('Expiration time must be in the future');
         }
 
-        // Compute the witness hash using the Mandate structure
-        const witnessHash = keccak256(
-          encodeAbiParameters(
-            [
-              { name: 'recipient', type: 'address' },
-              { name: 'expires', type: 'uint256' },
-              { name: 'token', type: 'address' },
-              { name: 'minimumAmount', type: 'uint256' },
-              { name: 'baselinePriorityFee', type: 'uint256' },
-              { name: 'scalingFactor', type: 'uint256' },
-              { name: 'salt', type: 'bytes32' }
-            ],
-            [
-              mandate.recipient as Hex,
-              BigInt(mandate.expires),
-              mandate.token as Hex,
-              BigInt(mandate.minimumAmount),
-              BigInt(mandate.baselinePriorityFee),
-              BigInt(mandate.scalingFactor),
-              mandate.salt
-            ]
-          )
-        );
-
         // Assemble the compact message
         const message: CompactMessage = {
-          arbiter: COMPACT_CONTRACT_ADDRESS,
+          arbiter: ARBITERS[chainId],
           sponsor: address,
           nonce: null,
           expires: expirationTime.toString(),
-          id: witnessHash,
+          id: quote.data.id, // Use the ID from the quote
           amount: inputTokenAmount,
-          mandate,
+          mandate: {
+            ...mandate,
+            chainId,
+            tribunal,
+          },
         };
 
         return {

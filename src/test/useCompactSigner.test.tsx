@@ -84,6 +84,8 @@ describe('useCompactSigner', () => {
           baselinePriorityFee: '1000000000',
           scalingFactor: '1000000000',
           salt: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          chainId: 1,
+          tribunal: '0x6234567890123456789012345678901234567890',
         },
       },
     };
@@ -140,6 +142,8 @@ describe('useCompactSigner', () => {
           baselinePriorityFee: '1000000000',
           scalingFactor: '1000000000',
           salt: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          chainId: 1,
+          tribunal: '0x6234567890123456789012345678901234567890',
         },
       },
     };
