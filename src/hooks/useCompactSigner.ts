@@ -121,6 +121,8 @@ export function useCompactSigner() {
           id: BigInt(request.compact.id),
           amount: BigInt(request.compact.amount),
           mandate: {
+            chainId: BigInt(request.chainId), // Use output chainId
+            tribunal: request.tribunal as `0x${string}`,
             recipient: request.compact.mandate.recipient as `0x${string}`,
             expires: BigInt(request.compact.mandate.expires),
             token: request.compact.mandate.token as `0x${string}`,
@@ -149,6 +151,8 @@ export function useCompactSigner() {
             { name: 'mandate', type: 'Mandate' },
           ],
           Mandate: [
+            { name: 'chainId', type: 'uint256' }, // Add chainId field
+            { name: 'tribunal', type: 'address' }, // Add tribunal field
             { name: 'recipient', type: 'address' },
             { name: 'expires', type: 'uint256' },
             { name: 'token', type: 'address' },

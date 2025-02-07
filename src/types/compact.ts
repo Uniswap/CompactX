@@ -11,6 +11,8 @@ export interface CompactMessage {
 }
 
 export interface Mandate {
+  chainId: number;
+  tribunal: string;
   recipient: string;
   expires: string;
   token: string;

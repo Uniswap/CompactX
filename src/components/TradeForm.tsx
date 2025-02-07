@@ -142,6 +142,8 @@ export function TradeForm() {
       // Create compact message from the quote data
       const mandate = {
         ...quote.data.mandate,
+        chainId: quote.data.mandate.chainId, // Ensure output chainId is preserved
+        tribunal: quote.data.mandate.tribunal, // Ensure tribunal is preserved
         salt: quote.data.mandate.salt.startsWith('0x')
           ? (quote.data.mandate.salt as `0x${string}`)
           : (`0x${quote.data.mandate.salt}` as `0x${string}`),
@@ -177,6 +179,10 @@ export function TradeForm() {
         compact: {
           ...compactMessage,
           nonce,
+          mandate: {
+            ...mandate,
+            chainId: quote.data.mandate.chainId, // Ensure output chainId is preserved in mandate
+          },
         },
       };
 
