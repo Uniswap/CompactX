@@ -175,13 +175,14 @@ export function TradeForm() {
 
       // Prepare the broadcast payload
       const broadcastPayload: CompactRequestPayload = {
-        chainId: chainId.toString(), // Use current chainId for broadcast
+        chainId: chainId.toString(), // Keep using the connected chain's ID for the top-level chainId
         compact: {
           ...compactMessage,
           nonce,
           mandate: {
             ...mandate,
-            chainId: quote.data.mandate.chainId, // Ensure output chainId is preserved in mandate
+            chainId: quote.data.mandate.chainId, // Use output chainId in mandate
+            tribunal: quote.data.mandate.tribunal,
           },
         },
       };

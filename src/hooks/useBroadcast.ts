@@ -11,10 +11,21 @@ export function useBroadcast() {
 
   const deriveMandateHash = (mandate: Mandate): `0x${string}` => {
     const MANDATE_TYPE_STRING =
-      'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)'
-    const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING))
+      'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
+    const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING));
     const encodedParameters = encodeAbiParameters(
-      ['bytes32', 'uint256', 'address', 'address', 'uint256', 'address', 'uint256', 'uint256', 'uint256', 'bytes32'].map(type => ({type})),
+      [
+        'bytes32',
+        'uint256',
+        'address',
+        'address',
+        'uint256',
+        'address',
+        'uint256',
+        'uint256',
+        'uint256',
+        'bytes32',
+      ].map(type => ({ type })),
       [
         MANDATE_TYPEHASH,
         BigInt(mandate.chainId),
@@ -44,8 +55,7 @@ export function useBroadcast() {
     try {
       const mandateWithTribunal: Mandate = {
         ...payload.compact.mandate,
-        chainId: Number(payload.chainId),
-        tribunal: (payload.compact.mandate as unknown as { tribunal: string }).tribunal,
+        // chainId and tribunal are already set correctly in the mandate
       };
 
       const witnessHash = deriveMandateHash(mandateWithTribunal);
@@ -66,7 +76,8 @@ export function useBroadcast() {
           quoteOutputAmountNet: context.quoteOutputAmountNet,
           deltaAmount: context.deltaAmount,
           witnessHash,
-          witnessTypeString: 'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+          witnessTypeString:
+            'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
         },
       };
 
