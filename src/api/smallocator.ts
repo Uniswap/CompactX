@@ -48,6 +48,14 @@ export interface CompactResponse {
   nonce: string;
 }
 
+// Convert a signature to EIP-2098 compact format
+function signatureToCompactSignature({ r, s, yParity }: { r: string; s: string; yParity: number }) {
+  return {
+    r,
+    yParityAndS: `0x${yParity.toString(16).padStart(2, '0')}${s.slice(2)}`,
+  };
+}
+
 export interface SessionVerifyResponse {
   session: {
     id: string;
@@ -74,7 +82,7 @@ export const isCompactResponse = (data: unknown): data is CompactResponse => {
 // Type guard for CompactRequest
 export function isCompactRequest(data: unknown): data is CompactRequest {
   if (!data || typeof data !== 'object') return false;
-  
+
   const request = data as CompactRequest;
   if (typeof request.chainId !== 'string') return false;
 
@@ -91,7 +99,7 @@ export function isCompactRequest(data: unknown): data is CompactRequest {
     typeof compact.witnessHash === 'string' &&
     typeof compact.witnessTypeString === 'string'
   );
-};
+}
 
 // API Client
 export class SmallocatorClient {
@@ -213,6 +221,15 @@ export class SmallocatorClient {
 
     if (!isCompactResponse(response)) {
       throw new Error('Invalid compact response format');
+    }
+
+    // Compact the signature if it's 65 bytes long
+    if (response.signature.length === 132) {
+      const r = response.signature.slice(0, 66);
+      const s = '0x' + response.signature.slice(66, 130);
+      const v = parseInt(response.signature.slice(130, 132), 16);
+      const compact = signatureToCompactSignature({ r, s, yParity: v - 27 });
+      response.signature = compact.r + compact.yParityAndS.slice(2);
     }
 
     return response;
