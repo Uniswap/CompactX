@@ -4,15 +4,14 @@ import { CompactRequestPayload } from '../types/compact';
 import { smallocator } from '../api/smallocator';
 import { config } from '../config/wallet';
 import { useChainId } from 'wagmi';
-import { encodeAbiParameters, toBytes, keccak256 } from 'viem';
-
-// Convert a signature to EIP-2098 compact format
-function signatureToCompactSignature({ r, s, yParity }: { r: string; s: string; yParity: number }) {
-  return {
-    r,
-    yParityAndS: `0x${yParity.toString(16).padStart(2, '0')}${s.slice(2)}`,
-  };
-}
+import {
+  encodeAbiParameters,
+  toBytes,
+  keccak256,
+  parseSignature,
+  signatureToCompactSignature,
+  serializeCompactSignature,
+} from 'viem';
 
 const WITNESS_TYPE_STRING =
   'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
@@ -187,23 +186,19 @@ export function useCompactSigner() {
           throw new Error('Failed to get user signature');
         }
 
-        // Split and compact signatures if they are 65 bytes long
+        // Convert signatures to compact format using viem
         let compactedUserSignature = userSignature as `0x${string}`;
         if (userSignature.length === 132) {
-          const r = userSignature.slice(0, 66);
-          const s = '0x' + userSignature.slice(66, 130);
-          const v = parseInt(userSignature.slice(130, 132), 16);
-          const compact = signatureToCompactSignature({ r, s, yParity: v - 27 });
-          compactedUserSignature = (compact.r + compact.yParityAndS.slice(2)) as `0x${string}`;
+          const parsedSig = parseSignature(userSignature);
+          const compactSig = signatureToCompactSignature(parsedSig);
+          compactedUserSignature = serializeCompactSignature(compactSig);
         }
 
-        let compactedSmallocatorSignature = smallocatorSignature;
+        let compactedSmallocatorSignature = smallocatorSignature as `0x${string}`;
         if (smallocatorSignature.length === 132) {
-          const r = smallocatorSignature.slice(0, 66);
-          const s = '0x' + smallocatorSignature.slice(66, 130);
-          const v = parseInt(smallocatorSignature.slice(130, 132), 16);
-          const compact = signatureToCompactSignature({ r, s, yParity: v - 27 });
-          compactedSmallocatorSignature = compact.r + compact.yParityAndS.slice(2);
+          const parsedSig = parseSignature(smallocatorSignature as `0x${string}`);
+          const compactSig = signatureToCompactSignature(parsedSig);
+          compactedSmallocatorSignature = serializeCompactSignature(compactSig);
         }
 
         return {
