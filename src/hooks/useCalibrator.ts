@@ -21,7 +21,8 @@ interface CalibratorQuoteRequest {
     recipient: string;
     baselinePriorityFee: string;
     scalingFactor: string;
-    expires: string;
+    fillExpires: string;
+    claimExpires: string;
   };
 }
 
@@ -60,7 +61,8 @@ export function useCalibrator() {
         recipient: address,
         baselinePriorityFee: '0',
         scalingFactor: '1000000000100000000',
-        expires: Math.floor(Date.now() / 1000 + 300).toString(), // 5 minutes from now
+        fillExpires: params.fillExpires || Math.floor(Date.now() / 1000 + 180).toString(), // Default: 3 minutes from now
+        claimExpires: params.claimExpires || Math.floor(Date.now() / 1000 + 540).toString(), // Default: 9 minutes from now
       },
     };
 

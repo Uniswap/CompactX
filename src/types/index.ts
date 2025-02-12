@@ -6,7 +6,7 @@ export enum ResetPeriod {
   OneHourAndFiveMinutes,
   OneDay,
   SevenDaysAndOneHour,
-  ThirtyDays
+  ThirtyDays,
 }
 
 export function mapSecondsToResetPeriod(seconds: number): ResetPeriod {
@@ -46,14 +46,16 @@ export interface CalibratorQuoteResponse {
     arbiter: string;
     sponsor: string;
     nonce: string | null;
-    expires: string;
+    fillExpires: string;
+    claimExpires: string;
     id: string;
     amount: string;
     mandate: {
       chainId: number;
       tribunal: string;
       recipient: string;
-      expires: string;
+      fillExpires: string;
+      claimExpires: string;
       token: string;
       minimumAmount: string;
       baselinePriorityFee: string;
@@ -82,4 +84,6 @@ export interface GetQuoteParams {
   allocatorId?: string;
   resetPeriod?: number;
   isMultichain?: boolean;
+  fillExpires?: string;
+  claimExpires?: string;
 }

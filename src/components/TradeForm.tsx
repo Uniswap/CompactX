@@ -16,6 +16,7 @@ const SUPPORTED_CHAINS = [
   { id: 1, name: 'Ethereum' },
   { id: 10, name: 'Optimism' },
   { id: 8453, name: 'Base' },
+  { id: 130, name: 'Unichain' },
 ];
 
 interface TradeFormValues {
@@ -142,6 +143,7 @@ export function TradeForm() {
       // Create compact message from the quote data
       const mandate = {
         ...quote.data.mandate,
+        expires: quote.data.fillExpires,
         chainId: quote.data.mandate.chainId, // Ensure output chainId is preserved
         tribunal: quote.data.mandate.tribunal, // Ensure tribunal is preserved
         salt: quote.data.mandate.salt.startsWith('0x')
@@ -153,7 +155,7 @@ export function TradeForm() {
         arbiter: quote.data.arbiter,
         sponsor: quote.data.sponsor,
         nonce: null, // Initialize as null, will be set from Smallocator response
-        expires: quote.data.expires,
+        expires: quote.data.claimExpires,
         id: quote.data.id,
         amount: quote.data.amount,
         mandate,

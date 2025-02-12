@@ -4,7 +4,8 @@ export interface CompactMessage {
   arbiter: string;
   sponsor: string;
   nonce: string | null;
-  expires: string;
+  fillExpires: string;
+  claimExpires: string;
   id: string;
   amount: string;
   mandate: Mandate;
@@ -14,7 +15,8 @@ export interface Mandate {
   chainId: number;
   tribunal: string;
   recipient: string;
-  expires: string;
+  fillExpires: string;
+  claimExpires: string;
   token: string;
   minimumAmount: string;
   baselinePriorityFee: string;
