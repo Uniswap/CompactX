@@ -1,5 +1,19 @@
 import { http } from 'wagmi';
-import { mainnet, optimism, base } from 'wagmi/chains';
+import { mainnet, optimism, base, Chain } from 'wagmi/chains';
+
+// Define Unichain
+const unichain = {
+  id: 130,
+  name: 'Unichain',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://mainnet.unichain.org'] },
+    public: { http: ['https://mainnet.unichain.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'Uniscan', url: 'https://uniscan.xyz' },
+  },
+} as const satisfies Chain;
 import {
   getDefaultConfig,
   RainbowKitProvider,
@@ -15,7 +29,7 @@ if (!projectId) {
 }
 
 // Configure supported chains
-const chains = [mainnet, optimism, base] as const;
+const chains = [mainnet, optimism, base, unichain] as const;
 
 // Create wagmi config with RainbowKit
 export const config = getDefaultConfig({
@@ -26,6 +40,7 @@ export const config = getDefaultConfig({
     [mainnet.id]: http(),
     [optimism.id]: http(),
     [base.id]: http(),
+    [unichain.id]: http(),
   },
 });
 

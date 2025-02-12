@@ -1,5 +1,5 @@
 export const INITIAL_CONFIG = {
-  supportedChains: [1, 10, 8453], // Mainnet, Optimism, & Base
+  supportedChains: [1, 10, 8453, 130], // Mainnet, Optimism, Base, & Unichain
   tokens: [
     // Native ETH for each chain
     {
@@ -22,6 +22,13 @@ export const INITIAL_CONFIG = {
       name: 'Ether',
       decimals: 18,
       chainId: 8453,
+    },
+    {
+      address: '0x0000000000000000000000000000000000000000',
+      symbol: 'ETH',
+      name: 'Ether',
+      decimals: 18,
+      chainId: 130,
     },
     // Mainnet tokens
     {
@@ -67,6 +74,21 @@ export const INITIAL_CONFIG = {
       name: 'USD Coin',
       decimals: 6,
       chainId: 8453,
+    },
+    // Unichain tokens
+    {
+      address: '0x4200000000000000000000000000000000000006',
+      symbol: 'WETH',
+      name: 'Wrapped Ether',
+      decimals: 18,
+      chainId: 130,
+    },
+    {
+      address: '0x078d782b760474a361dda0af3839290b0ef57ad6',
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 6,
+      chainId: 130,
     },
   ],
   defaultSlippage: 100, // 1%
