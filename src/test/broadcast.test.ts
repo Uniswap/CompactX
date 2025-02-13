@@ -5,26 +5,43 @@ import { recoverAddress } from 'viem';
 // Define types for mocked functions
 type RecoverAddressType = typeof recoverAddress;
 
-vi.mock('viem', () => ({
-  recoverAddress: vi.fn(),
-  keccak256: vi.fn(input => {
-    // Return consistent hash for type strings
-    if (typeof input === 'string') {
-      if (input.startsWith('Compact(')) {
-        return '0x1234567890123456789012345678901234567890123456789012345678901234' as `0x${string}`;
+vi.mock('viem', () => {
+  const MANDATE_HASH = '0x2345678901234567890123456789012345678901234567890123456789012345';
+  const CLAIM_HASH = '0x3456789012345678901234567890123456789012345678901234567890123456';
+
+  return {
+    recoverAddress: vi.fn(),
+    keccak256: vi.fn(input => {
+      if (typeof input === 'string') {
+        if (input.startsWith('Compact(')) {
+          return '0x1234567890123456789012345678901234567890123456789012345678901234' as `0x${string}`;
+        }
+        if (input.startsWith('Mandate(')) {
+          return '0x2345678901234567890123456789012345678901234567890123456789012345' as `0x${string}`;
+        }
       }
-      if (input.startsWith('Mandate(')) {
-        return '0x2345678901234567890123456789012345678901234567890123456789012345' as `0x${string}`;
+      // For encoded parameters in deriveMandateHash, return mandate hash
+      if (input instanceof Uint8Array && input.length > 100) {
+        return MANDATE_HASH as `0x${string}`;
       }
-    }
-    // Return different hash for encoded parameters
-    return '0x3333333333333333333333333333333333333333333333333333333333333333' as `0x${string}`;
-  }),
-  toBytes: vi.fn(str => str), // Return the string directly instead of converting to Uint8Array
-  parseCompactSignature: vi.fn(() => ({ r: '0x123', s: '0x456', v: 27 })),
-  compactSignatureToSignature: vi.fn(() => ({ r: '0x123', s: '0x456', v: 27 })),
-  serializeSignature: vi.fn(() => '0x123456'),
-}));
+      // For encoded parameters in deriveClaimHash, return claim hash
+      if (input instanceof Uint8Array) {
+        return CLAIM_HASH as `0x${string}`;
+      }
+      return '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
+    }),
+    toBytes: vi.fn(str => {
+      if (typeof str === 'string') {
+        return new Uint8Array(Buffer.from(str.replace('0x', ''), 'hex'));
+      }
+      return str;
+    }),
+    encodeAbiParameters: vi.fn(() => new Uint8Array([1, 2, 3])),
+    parseCompactSignature: vi.fn(() => ({ r: '0x123', s: '0x456', v: 27 })),
+    compactSignatureToSignature: vi.fn(() => ({ r: '0x123', s: '0x456', v: 27 })),
+    serializeSignature: vi.fn(() => '0x123456'),
+  };
+});
 
 describe('BroadcastApiClient', () => {
   let client: BroadcastApiClient;
@@ -75,7 +92,7 @@ describe('BroadcastApiClient', () => {
       expires: '1732520000',
       witnessTypeString:
         'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
-      witnessHash: '0x' + '02'.repeat(32),
+      witnessHash: '0x2345678901234567890123456789012345678901234567890123456789012345',
     },
   };
 
