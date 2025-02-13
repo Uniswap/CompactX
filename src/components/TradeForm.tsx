@@ -36,7 +36,6 @@ interface TradeFormValues {
 export function TradeForm() {
   const { isConnected, address = DEFAULT_SPONSOR } = useAccount();
   const chainId = useChainId();
-  const { inputTokens, outputTokens } = useTokens();
   const { signCompact } = useCompactSigner();
   const { broadcast } = useBroadcast();
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
@@ -53,6 +52,7 @@ export function TradeForm() {
   const [selectedOutputChain, setSelectedOutputChain] = useState<number | undefined>(undefined);
   const [isSigning, setIsSigning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const { inputTokens, outputTokens } = useTokens(selectedInputChain);
   const [selectedInputToken, setSelectedInputToken] = useState<
     (typeof inputTokens)[0] | undefined
   >();
