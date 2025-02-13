@@ -16,7 +16,7 @@ const config = getDefaultConfig({
   transports: {
     [mainnet.id]: http(),
   },
-});
+}) as any; // Type assertion needed since RainbowKit's types don't fully match wagmi v2
 
 export function TestWrapper({ children }: { children: ReactNode }) {
   return (
