@@ -131,6 +131,7 @@ describe('useCalibrator', () => {
       outputTokenChainId: 8453,
       outputTokenAddress: '0x4200000000000000000000000000000000000006',
       slippageBips: 100,
+      sponsor: '0x1234567890123456789012345678901234567890',
     };
 
     const { result } = renderHook(() => useCalibrator().useQuote(quoteParams), {
@@ -241,6 +242,7 @@ describe('useCalibrator', () => {
       slippageBips: 100,
       fillExpires: customFillExpires,
       claimExpires: customClaimExpires,
+      sponsor: '0x1234567890123456789012345678901234567890',
     };
 
     const { result } = renderHook(() => useCalibrator().useQuote(quoteParams), {
@@ -270,6 +272,7 @@ describe('useCalibrator', () => {
       outputTokenChainId: 8453,
       outputTokenAddress: '0x4200000000000000000000000000000000000006',
       slippageBips: 100,
+      sponsor: '0x1234567890123456789012345678901234567890',
     };
 
     const { result } = renderHook(() => useCalibrator().useQuote(quoteParams), {
@@ -304,6 +307,7 @@ describe('useCalibrator', () => {
       outputTokenChainId: 8453,
       outputTokenAddress: '0x4200000000000000000000000000000000000006',
       slippageBips: 100,
+      sponsor: '0x1234567890123456789012345678901234567890',
     };
 
     const { result } = renderHook(() => useCalibrator().getQuote(quoteParams), {
