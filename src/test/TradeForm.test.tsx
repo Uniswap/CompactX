@@ -7,6 +7,7 @@ class ResizeObserver {
 
 window.ResizeObserver = ResizeObserver;
 
+import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { TradeForm } from '../components/TradeForm';
@@ -16,30 +17,29 @@ import { useAccount } from 'wagmi';
 import { AuthProvider } from '../contexts/AuthContext';
 import { smallocator } from '../api/smallocator';
 
-// We don't need to mock useAuth anymore since we're using the real AuthProvider
-vi.mock('wagmi', () => {
+// Mock wagmi hooks
+vi.mock('wagmi', async () => {
+  const actual = await vi.importActual('wagmi');
   return {
-    createConfig: () => ({
-      state: {
-        chainId: 1,
-        chains: [],
-        transport: {},
-      },
-    }),
-    WagmiConfig: ({ children }: { children: React.ReactNode }) => children,
-    useAccount: () => ({
+    ...actual,
+    useAccount: vi.fn(() => ({
       address: '0x1234567890123456789012345678901234567890',
+      addresses: ['0x1234567890123456789012345678901234567890'],
+      chainId: 1,
+      chain: undefined,
+      connector: undefined,
       isConnected: true,
-    }),
+      isConnecting: false,
+      isDisconnected: false,
+      isReconnecting: false,
+      status: 'connected',
+    })),
     useNetwork: () => ({
       chain: { id: 1, name: 'Mainnet' },
     }),
     useChainId: () => 1,
     useSignMessage: () => ({
       signMessageAsync: vi.fn().mockResolvedValue('0xsignature'),
-    }),
-    http: () => ({
-      request: vi.fn(),
     }),
   };
 });
@@ -123,7 +123,14 @@ vi.mock('../hooks/useCalibrator', () => ({
 // Mock smallocator API
 vi.mock('../api/smallocator', () => ({
   smallocator: {
-    verifySession: vi.fn().mockResolvedValue({ valid: true, session: { address: '0x1234' } }),
+    verifySession: vi.fn().mockResolvedValue({
+      valid: true,
+      session: {
+        id: 'test-session',
+        address: '0x1234',
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      },
+    }),
     getSessionPayload: vi.fn().mockResolvedValue({
       session: {
         domain: 'test.com',
@@ -161,9 +168,11 @@ describe('TradeForm', () => {
   });
 
   it('should show sign in button when wallet is connected but not authenticated', async () => {
-    // Mock smallocator to return invalid session
-    const mockSmalloc = vi.mocked(smallocator);
-    mockSmalloc.verifySession.mockResolvedValueOnce({ valid: false, error: 'Invalid session' });
+    // Mock not authenticated state
+    vi.mocked(smallocator.verifySession).mockResolvedValueOnce({
+      valid: false,
+      error: 'Invalid session',
+    });
 
     render(<TradeForm />, {
       wrapper: createWrapper(),
@@ -173,18 +182,19 @@ describe('TradeForm', () => {
     await screen.findByRole('button', { name: 'Sign in to Smallocator' });
   });
 
-  it('should show connect wallet button when wallet is not connected', () => {
-    vi.mocked(useAccount).mockReturnValue({
+  it('should show connect wallet button when wallet is not connected', async () => {
+    // Mock disconnected wallet state
+    vi.mocked(useAccount).mockReturnValueOnce({
       address: undefined,
       addresses: undefined,
       chain: undefined,
       chainId: undefined,
       connector: undefined,
       isConnected: false,
-      isReconnecting: false,
       isConnecting: false,
       isDisconnected: true,
-      status: "disconnected",
+      isReconnecting: false,
+      status: 'disconnected',
     });
 
     render(<TradeForm />, {

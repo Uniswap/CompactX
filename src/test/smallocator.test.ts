@@ -120,14 +120,14 @@ describe('SmallocatorClient', () => {
     expect(response).toEqual(mockResponse);
     expect(global.fetch).toHaveBeenCalledWith(
       'https://smallocator.xyz/compact',
-      expect.objectContaining({
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-session-id': 'unique_session_id',
         },
         body: JSON.stringify(mockCompactRequest),
-      })
+      }
     );
   });
 
