@@ -143,7 +143,7 @@ export function TradeForm() {
       // Create compact message from the quote data
       const mandate = {
         ...quote.data.mandate,
-        expires: quote.data.fillExpires,
+        expires: quote.data.mandate.expires,
         chainId: quote.data.mandate.chainId, // Ensure output chainId is preserved
         tribunal: quote.data.mandate.tribunal, // Ensure tribunal is preserved
         salt: quote.data.mandate.salt.startsWith('0x')
@@ -155,7 +155,7 @@ export function TradeForm() {
         arbiter: quote.data.arbiter,
         sponsor: quote.data.sponsor,
         nonce: null, // Initialize as null, will be set from Smallocator response
-        expires: quote.data.claimExpires,
+        expires: quote.data.expires,
         id: quote.data.id,
         amount: quote.data.amount,
         mandate,
@@ -196,6 +196,13 @@ export function TradeForm() {
         witnessTypeString:
           'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
       };
+
+      // Debug chainId value
+      console.log('Debug chainId values:', {
+        quoteChainId: quote.data.mandate.chainId,
+        quoteChainIdType: typeof quote.data.mandate.chainId,
+        stringifiedChainId: quote.data.mandate.chainId.toString(),
+      });
 
       // Log the complete broadcast payload
       console.log('Broadcasting payload:', {

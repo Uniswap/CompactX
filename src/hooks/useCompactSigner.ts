@@ -45,6 +45,29 @@ export function useCompactSigner() {
       'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
     const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING));
 
+    // Debug mandate values
+    console.log('Debug mandate values in deriveMandateHash:', {
+      chainId: mandate.chainId,
+      chainIdType: typeof mandate.chainId,
+      tribunal: mandate.tribunal,
+      tribunalType: typeof mandate.tribunal,
+      recipient: mandate.recipient,
+      recipientType: typeof mandate.recipient,
+      expires: mandate.expires,
+      expiresType: typeof mandate.expires,
+      token: mandate.token,
+      tokenType: typeof mandate.token,
+      minimumAmount: mandate.minimumAmount,
+      minimumAmountType: typeof mandate.minimumAmount,
+      baselinePriorityFee: mandate.baselinePriorityFee,
+      baselinePriorityFeeType: typeof mandate.baselinePriorityFee,
+      scalingFactor: mandate.scalingFactor,
+      scalingFactorType: typeof mandate.scalingFactor,
+      salt: mandate.salt,
+      saltType: typeof mandate.salt,
+      fullMandate: mandate
+    });
+
     const encodedData = encodeAbiParameters(
       [
         { type: 'bytes32' }, // MANDATE_TYPEHASH
