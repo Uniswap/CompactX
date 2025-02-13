@@ -19,6 +19,7 @@ export interface BroadcastContext {
   deltaAmount?: string;
   witnessHash: string;
   witnessTypeString: string;
+  claimHash?: string;
 }
 
 export interface BroadcastRequest {

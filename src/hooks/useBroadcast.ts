@@ -9,6 +9,50 @@ export function useBroadcast() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  const deriveClaimHash = (
+    arbiter: string,
+    sponsor: string,
+    nonce: string,
+    expiration: string,
+    id: string,
+    amount: string,
+    mandate: Mandate
+  ): `0x${string}` => {
+    // First derive the mandate hash
+    const mandateHash = deriveMandateHash(mandate);
+
+    // Calculate the COMPACT_TYPEHASH
+    const COMPACT_TYPE_STRING =
+      'Compact(address arbiter,address sponsor,uint256 nonce,uint256 expires,uint256 id,uint256 amount,Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
+    const COMPACT_TYPEHASH = keccak256(toBytes(COMPACT_TYPE_STRING));
+
+    // Encode all parameters including the derived mandate hash
+    const encodedParameters = encodeAbiParameters(
+      [
+        { type: 'bytes32' }, // COMPACT_TYPEHASH
+        { type: 'address' }, // arbiter
+        { type: 'address' }, // sponsor
+        { type: 'uint256' }, // nonce
+        { type: 'uint256' }, // expires
+        { type: 'uint256' }, // id
+        { type: 'uint256' }, // amount
+        { type: 'bytes32' }, // mandateHash
+      ],
+      [
+        COMPACT_TYPEHASH,
+        arbiter as `0x${string}`,
+        sponsor as `0x${string}`,
+        BigInt(nonce),
+        BigInt(expiration),
+        BigInt(id),
+        BigInt(amount),
+        mandateHash,
+      ]
+    );
+
+    return keccak256(encodedParameters);
+  };
+
   const deriveMandateHash = (mandate: Mandate): `0x${string}` => {
     const MANDATE_TYPE_STRING =
       'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
@@ -58,7 +102,22 @@ export function useBroadcast() {
         // chainId and tribunal are already set correctly in the mandate
       };
 
-      const witnessHash = deriveMandateHash(mandateWithTribunal);
+      // Ensure we have a nonce before deriving the claim hash
+      if (!payload.compact.nonce) {
+        throw new Error('Nonce is required for deriving claim hash');
+      }
+
+      const claimHash = deriveClaimHash(
+        payload.compact.arbiter,
+        payload.compact.sponsor,
+        payload.compact.nonce,
+        payload.compact.expires,
+        payload.compact.id,
+        payload.compact.amount,
+        mandateWithTribunal
+      );
+
+      const mandateHash = deriveMandateHash(mandateWithTribunal);
 
       const finalPayload: BroadcastRequest = {
         chainId: payload.chainId,
@@ -75,7 +134,8 @@ export function useBroadcast() {
           quoteOutputAmountDirect: context.quoteOutputAmountDirect,
           quoteOutputAmountNet: context.quoteOutputAmountNet,
           deltaAmount: context.deltaAmount,
-          witnessHash,
+          witnessHash: mandateHash,
+          claimHash,
           witnessTypeString:
             'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
         },

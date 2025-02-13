@@ -1,15 +1,26 @@
 import { describe, it, expect, beforeEach, vi, MockedFunction } from 'vitest';
 import { BroadcastApiClient } from '../api/broadcast';
-import { recoverAddress, keccak256 } from 'viem';
+import { recoverAddress } from 'viem';
 
 // Define types for mocked functions
 type RecoverAddressType = typeof recoverAddress;
-type Keccak256Type = typeof keccak256;
 
 vi.mock('viem', () => ({
   recoverAddress: vi.fn(),
-  keccak256: vi.fn(),
-  toBytes: vi.fn(() => new Uint8Array([1, 2, 3])), // Mock implementation
+  keccak256: vi.fn(input => {
+    // Return consistent hash for type strings
+    if (typeof input === 'string') {
+      if (input.startsWith('Compact(')) {
+        return '0x1234567890123456789012345678901234567890123456789012345678901234' as `0x${string}`;
+      }
+      if (input.startsWith('Mandate(')) {
+        return '0x2345678901234567890123456789012345678901234567890123456789012345' as `0x${string}`;
+      }
+    }
+    // Return different hash for encoded parameters
+    return '0x3333333333333333333333333333333333333333333333333333333333333333' as `0x${string}`;
+  }),
+  toBytes: vi.fn(str => str), // Return the string directly instead of converting to Uint8Array
   parseCompactSignature: vi.fn(() => ({ r: '0x123', s: '0x456', v: 27 })),
   compactSignatureToSignature: vi.fn(() => ({ r: '0x123', s: '0x456', v: 27 })),
   serializeSignature: vi.fn(() => '0x123456'),
@@ -31,11 +42,6 @@ describe('BroadcastApiClient', () => {
 
     // Reset mock implementation for each test
     (recoverAddress as unknown as MockedFunction<RecoverAddressType>).mockReset();
-
-    // Mock keccak256 to return a consistent hash
-    (keccak256 as unknown as MockedFunction<Keccak256Type>).mockReturnValue(
-      ('0x' + '3'.repeat(64)) as `0x${string}`
-    );
   });
 
   const mockRequest = {
@@ -43,7 +49,7 @@ describe('BroadcastApiClient', () => {
     compact: {
       arbiter: '0x1234567890123456789012345678901234567890',
       sponsor: '0x2234567890123456789012345678901234567890',
-      nonce: null,
+      nonce: '123456', // Set default nonce
       expires: '1732520000',
       id: '0x3234567890123456789012345678901234567890',
       amount: '1000000000000000000',
@@ -138,6 +144,23 @@ describe('BroadcastApiClient', () => {
     };
 
     await expect(client.broadcast(malformedRequest)).rejects.toThrow('Invalid sponsor signature');
+  });
+
+  it('should derive correct claimHash', async () => {
+    // Mock successful signature verifications
+    (recoverAddress as unknown as MockedFunction<RecoverAddressType>)
+      .mockResolvedValueOnce('0x2234567890123456789012345678901234567890')
+      .mockResolvedValueOnce('0x51044301738Ba2a27bd9332510565eBE9F03546b');
+
+    // Mock successful response
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+
+    const response = await client.broadcast(mockRequest);
+
+    expect(response).toEqual({ success: true });
   });
 
   it('should broadcast message successfully with valid signatures', async () => {

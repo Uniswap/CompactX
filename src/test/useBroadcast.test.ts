@@ -3,6 +3,25 @@ import { renderHook, act } from '@testing-library/react';
 import { useBroadcast } from '../hooks/useBroadcast';
 import { message } from 'antd';
 import { broadcast } from '../api/broadcast';
+import { keccak256 } from 'viem';
+
+vi.mock('viem', () => ({
+  keccak256: vi.fn(input => {
+    // Return consistent hash for type strings
+    if (typeof input === 'string') {
+      if (input.startsWith('Compact(')) {
+        return '0x1234567890123456789012345678901234567890123456789012345678901234' as `0x${string}`;
+      }
+      if (input.startsWith('Mandate(')) {
+        return '0x2345678901234567890123456789012345678901234567890123456789012345' as `0x${string}`;
+      }
+    }
+    // Return different hash for encoded parameters
+    return '0x3333333333333333333333333333333333333333333333333333333333333333' as `0x${string}`;
+  }),
+  toBytes: vi.fn(str => str), // Return the string directly instead of converting to Uint8Array
+  encodeAbiParameters: vi.fn(() => '0x123456'),
+}));
 
 vi.mock('antd', () => ({
   message: {
@@ -22,7 +41,7 @@ const mockPayload = {
   compact: {
     arbiter: '0x1234567890123456789012345678901234567890',
     sponsor: '0x2234567890123456789012345678901234567890',
-    nonce: null,
+    nonce: '123456', // Set default nonce
     expires: '1732520000',
     id: '0x3234567890123456789012345678901234567890',
     amount: '1000000000000000000',
@@ -85,7 +104,11 @@ describe('useBroadcast', () => {
       },
       sponsorSignature: mockUserSignature,
       allocatorSignature: mockSmallocatorSignature,
-      context: mockContext,
+      context: {
+        ...mockContext,
+        claimHash: '0x3333333333333333333333333333333333333333333333333333333333333333',
+        witnessHash: '0x3333333333333333333333333333333333333333333333333333333333333333',
+      },
     });
 
     expect(result.current.error).toBeNull();
@@ -145,5 +168,46 @@ describe('useBroadcast', () => {
     ).rejects.toThrow('Failed to broadcast');
 
     expect(message.error).toHaveBeenCalledWith('Failed to broadcast');
+  });
+
+  it('should throw error if nonce is missing', async () => {
+    const payloadWithoutNonce = {
+      ...mockPayload,
+      compact: {
+        ...mockPayload.compact,
+        nonce: null,
+      },
+    };
+
+    const { result } = renderHook(() => useBroadcast());
+
+    await expect(
+      result.current.broadcast(
+        payloadWithoutNonce,
+        mockUserSignature,
+        mockSmallocatorSignature,
+        mockContext
+      )
+    ).rejects.toThrow('Nonce is required for deriving claim hash');
+  });
+
+  it('should derive claim hash correctly', async () => {
+    vi.mocked(broadcast.broadcast).mockResolvedValueOnce({ success: true });
+
+    const { result } = renderHook(() => useBroadcast());
+
+    const response = await result.current.broadcast(
+      mockPayload,
+      mockUserSignature,
+      mockSmallocatorSignature,
+      mockContext
+    );
+
+    expect(response).toEqual({ success: true });
+    expect(keccak256).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Compact(address arbiter,address sponsor,uint256 nonce,uint256 expires,uint256 id,uint256 amount,Mandate mandate)'
+      )
+    );
   });
 });
