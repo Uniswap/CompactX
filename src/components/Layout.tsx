@@ -18,7 +18,7 @@ export const Layout = ({ children }: PropsWithChildren) => {
               {isConnected && !isLoading && (
                 <button
                   onClick={isAuthenticated ? signOut : signIn}
-                  className="inline-flex items-center px-3 py-2 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-full border border-gray-700 transition-colors"
+                  className="inline-flex items-center px-3 py-2.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-700 transition-colors"
                 >
                   <span className="flex items-center">
                     🤏 {isAuthenticated ? 'Sign out of' : 'Sign in to'} Smallocator
