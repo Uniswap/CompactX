@@ -65,7 +65,7 @@ export function useCompactSigner() {
       scalingFactorType: typeof mandate.scalingFactor,
       salt: mandate.salt,
       saltType: typeof mandate.salt,
-      fullMandate: mandate
+      fullMandate: mandate,
     });
 
     const encodedData = encodeAbiParameters(
@@ -231,6 +231,6 @@ export function useCompactSigner() {
         };
       },
     }),
-    [chainId]
+    [chainId, deriveMandateHash]
   );
 }
