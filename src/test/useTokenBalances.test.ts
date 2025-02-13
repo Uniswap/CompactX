@@ -11,11 +11,14 @@ import { mainnet } from 'wagmi/chains';
 vi.mock('wagmi', () => ({
   useAccount: vi.fn(),
   useBalance: vi.fn(),
+  WagmiConfig: ({ children }: { children: React.ReactNode }) => children,
   createConfig: () => ({
     chains: [],
     transports: {},
   }),
-  WagmiConfig: ({ children }: { children: React.ReactNode }) => children,
+  http: () => ({
+    request: vi.fn(),
+  }),
 }));
 
 describe('useTokenBalances', () => {

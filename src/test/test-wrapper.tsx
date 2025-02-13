@@ -4,19 +4,16 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { testQueryClient } from './test-config';
 import { AuthProvider } from '../contexts/AuthContext';
-import { http } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import '@rainbow-me/rainbowkit/styles.css';
+import { createConfig } from 'wagmi';
+import { http } from 'viem';
 
-const config = getDefaultConfig({
-  appName: 'CompactX Test',
-  projectId: 'test-project-id',
+const config = createConfig({
   chains: [mainnet],
   transports: {
     [mainnet.id]: http(),
   },
-}) as any; // Type assertion needed since RainbowKit's types don't fully match wagmi v2
+});
 
 export function TestWrapper({ children }: { children: ReactNode }) {
   return (
