@@ -41,7 +41,7 @@ export function TradeForm() {
     inputToken: '',
     outputToken: '',
     inputAmount: '',
-    slippageTolerance: 0.5
+    slippageTolerance: 0.5,
   });
   const { showToast } = useToast();
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -70,7 +70,7 @@ export function TradeForm() {
     }
 
     // If current selection is invalid (matches current chain or not in available chains)
-    const isCurrentSelectionInvalid = 
+    const isCurrentSelectionInvalid =
       selectedOutputChain === undefined ||
       selectedOutputChain === chainId ||
       !availableChains.some(chain => chain.id === selectedOutputChain);
@@ -84,7 +84,7 @@ export function TradeForm() {
   const handleValuesChange = (field: keyof TradeFormValues, value: string | number) => {
     const newValues = { ...formValues, [field]: value };
     setFormValues(newValues);
-    
+
     // Update selected tokens
     const newInputToken = inputTokens.find(token => token.address === newValues.inputToken);
     const newOutputToken = outputTokens.find(token => token.address === newValues.outputToken);
@@ -204,7 +204,7 @@ export function TradeForm() {
         inputToken: '',
         outputToken: '',
         inputAmount: '',
-        slippageTolerance: 0.5
+        slippageTolerance: 0.5,
       });
       setStatusMessage('');
       showToast('Trade broadcast successfully', 'success');
@@ -220,7 +220,7 @@ export function TradeForm() {
   if (!isConnected) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-lg text-white">Connect your wallet to start trading</p>
+        <button className="swap-button">Connect Wallet</button>
       </div>
     );
   }
@@ -236,7 +236,11 @@ export function TradeForm() {
             aria-label="Settings"
           >
             <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+              <path
+                fillRule="evenodd"
+                d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                clipRule="evenodd"
+              />
             </svg>
           </button>
         </div>
@@ -247,7 +251,7 @@ export function TradeForm() {
             <div className="flex-1 pr-2">
               <NumberInput
                 value={formValues.inputAmount}
-                onChange={(value) => handleValuesChange('inputAmount', value)}
+                onChange={value => handleValuesChange('inputAmount', value)}
                 placeholder="0.0"
                 min={0}
                 precision={selectedInputToken?.decimals ?? 18}
@@ -258,7 +262,7 @@ export function TradeForm() {
             <div className="w-40">
               <Select
                 value={formValues.inputToken}
-                onChange={(value) => handleValuesChange('inputToken', value.toString())}
+                onChange={value => handleValuesChange('inputToken', value.toString())}
                 placeholder="Select token"
                 options={inputTokens.map(token => ({
                   label: token.symbol,
@@ -269,18 +273,17 @@ export function TradeForm() {
               />
             </div>
           </div>
-          {selectedInputToken && <div className="mt-1 text-sm text-[#00ff00]">${'0.00'}</div>}
         </div>
 
         <div className="flex justify-center -my-2 relative z-10">
-          <button 
+          <button
             className="w-8 h-8 rounded-lg bg-[#1a1a1a] border border-gray-700 hover:bg-[#2a2a2a] flex items-center justify-center text-[#00ff00] transition-colors"
             onClick={() => {
               // Swap token selections
               const newValues = {
                 ...formValues,
                 inputToken: formValues.outputToken,
-                outputToken: formValues.inputToken
+                outputToken: formValues.inputToken,
               };
               setFormValues(newValues);
               setSelectedInputToken(selectedOutputToken);
@@ -325,7 +328,7 @@ export function TradeForm() {
               />
               <Select
                 value={formValues.outputToken}
-                onChange={(value) => {
+                onChange={value => {
                   handleValuesChange('outputToken', value.toString());
                   const token = outputTokens.find(t => t.address === value.toString());
                   setSelectedOutputToken(token);
@@ -350,7 +353,11 @@ export function TradeForm() {
                 <span>Settlement Cost: {quote.context.dispensationUSD}</span>
                 <Tooltip title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold">
                   <svg className="w-4 h-4 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </Tooltip>
               </div>
@@ -367,7 +374,11 @@ export function TradeForm() {
                   </span>
                   <Tooltip title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides">
                     <svg className="w-4 h-4 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </Tooltip>
                 </div>
@@ -389,9 +400,11 @@ export function TradeForm() {
           onClick={handleSwap}
           disabled={!isConnected || !quote?.data || isLoading || isSigning}
           className={`w-full h-12 rounded-lg font-medium transition-colors ${
-            !isConnected || !quote?.data || isLoading || isSigning
-              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-              : 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20'
+            !isConnected
+              ? 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20'
+              : !quote?.data || isLoading || isSigning
+                ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                : 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20'
           }`}
         >
           {!isConnected
@@ -404,8 +417,20 @@ export function TradeForm() {
           {isSigning && (
             <div className="inline-block ml-2 animate-spin h-4 w-4">
               <svg className="text-current" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
               </svg>
             </div>
           )}
@@ -413,11 +438,7 @@ export function TradeForm() {
       </div>
 
       {settingsVisible && (
-        <Modal
-          title="Settings"
-          open={settingsVisible}
-          onClose={() => setSettingsVisible(false)}
-        >
+        <Modal title="Settings" open={settingsVisible} onClose={() => setSettingsVisible(false)}>
           <div className="py-4 text-gray-200">
             <div className="mb-6">
               <label className="block text-sm font-medium mb-2 text-gray-200">
@@ -425,7 +446,7 @@ export function TradeForm() {
               </label>
               <NumberInput
                 value={formValues.slippageTolerance?.toString()}
-                onChange={(value) => handleValuesChange('slippageTolerance', Number(value))}
+                onChange={value => handleValuesChange('slippageTolerance', Number(value))}
                 min={0}
                 max={100}
                 precision={1}
@@ -442,7 +463,10 @@ export function TradeForm() {
               </button>
               <button
                 onClick={() => {
-                  localStorage.setItem('slippageTolerance', formValues.slippageTolerance?.toString() || '0.5');
+                  localStorage.setItem(
+                    'slippageTolerance',
+                    formValues.slippageTolerance?.toString() || '0.5'
+                  );
                   setSettingsVisible(false);
                 }}
                 className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"

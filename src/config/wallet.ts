@@ -1,5 +1,19 @@
+import '@rainbow-me/rainbowkit/styles.css';
 import { http } from 'wagmi';
 import { mainnet, optimism, base, Chain } from 'wagmi/chains';
+import {
+  getDefaultConfig,
+  RainbowKitProvider,
+  darkTheme as createDarkTheme,
+  ConnectButton,
+} from '@rainbow-me/rainbowkit';
+
+// Create custom theme with semi-transparent green accent
+const customTheme = createDarkTheme({
+  accentColor: 'rgba(0, 255, 0, 0.1)',
+  accentColorForeground: '#00ff00',
+  borderRadius: 'medium',
+});
 
 // Define Unichain
 const unichain = {
@@ -14,13 +28,6 @@ const unichain = {
     default: { name: 'Uniscan', url: 'https://uniscan.xyz' },
   },
 } as const satisfies Chain;
-import {
-  getDefaultConfig,
-  RainbowKitProvider,
-  darkTheme,
-  ConnectButton,
-} from '@rainbow-me/rainbowkit';
-import '@rainbow-me/rainbowkit/styles.css';
 
 // Get project ID from environment variable
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
@@ -45,4 +52,6 @@ export const config = getDefaultConfig({
 });
 
 // Export components and configuration
-export { RainbowKitProvider, darkTheme, ConnectButton, chains };
+export { RainbowKitProvider, ConnectButton, chains };
+// Export custom theme
+export const darkTheme = () => customTheme;

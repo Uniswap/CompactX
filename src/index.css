@@ -42,3 +42,14 @@ body {
 .swap-button:not(:disabled):hover {
   background-color: rgba(0, 255, 0, 0.2);
 }
+
+/* Custom RainbowKit button styles */
+[data-rk] button:not([disabled]) {
+  background-color: rgba(0, 255, 0, 0.1) !important;
+  color: rgb(0, 255, 0) !important;
+  border: 1px solid rgba(0, 255, 0, 0.2) !important;
+}
+
+[data-rk] button:not([disabled]):hover {
+  background-color: rgba(0, 255, 0, 0.2) !important;
+}
