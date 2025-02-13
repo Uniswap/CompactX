@@ -1,5 +1,5 @@
 // These tests are temporarily moved here while we fix dropdown rendering issues
-import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { useAccount } from 'wagmi';
 import type { Connector } from 'wagmi';
@@ -7,7 +7,7 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 import { useBroadcast } from '../hooks/useBroadcast';
 import { TradeForm } from '../components/TradeForm';
-import { AntWrapper } from './helpers/AntWrapper';
+import { TestWrapper } from './test-wrapper';
 
 // Import all the necessary mocks from TradeForm.test.tsx
 vi.mock('@tanstack/react-query');
@@ -19,33 +19,13 @@ vi.mock('../hooks/useCompactSigner');
 
 // Utility functions for common test operations
 async function selectInputToken() {
-  const inputSelect = screen.getByTestId('input-token-select');
-  fireEvent.mouseDown(within(inputSelect).getByRole('combobox'));
-
-  await waitFor(() => {
-    const dropdown = document.body.querySelector('.ant-select-dropdown');
-    if (!dropdown) {
-      throw new Error('Dropdown not found in DOM after opening');
-    }
-  });
-
-  const option = screen.getByText('ETH');
-  fireEvent.click(option);
+  const select = screen.getByTestId('input-token-select');
+  fireEvent.change(select, { target: { value: 'ETH' } });
 }
 
 async function selectOutputToken() {
-  const outputSelect = screen.getByTestId('output-token-select');
-  fireEvent.mouseDown(within(outputSelect).getByRole('combobox'));
-
-  await waitFor(() => {
-    const dropdown = document.body.querySelector('.ant-select-dropdown');
-    if (!dropdown) {
-      throw new Error('Dropdown not found in DOM after opening');
-    }
-  });
-
-  const option = screen.getByText('USDC');
-  fireEvent.click(option);
+  const select = screen.getByTestId('output-token-select');
+  fireEvent.change(select, { target: { value: 'USDC' } });
 }
 
 function enterAmount(amount: string) {
@@ -55,11 +35,6 @@ function enterAmount(amount: string) {
 
 describe.skip('TradeForm (Pending Tests)', () => {
   beforeEach(() => {
-    // Create portal container for Ant Design dropdowns
-    const portalRoot = document.createElement('div');
-    portalRoot.setAttribute('id', 'ant-select-dropdown');
-    document.body.appendChild(portalRoot);
-
     // Mock useAccount to return an address
     vi.mocked(useAccount).mockReturnValue({
       address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
@@ -96,16 +71,11 @@ describe.skip('TradeForm (Pending Tests)', () => {
   });
 
   afterEach(() => {
-    // Clean up portal container
-    const portalRoot = document.getElementById('ant-select-dropdown');
-    if (portalRoot) {
-      document.body.removeChild(portalRoot);
-    }
     vi.clearAllMocks();
   });
 
   it('should handle input amount changes', async () => {
-    render(<TradeForm />, { wrapper: AntWrapper });
+    render(<TradeForm />, { wrapper: TestWrapper });
 
     await selectInputToken();
     await selectOutputToken();
@@ -145,7 +115,7 @@ describe.skip('TradeForm (Pending Tests)', () => {
       promise: Promise.resolve(undefined),
     } as unknown as UseQueryResult<unknown>);
 
-    render(<TradeForm />, { wrapper: AntWrapper });
+    render(<TradeForm />, { wrapper: TestWrapper });
 
     await selectInputToken();
     await selectOutputToken();
@@ -184,7 +154,7 @@ describe.skip('TradeForm (Pending Tests)', () => {
       promise: Promise.reject(new Error('Failed to fetch quote')),
     } as unknown as UseQueryResult<unknown>);
 
-    render(<TradeForm />, { wrapper: AntWrapper });
+    render(<TradeForm />, { wrapper: TestWrapper });
 
     await selectInputToken();
     await selectOutputToken();
@@ -201,7 +171,7 @@ describe.skip('TradeForm (Pending Tests)', () => {
       error: null,
     });
 
-    render(<TradeForm />, { wrapper: AntWrapper });
+    render(<TradeForm />, { wrapper: TestWrapper });
 
     await selectInputToken();
     await selectOutputToken();

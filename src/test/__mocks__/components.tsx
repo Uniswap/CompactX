@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Option, SelectProps } from '../../components/Select';
 import type { NumberInputProps } from '../../components/NumberInput';
 import type { TooltipProps } from '../../components/Tooltip';
@@ -64,7 +63,7 @@ export const Toast = ({ message, type, onClose }: ToastProps) => (
 );
 
 export const useToast = () => {
-  const showToast = (message: string, type: 'success' | 'error') => {
+  const showToast = (_message: string, _type: 'success' | 'error') => {
     // Mock implementation
   };
 

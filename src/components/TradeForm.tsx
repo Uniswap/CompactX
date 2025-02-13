@@ -1,6 +1,6 @@
 import { Select } from './Select';
 import { NumberInput } from './NumberInput';
-import { useToast, Toast } from './Toast';
+import { useToast } from './Toast';
 import { Modal } from './Modal';
 import { Tooltip } from './Tooltip';
 import { useAccount, useChainId } from 'wagmi';

@@ -1,25 +1,3 @@
-// Mock matchMedia for Ant Design
-const mediaQueryList = {
-  matches: false,
-  media: '',
-  onchange: null,
-  addListener: vi.fn(),
-  removeListener: vi.fn(),
-  addEventListener: vi.fn(),
-  removeEventListener: vi.fn(),
-  dispatchEvent: vi.fn(),
-};
-
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  configurable: true,
-  value: vi.fn().mockImplementation(query => ({
-    ...mediaQueryList,
-    media: query,
-    matches: false,
-  })),
-});
-
 // Mock ResizeObserver
 class ResizeObserver {
   observe = vi.fn();
@@ -30,9 +8,9 @@ class ResizeObserver {
 window.ResizeObserver = ResizeObserver;
 
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, afterEach } from 'vitest';
 import { TradeForm } from '../components/TradeForm';
-import { AntWrapper } from './helpers/AntWrapper';
+import { TestWrapper } from './test-wrapper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Mock wagmi
@@ -72,7 +50,7 @@ const createWrapper = () => {
 
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <AntWrapper>{children}</AntWrapper>
+      <TestWrapper>{children}</TestWrapper>
     </QueryClientProvider>
   );
 };
@@ -135,19 +113,7 @@ vi.mock('../hooks/useCalibrator', () => ({
 }));
 
 describe('TradeForm', () => {
-  beforeEach(() => {
-    // Create portal container for Ant Design dropdowns
-    const portalRoot = document.createElement('div');
-    portalRoot.setAttribute('id', 'ant-select-dropdown');
-    document.body.appendChild(portalRoot);
-  });
-
   afterEach(() => {
-    // Clean up portal container
-    const portalRoot = document.getElementById('ant-select-dropdown');
-    if (portalRoot) {
-      document.body.removeChild(portalRoot);
-    }
     vi.clearAllMocks();
   });
 

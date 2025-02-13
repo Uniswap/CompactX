@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useBroadcast } from '../hooks/useBroadcast';
-import { message } from 'antd';
 import { broadcast } from '../api/broadcast';
+import { useToast } from '../components/Toast';
 import { keccak256 } from 'viem';
 
 vi.mock('viem', () => ({
@@ -23,11 +23,10 @@ vi.mock('viem', () => ({
   encodeAbiParameters: vi.fn(() => '0x123456'),
 }));
 
-vi.mock('antd', () => ({
-  message: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
+vi.mock('../components/Toast', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+  }),
 }));
 
 vi.mock('../api/broadcast', () => ({
@@ -112,7 +111,7 @@ describe('useBroadcast', () => {
     });
 
     expect(result.current.error).toBeNull();
-    expect(message.success).toHaveBeenCalledWith('Transaction broadcast successfully');
+    expect(useToast().showToast).toHaveBeenCalledWith('Transaction broadcast successfully', 'success');
   });
 
   it('should handle broadcast error', async () => {
@@ -133,7 +132,7 @@ describe('useBroadcast', () => {
     });
 
     expect(result.current.error).toBe(error);
-    expect(message.error).toHaveBeenCalledWith('Network error');
+    expect(useToast().showToast).toHaveBeenCalledWith('Network error', 'error');
   });
 
   it('should handle broadcast failure', async () => {
@@ -150,7 +149,7 @@ describe('useBroadcast', () => {
       )
     ).rejects.toThrow('Failed to broadcast transaction');
 
-    expect(message.error).toHaveBeenCalledWith('Failed to broadcast transaction');
+    expect(useToast().showToast).toHaveBeenCalledWith('Failed to broadcast transaction', 'error');
   });
 
   it('should handle broadcast error', async () => {
@@ -167,7 +166,7 @@ describe('useBroadcast', () => {
       )
     ).rejects.toThrow('Failed to broadcast');
 
-    expect(message.error).toHaveBeenCalledWith('Failed to broadcast');
+    expect(useToast().showToast).toHaveBeenCalledWith('Failed to broadcast', 'error');
   });
 
   it('should throw error if nonce is missing', async () => {

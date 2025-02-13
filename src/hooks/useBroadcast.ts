@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useToast } from '../components/Toast';
 import { broadcast } from '../api/broadcast';
 import { CompactRequestPayload } from '../types/compact';
 import { BroadcastRequest, BroadcastContext, Mandate } from '../types/broadcast';
@@ -7,6 +8,7 @@ import { keccak256, encodeAbiParameters, toBytes } from 'viem';
 export function useBroadcast() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const { showToast } = useToast();
 
   const deriveClaimHash = (
     arbiter: string,
@@ -143,14 +145,14 @@ export function useBroadcast() {
       const result = await broadcast.broadcast(finalPayload);
 
       if (result.success) {
-        message.success('Transaction broadcast successfully');
+        showToast('Transaction broadcast successfully', 'success');
         return result;
       } else {
         throw new Error('Failed to broadcast transaction');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to broadcast transaction';
-      message.error(errorMessage);
+      showToast(errorMessage, 'error');
       setError(err as Error);
       throw err;
     } finally {
