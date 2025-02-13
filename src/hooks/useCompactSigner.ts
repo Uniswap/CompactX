@@ -141,7 +141,7 @@ export function useCompactSigner() {
         // Create the EIP-712 payload using the current chainId
         const domain = {
           name: 'The Compact',
-          version: '1',
+          version: '0',
           chainId: BigInt(request.currentChainId), // Use current chainId for EIP-712 domain
           verifyingContract: COMPACT_CONTRACT_ADDRESS as `0x${string}`,
         } as const;

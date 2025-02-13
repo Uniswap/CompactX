@@ -62,7 +62,11 @@ export class BroadcastApiClient {
       ]
     );
 
-    return keccak256(encodedParameters);
+    const claimHash = keccak256(encodedParameters);
+
+    console.log({ claimHash, mandateHash });
+
+    return claimHash;
   }
 
   private deriveMandateHash(mandate: Mandate): `0x${string}` {
