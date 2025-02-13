@@ -31,10 +31,6 @@ export function useCalibrator() {
   const { inputTokens } = useTokens();
 
   const getQuote = async (params: GetQuoteParams): Promise<CalibratorQuoteResponse> => {
-    if (!address) {
-      throw new Error('Wallet not connected');
-    }
-
     // Find input token to get decimals
     const inputToken = inputTokens.find(
       token => token.address.toLowerCase() === params.inputTokenAddress.toLowerCase()
@@ -44,8 +40,13 @@ export function useCalibrator() {
       throw new Error('Input token not found');
     }
 
+    // Validate sponsor is present since it's required
+    if (!params.sponsor) {
+      throw new Error('Sponsor address is required');
+    }
+
     const quoteRequest: CalibratorQuoteRequest = {
-      sponsor: address,
+      sponsor: params.sponsor, // Can be zero address for unconnected wallet
       inputTokenChainId: params.inputTokenChainId,
       inputTokenAddress: params.inputTokenAddress,
       inputTokenAmount: params.inputTokenAmount,
@@ -58,7 +59,7 @@ export function useCalibrator() {
       },
       context: {
         slippageBips: params.slippageBips,
-        recipient: address,
+        recipient: address || '0x0000000000000000000000000000000000000000',
         baselinePriorityFee: '0',
         scalingFactor: '1000000000100000000',
         fillExpires: params.fillExpires || Math.floor(Date.now() / 1000 + 180).toString(), // Default: 3 minutes from now
@@ -85,7 +86,7 @@ export function useCalibrator() {
     return useQuery({
       queryKey: ['quote', params],
       queryFn: () => getQuote(params!),
-      enabled: !!params && !!address,
+      enabled: !!params,
     });
   };
 

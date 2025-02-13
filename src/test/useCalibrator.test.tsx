@@ -131,6 +131,7 @@ describe('useCalibrator', () => {
       outputTokenChainId: 8453,
       outputTokenAddress: '0x4200000000000000000000000000000000000006',
       slippageBips: 100,
+      sponsor: '0x1234567890123456789012345678901234567890',
     };
 
     const { result } = renderHook(() => useCalibrator().useQuote(quoteParams), {
@@ -241,6 +242,7 @@ describe('useCalibrator', () => {
       slippageBips: 100,
       fillExpires: customFillExpires,
       claimExpires: customClaimExpires,
+      sponsor: '0x1234567890123456789012345678901234567890',
     };
 
     const { result } = renderHook(() => useCalibrator().useQuote(quoteParams), {
@@ -270,6 +272,7 @@ describe('useCalibrator', () => {
       outputTokenChainId: 8453,
       outputTokenAddress: '0x4200000000000000000000000000000000000006',
       slippageBips: 100,
+      sponsor: '0x1234567890123456789012345678901234567890',
     };
 
     const { result } = renderHook(() => useCalibrator().useQuote(quoteParams), {
@@ -281,36 +284,5 @@ describe('useCalibrator', () => {
       expect(result.current.error).toBeDefined();
       expect(result.current.error?.message).toBe('Failed to fetch quote');
     });
-  });
-
-  it('should handle wallet not connected error', async () => {
-    (vi.mocked(useAccount) as unknown as MockInstance).mockReturnValue({
-      address: undefined,
-      addresses: [] as readonly `0x${string}`[],
-      chain: undefined,
-      chainId: undefined,
-      connector: undefined,
-      isConnected: false,
-      isConnecting: false,
-      isDisconnected: true,
-      isReconnecting: false,
-      status: 'disconnected',
-    });
-
-    const quoteParams = {
-      inputTokenChainId: 10,
-      inputTokenAddress: '0x4200000000000000000000000000000000000006',
-      inputTokenAmount: '1',
-      outputTokenChainId: 8453,
-      outputTokenAddress: '0x4200000000000000000000000000000000000006',
-      slippageBips: 100,
-    };
-
-    const { result } = renderHook(() => useCalibrator().getQuote(quoteParams), {
-      wrapper: createWrapper(),
-    });
-
-    // Since we're calling getQuote directly, we expect it to throw
-    await expect(result.current).rejects.toThrow('Wallet not connected');
   });
 });

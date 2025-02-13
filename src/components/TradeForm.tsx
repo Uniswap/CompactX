@@ -4,14 +4,15 @@ import { useToast } from './Toast';
 import { Modal } from './Modal';
 import { Tooltip } from './Tooltip';
 import { useAccount, useChainId } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
+import { ConnectButton } from '../config/wallet';
+import { formatUnits, parseUnits, type Hex } from 'viem';
 import { useState, useEffect } from 'react';
 import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
 import { useCompactSigner } from '../hooks/useCompactSigner';
 import { useBroadcast } from '../hooks/useBroadcast';
-import { GetQuoteParams } from '../types';
-import { CompactRequestPayload } from '../types/compact';
+import type { GetQuoteParams } from '../types/index';
+import { CompactRequestPayload, Mandate } from '../types/compact';
 import { BroadcastContext } from '../types/broadcast';
 
 // Supported chains for output token
@@ -22,6 +23,9 @@ const SUPPORTED_CHAINS = [
   { id: 130, name: 'Unichain' },
 ];
 
+// Default sponsor address when wallet is not connected
+const DEFAULT_SPONSOR = '0x0000000000000000000000000000000000000000';
+
 interface TradeFormValues {
   inputToken: string;
   outputToken: string;
@@ -30,7 +34,7 @@ interface TradeFormValues {
 }
 
 export function TradeForm() {
-  const { isConnected } = useAccount();
+  const { isConnected, address = DEFAULT_SPONSOR } = useAccount();
   const chainId = useChainId();
   const { inputTokens, outputTokens } = useTokens();
   const { signCompact } = useCompactSigner();
@@ -45,6 +49,7 @@ export function TradeForm() {
   });
   const { showToast } = useToast();
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [selectedInputChain, setSelectedInputChain] = useState<number>(1); // Default to Ethereum
   const [selectedOutputChain, setSelectedOutputChain] = useState<number | undefined>(undefined);
   const [isSigning, setIsSigning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
@@ -80,6 +85,14 @@ export function TradeForm() {
     }
   }, [chainId]); // Only run when chainId changes
 
+  // Refresh quote when wallet connects if form is filled out
+  useEffect(() => {
+    if (isConnected && quoteParams) {
+      // Re-trigger quote fetch with current form values
+      handleValuesChange('inputAmount', formValues.inputAmount || '');
+    }
+  }, [isConnected]); // Re-run when wallet connection status changes
+
   // Handle form value changes
   const handleValuesChange = (field: keyof TradeFormValues, value: string | number) => {
     const newValues = { ...formValues, [field]: value };
@@ -112,8 +125,8 @@ export function TradeForm() {
       // Convert decimal input to token units
       const tokenUnits = parseUnits(newValues.inputAmount, newInputToken.decimals).toString();
 
-      setQuoteParams({
-        inputTokenChainId: chainId,
+      const params = {
+        inputTokenChainId: isConnected ? chainId : selectedInputChain,
         inputTokenAddress: newValues.inputToken,
         inputTokenAmount: tokenUnits,
         outputTokenChainId: selectedOutputChain,
@@ -122,6 +135,10 @@ export function TradeForm() {
         allocatorId: '1223867955028248789127899354',
         resetPeriod: 600,
         isMultichain: true,
+      } as const;
+      setQuoteParams({
+        ...params,
+        sponsor: isConnected ? address : DEFAULT_SPONSOR,
       });
     }
   };
@@ -137,16 +154,25 @@ export function TradeForm() {
         throw new Error('No quote available');
       }
 
-      // Create compact message from the quote data
-      const mandate = {
-        ...quote.data.mandate,
-        expires: quote.data.mandate.expires,
+      // Ensure we have a valid salt
+      if (!quote.data.mandate.salt) {
+        throw new Error('Invalid salt value');
+      }
+
+      // Create mandate with required properties
+      const mandate: Mandate = {
         chainId: quote.data.mandate.chainId,
         tribunal: quote.data.mandate.tribunal,
+        recipient: quote.data.mandate.recipient,
+        expires: quote.data.mandate.expires,
+        token: quote.data.mandate.token,
+        minimumAmount: quote.data.mandate.minimumAmount,
+        baselinePriorityFee: quote.data.mandate.baselinePriorityFee,
+        scalingFactor: quote.data.mandate.scalingFactor,
         salt: quote.data.mandate.salt.startsWith('0x')
-          ? (quote.data.mandate.salt as `0x${string}`)
-          : (`0x${quote.data.mandate.salt}` as `0x${string}`),
-      };
+          ? (quote.data.mandate.salt as Hex)
+          : (`0x${quote.data.mandate.salt}` as Hex),
+      } satisfies Mandate;
 
       const compactMessage = {
         arbiter: quote.data.arbiter,
@@ -217,14 +243,6 @@ export function TradeForm() {
     }
   };
 
-  if (!isConnected) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <button className="swap-button">Connect Wallet</button>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full max-w-2xl p-6 bg-[#0a0a0a] rounded-xl shadow-xl border border-gray-800">
       <div className="flex flex-col gap-4" data-testid="trade-form">
@@ -259,17 +277,54 @@ export function TradeForm() {
                 aria-label="Input Amount"
               />
             </div>
-            <div className="w-40">
+            <div className="flex space-x-2">
+              {!isConnected && (
+                <Select
+                  placeholder="Chain"
+                  value={selectedInputChain}
+                  onChange={value => {
+                    const newChainId = Number(value);
+                    if (newChainId !== selectedInputChain) {
+                      setSelectedInputChain(newChainId);
+                      setSelectedInputToken(undefined);
+                      setFormValues(prev => ({ ...prev, inputToken: '' }));
+
+                      // If output chain conflicts with new input chain, change it to first available chain
+                      if (selectedOutputChain === newChainId) {
+                        const availableChains = SUPPORTED_CHAINS.filter(
+                          chain => chain.id !== newChainId && chain.id !== 1
+                        );
+                        if (availableChains.length > 0) {
+                          setSelectedOutputChain(availableChains[0].id);
+                          setSelectedOutputToken(undefined);
+                          setFormValues(prev => ({ ...prev, outputToken: '' }));
+                        }
+                      }
+                    }
+                  }}
+                  options={SUPPORTED_CHAINS.map(chain => ({
+                    label: chain.name,
+                    value: chain.id,
+                  }))}
+                  aria-label="Input Chain"
+                  className="w-32"
+                />
+              )}
               <Select
                 value={formValues.inputToken}
                 onChange={value => handleValuesChange('inputToken', value.toString())}
-                placeholder="Select token"
-                options={inputTokens.map(token => ({
-                  label: token.symbol,
-                  value: token.address,
-                }))}
+                placeholder="Token"
+                options={inputTokens
+                  .filter(token =>
+                    isConnected ? token.chainId === chainId : token.chainId === selectedInputChain
+                  )
+                  .map(token => ({
+                    label: token.symbol,
+                    value: token.address,
+                  }))}
                 aria-label="Input Token"
                 data-testid="input-token-select"
+                className="w-28"
               />
             </div>
           </div>
@@ -317,9 +372,14 @@ export function TradeForm() {
                     setFormValues(prev => ({ ...prev, outputToken: '' }));
                   }
                 }}
-                options={SUPPORTED_CHAINS.filter(
-                  chain => chain.id !== chainId && chain.id !== 1
-                ).map(chain => ({
+                options={SUPPORTED_CHAINS.filter(chain => {
+                  // When connected, filter out current chain and Ethereum
+                  if (isConnected) {
+                    return chain.id !== chainId && chain.id !== 1;
+                  }
+                  // When not connected, filter out manually selected input chain
+                  return chain.id !== selectedInputChain && chain.id !== 1;
+                }).map(chain => ({
                   label: chain.name,
                   value: chain.id,
                 }))}
@@ -396,45 +456,43 @@ export function TradeForm() {
 
         {statusMessage && <div className="mt-4 text-center text-[#00ff00]">{statusMessage}</div>}
 
-        <button
-          onClick={handleSwap}
-          disabled={!isConnected || !quote?.data || isLoading || isSigning}
-          className={`w-full h-12 rounded-lg font-medium transition-colors ${
-            !isConnected
-              ? 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20'
-              : !quote?.data || isLoading || isSigning
+        {!isConnected ? (
+          <div className="w-full h-12 [&>div]:h-full [&>div]:w-full [&>div>button]:h-full [&>div>button]:w-full [&>div>button]:rounded-lg [&>div>button]:flex [&>div>button]:items-center [&>div>button]:justify-center [&>div>button]:p-0 [&>div>button>div]:p-0 [&>div>button]:py-4">
+            <ConnectButton />
+          </div>
+        ) : (
+          <button
+            onClick={handleSwap}
+            disabled={!quote?.data || isLoading || isSigning}
+            className={`w-full h-12 rounded-lg font-medium transition-colors ${
+              !quote?.data || isLoading || isSigning
                 ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                 : 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20'
-          }`}
-        >
-          {!isConnected
-            ? 'Connect Wallet'
-            : isSigning
-              ? 'Signing...'
-              : error
-                ? 'Try Again'
-                : 'Swap'}
-          {isSigning && (
-            <div className="inline-block ml-2 animate-spin h-4 w-4">
-              <svg className="text-current" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                  fill="none"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-            </div>
-          )}
-        </button>
+            }`}
+          >
+            {isSigning ? 'Signing...' : error ? 'Try Again' : 'Swap'}
+            {isSigning && (
+              <div className="inline-block ml-2 animate-spin h-4 w-4">
+                <svg className="text-current" viewBox="0 0 24 24">
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+              </div>
+            )}
+          </button>
+        )}
       </div>
 
       {settingsVisible && (

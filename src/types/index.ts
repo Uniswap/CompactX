@@ -84,4 +84,6 @@ export interface GetQuoteParams {
   isMultichain?: boolean;
   fillExpires?: string;
   claimExpires?: string;
+  sponsor: string;
+  recipient?: string;
 }
