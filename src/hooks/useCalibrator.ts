@@ -67,6 +67,12 @@ export function useCalibrator() {
       },
     };
 
+    console.group('Calibrator Quote');
+    console.log('Request:', {
+      url: `${import.meta.env.VITE_CALIBRATOR_API_URL}/quote`,
+      body: quoteRequest
+    });
+
     const response = await fetch(`${import.meta.env.VITE_CALIBRATOR_API_URL}/quote`, {
       method: 'POST',
       headers: {
@@ -76,10 +82,15 @@ export function useCalibrator() {
     });
 
     if (!response.ok) {
+      console.error('Quote request failed:', await response.text());
+      console.groupEnd();
       throw new Error('Failed to fetch quote');
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('Response:', data);
+    console.groupEnd();
+    return data;
   };
 
   const useQuote = (params: GetQuoteParams | undefined) => {

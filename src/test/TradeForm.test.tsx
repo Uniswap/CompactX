@@ -12,8 +12,11 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import { TradeForm } from '../components/TradeForm';
 import { TestWrapper } from './test-wrapper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useAccount } from 'wagmi';
+import { AuthProvider } from '../contexts/AuthContext';
+import { smallocator } from '../api/smallocator';
 
-// Mock wagmi
+// We don't need to mock useAuth anymore since we're using the real AuthProvider
 vi.mock('wagmi', () => {
   return {
     createConfig: () => ({
@@ -32,6 +35,9 @@ vi.mock('wagmi', () => {
       chain: { id: 1, name: 'Mainnet' },
     }),
     useChainId: () => 1,
+    useSignMessage: () => ({
+      signMessageAsync: vi.fn().mockResolvedValue('0xsignature'),
+    }),
     http: () => ({
       request: vi.fn(),
     }),
@@ -50,7 +56,9 @@ const createWrapper = () => {
 
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <TestWrapper>{children}</TestWrapper>
+      <TestWrapper>
+        <AuthProvider>{children}</AuthProvider>
+      </TestWrapper>
     </QueryClientProvider>
   );
 };
@@ -112,12 +120,34 @@ vi.mock('../hooks/useCalibrator', () => ({
   })),
 }));
 
+// Mock smallocator API
+vi.mock('../api/smallocator', () => ({
+  smallocator: {
+    verifySession: vi.fn().mockResolvedValue({ valid: true, session: { address: '0x1234' } }),
+    getSessionPayload: vi.fn().mockResolvedValue({
+      session: {
+        domain: 'test.com',
+        address: '0x1234',
+        statement: 'Sign in',
+        uri: 'https://test.com',
+        version: '1',
+        chainId: '1',
+        nonce: '123',
+        issuedAt: '2025-01-01T00:00:00.000Z',
+        expirationTime: '2025-01-02T00:00:00.000Z',
+      },
+    }),
+    createSession: vi.fn().mockResolvedValue({}),
+    clearSession: vi.fn().mockResolvedValue({}),
+  },
+}));
+
 describe('TradeForm', () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should render the form', () => {
+  it('should render the form when authenticated', () => {
     render(<TradeForm />, {
       wrapper: createWrapper(),
     });
@@ -128,5 +158,40 @@ describe('TradeForm', () => {
     expect(screen.getByRole('button', { name: 'Input Token' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Output Token' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Input Amount' })).toBeInTheDocument();
+  });
+
+  it('should show sign in button when wallet is connected but not authenticated', async () => {
+    // Mock smallocator to return invalid session
+    const mockSmalloc = vi.mocked(smallocator);
+    mockSmalloc.verifySession.mockResolvedValueOnce({ valid: false, error: 'Invalid session' });
+
+    render(<TradeForm />, {
+      wrapper: createWrapper(),
+    });
+
+    // Wait for auth check to complete
+    await screen.findByRole('button', { name: 'Sign in to Smallocator' });
+  });
+
+  it('should show connect wallet button when wallet is not connected', () => {
+    vi.mocked(useAccount).mockReturnValue({
+      address: undefined,
+      addresses: undefined,
+      chain: undefined,
+      chainId: undefined,
+      connector: undefined,
+      isConnected: false,
+      isReconnecting: false,
+      isConnecting: false,
+      isDisconnected: true,
+      status: "disconnected",
+    });
+
+    render(<TradeForm />, {
+      wrapper: createWrapper(),
+    });
+
+    // The ConnectButton component is rendered when wallet is not connected
+    expect(screen.getByTestId('trade-form')).toBeInTheDocument();
   });
 });

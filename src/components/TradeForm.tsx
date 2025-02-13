@@ -4,6 +4,7 @@ import { useToast } from './Toast';
 import { Modal } from './Modal';
 import { Tooltip } from './Tooltip';
 import { useAccount, useChainId } from 'wagmi';
+import { useAuth } from '../hooks/useAuth';
 import { ConnectButton } from '../config/wallet';
 import { formatUnits, parseUnits, type Hex } from 'viem';
 import { useState, useEffect } from 'react';
@@ -18,9 +19,9 @@ import { BroadcastContext } from '../types/broadcast';
 // Supported chains for output token
 const SUPPORTED_CHAINS = [
   { id: 1, name: 'Ethereum' },
-  { id: 10, name: 'Optimism' },
-  { id: 8453, name: 'Base' },
   { id: 130, name: 'Unichain' },
+  { id: 8453, name: 'Base' },
+  { id: 10, name: 'Optimism' },
 ];
 
 // Default sponsor address when wallet is not connected
@@ -36,6 +37,7 @@ interface TradeFormValues {
 export function TradeForm() {
   const { isConnected, address = DEFAULT_SPONSOR } = useAccount();
   const chainId = useChainId();
+  const { isAuthenticated, signIn } = useAuth();
   const { signCompact } = useCompactSigner();
   const { broadcast } = useBroadcast();
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
@@ -49,7 +51,8 @@ export function TradeForm() {
   const { showToast } = useToast();
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [selectedInputChain, setSelectedInputChain] = useState<number>(1); // Default to Ethereum
-  const [selectedOutputChain, setSelectedOutputChain] = useState<number | undefined>(undefined);
+  // Initialize with Unichain as default output chain
+  const [selectedOutputChain, setSelectedOutputChain] = useState<number>(130);
   const [isSigning, setIsSigning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const { inputTokens, outputTokens } = useTokens(selectedInputChain);
@@ -60,30 +63,17 @@ export function TradeForm() {
     (typeof outputTokens)[0] | undefined
   >();
 
-  // Initialize and manage output chain selection
+  // Handle chain changes and conflicts
   useEffect(() => {
-    const availableChains = SUPPORTED_CHAINS.filter(
-      chain => chain.id !== chainId && chain.id !== 1
-    );
-
-    // If no chains available, reset everything
-    if (availableChains.length === 0) {
-      setSelectedOutputChain(undefined);
+    if (isConnected && chainId === selectedOutputChain) {
+      // When connected and chainId matches output chain, select first available chain (preferring Unichain)
+      const availableChains = SUPPORTED_CHAINS.filter(chain => chain.id !== chainId && chain.id !== 1);
+      const unichain = availableChains.find(chain => chain.id === 130);
+      setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
       setSelectedOutputToken(undefined);
       setFormValues(prev => ({ ...prev, outputToken: '' }));
-      return;
     }
-
-    // If current selection is invalid (matches current chain or not in available chains)
-    const isCurrentSelectionInvalid =
-      selectedOutputChain === undefined ||
-      selectedOutputChain === chainId ||
-      !availableChains.some(chain => chain.id === selectedOutputChain);
-
-    if (isCurrentSelectionInvalid) {
-      setSelectedOutputChain(availableChains[0].id);
-    }
-  }, [chainId]); // Only run when chainId changes
+  }, [chainId, isConnected]);
 
   // Refresh quote when wallet connects if form is filled out
   useEffect(() => {
@@ -284,23 +274,25 @@ export function TradeForm() {
                   value={selectedInputChain}
                   onChange={value => {
                     const newChainId = Number(value);
-                    if (newChainId !== selectedInputChain) {
-                      setSelectedInputChain(newChainId);
-                      setSelectedInputToken(undefined);
-                      setFormValues(prev => ({ ...prev, inputToken: '' }));
+                  if (newChainId !== selectedInputChain) {
+                    setSelectedInputChain(newChainId);
+                    setSelectedInputToken(undefined);
+                    // Clear quote parameters when input chain changes
+                    setQuoteParams(undefined);
+                    setFormValues(prev => ({ ...prev, inputToken: '', inputAmount: '' }));
 
-                      // If output chain conflicts with new input chain, change it to first available chain
-                      if (selectedOutputChain === newChainId) {
-                        const availableChains = SUPPORTED_CHAINS.filter(
-                          chain => chain.id !== newChainId && chain.id !== 1
-                        );
-                        if (availableChains.length > 0) {
-                          setSelectedOutputChain(availableChains[0].id);
-                          setSelectedOutputToken(undefined);
-                          setFormValues(prev => ({ ...prev, outputToken: '' }));
-                        }
-                      }
+                    // Only reset output chain if it conflicts with new input chain
+                    if (selectedOutputChain === newChainId) {
+                      // Try to set to Unichain first, fallback to first available non-conflicting chain
+                      const availableChains = SUPPORTED_CHAINS.filter(
+                        chain => chain.id !== newChainId && chain.id !== 1
+                      );
+                      const unichain = availableChains.find(chain => chain.id === 130);
+                      setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
+                      setSelectedOutputToken(undefined);
+                      setFormValues(prev => ({ ...prev, outputToken: '' }));
                     }
+                  }
                   }}
                   options={SUPPORTED_CHAINS.map(chain => ({
                     label: chain.name,
@@ -339,10 +331,12 @@ export function TradeForm() {
                 ...formValues,
                 inputToken: formValues.outputToken,
                 outputToken: formValues.inputToken,
+                inputAmount: '', // Clear amount since token decimals might be different
               };
               setFormValues(newValues);
               setSelectedInputToken(selectedOutputToken);
               setSelectedOutputToken(selectedInputToken);
+              setQuoteParams(undefined); // Clear quote when swapping tokens
             }}
           >
             ↓
@@ -369,20 +363,30 @@ export function TradeForm() {
                   if (newChainId !== selectedOutputChain) {
                     setSelectedOutputChain(newChainId);
                     setSelectedOutputToken(undefined);
+                    // Clear quote parameters when output chain changes
+                    setQuoteParams(undefined);
                     setFormValues(prev => ({ ...prev, outputToken: '' }));
                   }
                 }}
-                options={SUPPORTED_CHAINS.filter(chain => {
-                  // When connected, filter out current chain and Ethereum
-                  if (isConnected) {
-                    return chain.id !== chainId && chain.id !== 1;
-                  }
-                  // When not connected, filter out manually selected input chain
-                  return chain.id !== selectedInputChain && chain.id !== 1;
-                }).map(chain => ({
-                  label: chain.name,
-                  value: chain.id,
-                }))}
+                options={(() => {
+                  // Filter available chains
+                  const filtered = SUPPORTED_CHAINS.filter(chain => {
+                    if (isConnected) {
+                      return chain.id !== chainId && chain.id !== 1;
+                    }
+                    return chain.id !== selectedInputChain && chain.id !== 1;
+                  });
+                  
+                  // Sort to ensure Unichain appears first if available
+                  return filtered.sort((a, b) => {
+                    if (a.id === 130) return -1;
+                    if (b.id === 130) return 1;
+                    return 0;
+                  }).map(chain => ({
+                    label: chain.name,
+                    value: chain.id,
+                  }));
+                })()}
                 aria-label="Output Chain"
                 className="w-32"
               />
@@ -407,20 +411,25 @@ export function TradeForm() {
               />
             </div>
           </div>
-          {quote?.context?.dispensationUSD && (
+          {quote?.context && (
             <div className="mt-1 text-sm text-white space-y-2">
-              <div className="flex items-center gap-2">
-                <span>Settlement Cost: {quote.context.dispensationUSD}</span>
-                <Tooltip title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold">
-                  <svg className="w-4 h-4 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </Tooltip>
-              </div>
+              {!quote.context.dispensationUSD && (
+                <div className="text-yellow-500">Warning: Settlement cost information unavailable</div>
+              )}
+              {quote.context.dispensationUSD && (
+                <div className="flex items-center gap-2">
+                  <span>Settlement Cost: {quote.context.dispensationUSD}</span>
+                  <Tooltip title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold">
+                    <svg className="w-4 h-4 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </Tooltip>
+                </div>
+              )}
               {quote?.data?.mandate?.minimumAmount && selectedOutputToken && (
                 <div className="flex items-center gap-2">
                   <span>
@@ -460,6 +469,13 @@ export function TradeForm() {
           <div className="w-full h-12 [&>div]:h-full [&>div]:w-full [&>div>button]:h-full [&>div>button]:w-full [&>div>button]:rounded-lg [&>div>button]:flex [&>div>button]:items-center [&>div>button]:justify-center [&>div>button]:p-0 [&>div>button>div]:p-0 [&>div>button]:py-4">
             <ConnectButton />
           </div>
+        ) : !isAuthenticated ? (
+          <button
+            onClick={signIn}
+            className="w-full h-12 rounded-lg font-medium transition-colors bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20"
+          >
+            Sign in to Smallocator
+          </button>
         ) : (
           <button
             onClick={handleSwap}

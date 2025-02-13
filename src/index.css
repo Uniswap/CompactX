@@ -44,7 +44,7 @@ body {
 }
 
 /* Custom RainbowKit button styles */
-[data-rk] button:not([disabled]) {
+[data-rk] button:not([class*="text-white"]):not([disabled]) {
   background-color: rgba(0, 255, 0, 0.1) !important;
   color: rgb(0, 255, 0) !important;
   border: 1px solid rgba(0, 255, 0, 0.2) !important;

@@ -1,5 +1,5 @@
 export const INITIAL_CONFIG = {
-  supportedChains: [1, 10, 8453, 130], // Mainnet, Optimism, Base, & Unichain
+  supportedChains: [1, 130, 8453, 10], // Mainnet, Unichain, Base, & Optimism
   tokens: [
     // Native ETH for each chain
     {

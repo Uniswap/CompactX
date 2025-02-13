@@ -104,14 +104,42 @@ export function isCompactRequest(data: unknown): data is CompactRequest {
 // API Client
 export class SmallocatorClient {
   private baseUrl: string;
-  private sessionId: string | null;
+  private sessionId: string | null = null;
+  private readonly SESSION_KEY = 'smallocator_sessions';
 
   constructor(baseUrl?: string) {
     this.baseUrl = baseUrl || import.meta.env.VITE_SMALLOCATOR_URL;
     if (!this.baseUrl) {
       throw new Error('VITE_SMALLOCATOR_URL environment variable is not set');
     }
-    this.sessionId = localStorage.getItem('sessionId');
+  }
+
+  private getSessionsMap(): Record<string, string> {
+    const sessions = localStorage.getItem(this.SESSION_KEY);
+    return sessions ? JSON.parse(sessions) : {};
+  }
+
+  private setSessionsMap(sessions: Record<string, string>): void {
+    localStorage.setItem(this.SESSION_KEY, JSON.stringify(sessions));
+  }
+
+  private getSessionForAddress(address: string): string | null {
+    const sessions = this.getSessionsMap();
+    return sessions[address.toLowerCase()] || null;
+  }
+
+  private setSessionForAddress(address: string, sessionId: string): void {
+    const sessions = this.getSessionsMap();
+    sessions[address.toLowerCase()] = sessionId;
+    this.setSessionsMap(sessions);
+    this.sessionId = sessionId;
+  }
+
+  private removeSessionForAddress(address: string): void {
+    const sessions = this.getSessionsMap();
+    delete sessions[address.toLowerCase()];
+    this.setSessionsMap(sessions);
+    this.sessionId = null;
   }
 
   /**
@@ -200,10 +228,9 @@ export class SmallocatorClient {
    */
   async createSession(request: CreateSessionRequest): Promise<{ sessionId: string }> {
     const response = await this.request<CreateSessionResponse>('POST', '/session', request);
-    // Store the session ID
-    if (response.session.id) {
-      localStorage.setItem('sessionId', response.session.id);
-      this.sessionId = response.session.id;
+    // Store the session ID mapped to the address
+    if (response.session.id && request.payload.address) {
+      this.setSessionForAddress(request.payload.address, response.session.id);
     }
     return { sessionId: response.session.id };
   }
@@ -239,11 +266,16 @@ export class SmallocatorClient {
    * Verify the current session
    * @returns Object with valid status and optional error message
    */
-  async verifySession(): Promise<{
+  async verifySession(address?: string): Promise<{
     valid: boolean;
     error?: string;
     session?: SessionVerifyResponse['session'];
   }> {
+    // If address is provided, use its specific session
+    if (address) {
+      this.sessionId = this.getSessionForAddress(address);
+    }
+
     if (!this.sessionId) {
       return { valid: false, error: 'No session found' };
     }
@@ -252,14 +284,23 @@ export class SmallocatorClient {
       const response = await this.request<SessionVerifyResponse>('GET', '/session');
 
       // If we get a successful response, the session is valid
+      // Verify the session belongs to the correct address if one was provided
+      if (address && response.session.address.toLowerCase() !== address.toLowerCase()) {
+        throw new Error('Session address mismatch');
+      }
+
       return { valid: true, session: response.session };
     } catch (error) {
       // Clear session if it's invalid or expired
       if (
         error instanceof Error &&
-        (error.message.includes('Invalid session') || error.message.includes('expired'))
+        (error.message.includes('Invalid session') || 
+         error.message.includes('expired') ||
+         error.message.includes('Session address mismatch'))
       ) {
-        this.clearSession();
+        if (address) {
+          this.removeSessionForAddress(address);
+        }
       }
 
       return {
@@ -322,9 +363,29 @@ export class SmallocatorClient {
   /**
    * Clear the current session
    */
-  public async clearSession(): Promise<void> {
+  public async clearSession(address?: string): Promise<void> {
     try {
-      await this.deleteSession();
+      if (address) {
+        // Clear specific address session
+        const sessionId = this.getSessionForAddress(address);
+        if (sessionId) {
+          this.sessionId = sessionId;
+          await this.deleteSession();
+          this.removeSessionForAddress(address);
+        }
+      } else {
+        // Clear all sessions if no address specified
+        const sessions = this.getSessionsMap();
+        for (const addr of Object.keys(sessions)) {
+          this.sessionId = sessions[addr];
+          try {
+            await this.deleteSession();
+          } catch (error) {
+            console.error(`Failed to delete session for ${addr}:`, error);
+          }
+        }
+        localStorage.removeItem(this.SESSION_KEY);
+      }
     } catch (error) {
       console.error('Failed to clear session:', error);
       throw error;

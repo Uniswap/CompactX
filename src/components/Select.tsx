@@ -51,7 +51,7 @@ export function Select({
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full h-10 px-3 text-left bg-[#1a1a1a] border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#00ff00]/50 ${
+        className={`w-full h-10 px-3 text-left bg-[#1a1a1a] border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-white/50 ${
           disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-[#2a2a2a]'
         }`}
         disabled={disabled}
@@ -59,13 +59,13 @@ export function Select({
         aria-expanded={isOpen}
       >
         <div className="flex items-center justify-between">
-          <span className={selectedOption ? 'text-white' : 'text-gray-400'}>
+          <span className="[&]:text-white !text-white">
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           <svg
-            className={`w-4 h-4 transition-transform ${isOpen ? 'transform rotate-180' : ''}`}
+            className={`w-4 h-4 transition-transform text-white ${isOpen ? 'transform rotate-180' : ''}`}
             fill="none"
-            stroke="currentColor"
+            stroke="white"
             viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -83,8 +83,8 @@ export function Select({
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              className={`w-full px-3 py-2 text-left hover:bg-[#2a2a2a] ${
-                String(option.value) === String(value) ? 'bg-[#2a2a2a] text-[#00ff00]' : 'text-white'
+              className={`w-full px-3 py-2 text-left !text-white hover:bg-[#2a2a2a] ${
+                String(option.value) === String(value) ? 'bg-[#2a2a2a]' : ''
               }`}
             >
               {option.label}
