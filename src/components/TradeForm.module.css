@@ -1,0 +1,82 @@
+/* Dark theme overrides for Ant Design components */
+:global(.ant-select-selector) {
+  background-color: #1f2937 !important; /* bg-gray-800 */
+  border-color: #374151 !important; /* border-gray-700 */
+  color: white !important;
+}
+
+:global(.ant-select-selection-placeholder) {
+  color: #9ca3af !important; /* text-gray-400 */
+}
+
+:global(.ant-select-dropdown) {
+  background-color: #1f2937 !important; /* bg-gray-800 */
+  border: 1px solid #374151 !important; /* border-gray-700 */
+}
+
+:global(.ant-select-item) {
+  color: #e5e7eb !important; /* text-gray-200 */
+}
+
+:global(.ant-select-item-option-selected) {
+  background-color: #374151 !important; /* bg-gray-700 */
+}
+
+:global(.ant-select-item-option-active) {
+  background-color: #4b5563 !important; /* bg-gray-600 */
+}
+
+:global(.ant-input-number) {
+  background-color: #1f2937 !important; /* bg-gray-800 */
+  border-color: #374151 !important; /* border-gray-700 */
+}
+
+:global(.ant-input-number-input) {
+  color: white !important;
+}
+
+:global(.ant-input-number-handler-wrap) {
+  background-color: #374151 !important; /* border-gray-700 */
+  border-color: #4b5563 !important; /* border-gray-600 */
+}
+
+:global(.ant-btn-primary) {
+  background-color: #2563eb !important; /* bg-blue-600 */
+  border-color: #3b82f6 !important; /* border-blue-500 */
+}
+
+:global(.ant-btn-primary:hover) {
+  background-color: #1d4ed8 !important; /* bg-blue-700 */
+  border-color: #2563eb !important; /* border-blue-600 */
+}
+
+:global(.ant-btn-default) {
+  background-color: transparent !important;
+  border-color: #374151 !important; /* border-gray-700 */
+  color: #9ca3af !important; /* text-gray-400 */
+}
+
+:global(.ant-btn-default:hover) {
+  background-color: #1f2937 !important; /* bg-gray-800 */
+  border-color: #4b5563 !important; /* border-gray-600 */
+  color: #e5e7eb !important; /* text-gray-200 */
+}
+
+:global(.ant-modal-content),
+:global(.ant-modal-header) {
+  background-color: #111827 !important; /* bg-gray-900 */
+  border-color: #1f2937 !important; /* border-gray-800 */
+}
+
+:global(.ant-modal-title) {
+  color: #e5e7eb !important; /* text-gray-200 */
+}
+
+:global(.ant-modal-close-x) {
+  color: #9ca3af !important; /* text-gray-400 */
+}
+
+:global(.ant-tooltip-inner) {
+  background-color: #1f2937 !important; /* bg-gray-800 */
+  border: 1px solid #374151 !important; /* border-gray-700 */
+}

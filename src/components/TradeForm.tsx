@@ -1,5 +1,6 @@
 import { Form, Modal, Select, Space, InputNumber, Tooltip, Button } from 'antd';
 import { InfoCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import './TradeForm.module.css';
 import { useAccount, useChainId } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { useState, useEffect } from 'react';
@@ -243,7 +244,7 @@ export function TradeForm() {
   }
 
   return (
-    <div className="w-full max-w-lg mx-auto p-4">
+    <div className="w-full max-w-lg mx-auto p-4 bg-gray-900 rounded-lg border border-gray-800">
       <Form
         form={form}
         onFinish={handleFormSubmit}
@@ -262,7 +263,7 @@ export function TradeForm() {
           />
         </div>
 
-        <div className="rounded-lg bg-gray-100 p-4 dark:bg-gray-800">
+        <div className="rounded-lg bg-gray-800 border border-gray-800 p-4">
           <div className="mb-2 text-sm text-gray-500">Sell</div>
           <Space.Compact style={{ width: '100%' }}>
             <Form.Item name="inputAmount" noStyle>
@@ -303,9 +304,13 @@ export function TradeForm() {
           {selectedInputToken && <div className="mt-1 text-sm text-gray-500">${'0.00'}</div>}
         </div>
 
-        <div className="flex justify-center">↓</div>
+        <div className="flex justify-center my-2">
+          <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center">
+            ↓
+          </div>
+        </div>
 
-        <div className="rounded-lg bg-gray-100 p-4 dark:bg-gray-800">
+        <div className="rounded-lg bg-gray-800 border border-gray-800 p-4">
           <div className="mb-2 text-sm text-gray-500">Buy</div>
           <Space.Compact style={{ width: '100%' }}>
             <div style={{ width: '60%' }} className="text-2xl" data-testid="quote-amount">
@@ -388,13 +393,13 @@ export function TradeForm() {
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-100 p-4 text-red-700">
+          <div className="rounded-lg bg-red-900/20 border border-red-800 p-4 text-red-400">
             <div className="font-bold">Error</div>
             <div>{error.message}</div>
           </div>
         )}
 
-        {statusMessage && <div className="mt-4 text-center text-blue-600">{statusMessage}</div>}
+        {statusMessage && <div className="mt-4 text-center text-blue-400">{statusMessage}</div>}
 
         <Form.Item>
           <Button
@@ -420,6 +425,23 @@ export function TradeForm() {
         open={settingsVisible}
         onCancel={() => setSettingsVisible(false)}
         footer={null}
+        className="bg-gray-900"
+        styles={{
+          content: {
+            background: '#111827', // bg-gray-900
+            border: '1px solid #1f2937', // border-gray-800
+          },
+          header: {
+            background: '#111827', // bg-gray-900
+            borderBottom: '1px solid #1f2937', // border-gray-800
+          },
+          body: {
+            background: '#111827', // bg-gray-900
+          },
+          mask: {
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          },
+        }}
       >
         <SettingsForm onClose={() => setSettingsVisible(false)} />
       </Modal>
@@ -438,13 +460,20 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="py-4">
+    <div className="py-4 text-white">
       <div className="mb-6">
-        <label className="block text-sm font-medium mb-2">Slippage Tolerance (%)</label>
+        <label className="block text-sm font-medium mb-2 text-gray-300">
+          Slippage Tolerance (%)
+        </label>
         <InputNumber
           value={slippageTolerance}
           onChange={value => setSlippageTolerance(Number(value))}
-          style={{ width: '100%' }}
+          style={{
+            width: '100%',
+            backgroundColor: '#1f2937', // bg-gray-800
+            borderColor: '#374151', // border-gray-700
+            color: 'white',
+          }}
           min={0}
           max={100}
           step={0.1}
@@ -453,8 +482,14 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
         />
       </div>
       <div className="flex justify-end gap-2">
-        <Button onClick={onClose}>Cancel</Button>
-        <Button type="primary" onClick={handleSubmit}>
+        <Button onClick={onClose} className="hover:bg-gray-800 border-gray-700 text-gray-300">
+          Cancel
+        </Button>
+        <Button
+          type="primary"
+          onClick={handleSubmit}
+          className="bg-blue-600 hover:bg-blue-700 border-blue-500"
+        >
           Save
         </Button>
       </div>
