@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useCustomTokens } from '../hooks/useCustomTokens';
 import { useChainId } from 'wagmi';
-import { Button, Input, Modal, Form, message } from 'antd';
+import { useToast, Toast } from './Toast';
 import { isAddress } from 'viem';
 
 interface FormValues {
@@ -15,7 +15,9 @@ export function AddCustomToken() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const chainId = useChainId();
   const { addCustomToken } = useCustomTokens();
-  const [form] = Form.useForm<FormValues>();
+  const [formValues, setFormValues] = useState<Partial<FormValues>>({});
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
+  const { toast, showToast, hideToast } = useToast();
 
   const handleOpen = () => {
     setIsModalOpen(true);
@@ -23,88 +25,164 @@ export function AddCustomToken() {
 
   const handleClose = () => {
     setIsModalOpen(false);
-    form.resetFields();
+    setFormValues({});
+    setFormErrors({});
   };
 
-  const handleSubmit = async (values: FormValues) => {
+  const validateForm = (): boolean => {
+    const errors: Partial<Record<keyof FormValues, string>> = {};
+    
+    if (!formValues.address) {
+      errors.address = 'Please input token address';
+    } else if (!isAddress(formValues.address)) {
+      errors.address = 'Invalid address';
+    }
+    
+    if (!formValues.name) {
+      errors.name = 'Please input token name';
+    }
+    
+    if (!formValues.symbol) {
+      errors.symbol = 'Please input token symbol';
+    }
+    
+    if (!formValues.decimals) {
+      errors.decimals = 'Please input token decimals';
+    } else if (formValues.decimals < 0 || formValues.decimals > 18) {
+      errors.decimals = 'Decimals must be between 0 and 18';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
     try {
       await addCustomToken({
         chainId,
-        address: values.address,
-        name: values.name,
-        symbol: values.symbol,
-        decimals: values.decimals,
+        address: formValues.address!,
+        name: formValues.name!,
+        symbol: formValues.symbol!,
+        decimals: formValues.decimals!,
       });
-      message.success('Token added successfully');
+      showToast('Token added successfully', 'success');
       handleClose();
     } catch {
-      message.error('Failed to add token');
+      showToast('Failed to add token', 'error');
     }
   };
 
   return (
     <>
-      <Button type="primary" onClick={handleOpen}>
+      <button
+        onClick={handleOpen}
+        className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] rounded-lg transition-colors"
+      >
         Add Custom Token
-      </Button>
+      </button>
 
-      <Modal title="Add Custom Token" open={isModalOpen} onCancel={handleClose} footer={null}>
-        <Form form={form} layout="vertical" onFinish={handleSubmit} autoComplete="off">
-          <Form.Item
-            label="Token Address"
-            name="address"
-            rules={[
-              { required: true, message: 'Please input token address' },
-              {
-                validator: (_: unknown, value: string) =>
-                  isAddress(value)
-                    ? Promise.resolve()
-                    : Promise.reject(new Error('Invalid address')),
-              },
-            ]}
-          >
-            <Input placeholder="0x..." />
-          </Form.Item>
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-white">Add Custom Token</h2>
+              <button
+                onClick={handleClose}
+                className="text-gray-400 hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-          <Form.Item
-            label="Token Name"
-            name="name"
-            rules={[{ required: true, message: 'Please input token name' }]}
-          >
-            <Input placeholder="Token Name" />
-          </Form.Item>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Token Address
+                </label>
+                <input
+                  type="text"
+                  value={formValues.address || ''}
+                  onChange={(e) => setFormValues(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="0x..."
+                  className="w-full px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50 text-white"
+                />
+                {formErrors.address && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.address}</p>
+                )}
+              </div>
 
-          <Form.Item
-            label="Token Symbol"
-            name="symbol"
-            rules={[{ required: true, message: 'Please input token symbol' }]}
-          >
-            <Input placeholder="TOKEN" />
-          </Form.Item>
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Token Name
+                </label>
+                <input
+                  type="text"
+                  value={formValues.name || ''}
+                  onChange={(e) => setFormValues(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Token Name"
+                  className="w-full px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50 text-white"
+                />
+                {formErrors.name && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.name}</p>
+                )}
+              </div>
 
-          <Form.Item
-            label="Decimals"
-            name="decimals"
-            rules={[
-              { required: true, message: 'Please input token decimals' },
-              {
-                type: 'number',
-                min: 0,
-                max: 18,
-                message: 'Decimals must be between 0 and 18',
-              },
-            ]}
-          >
-            <Input type="number" placeholder="18" />
-          </Form.Item>
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Token Symbol
+                </label>
+                <input
+                  type="text"
+                  value={formValues.symbol || ''}
+                  onChange={(e) => setFormValues(prev => ({ ...prev, symbol: e.target.value }))}
+                  placeholder="TOKEN"
+                  className="w-full px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50 text-white"
+                />
+                {formErrors.symbol && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.symbol}</p>
+                )}
+              </div>
 
-          <Form.Item>
-            <Button type="primary" htmlType="submit" block>
-              Add Token
-            </Button>
-          </Form.Item>
-        </Form>
-      </Modal>
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Decimals
+                </label>
+                <input
+                  type="number"
+                  value={formValues.decimals || ''}
+                  onChange={(e) => setFormValues(prev => ({ ...prev, decimals: Number(e.target.value) }))}
+                  placeholder="18"
+                  min="0"
+                  max="18"
+                  className="w-full px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50 text-white"
+                />
+                {formErrors.decimals && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.decimals}</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                className="w-full px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] rounded-lg transition-colors"
+              >
+                Add Token
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </>
   );
 }

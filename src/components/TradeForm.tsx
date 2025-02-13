@@ -1,6 +1,8 @@
-import { Form, Modal, Select, Space, InputNumber, Tooltip, Button } from 'antd';
-import { InfoCircleOutlined, SettingOutlined } from '@ant-design/icons';
-import './TradeForm.module.css';
+import { Select } from './Select';
+import { NumberInput } from './NumberInput';
+import { useToast, Toast } from './Toast';
+import { Modal } from './Modal';
+import { Tooltip } from './Tooltip';
 import { useAccount, useChainId } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { useState, useEffect } from 'react';
@@ -31,16 +33,21 @@ export function TradeForm() {
   const { isConnected } = useAccount();
   const chainId = useChainId();
   const { inputTokens, outputTokens } = useTokens();
-  const { useQuote } = useCalibrator();
   const { signCompact } = useCompactSigner();
   const { broadcast } = useBroadcast();
-  const [form] = Form.useForm<TradeFormValues>();
+  const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
+  const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams);
+  const [formValues, setFormValues] = useState<Partial<TradeFormValues>>({
+    inputToken: '',
+    outputToken: '',
+    inputAmount: '',
+    slippageTolerance: 0.5
+  });
+  const { showToast } = useToast();
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [selectedOutputChain, setSelectedOutputChain] = useState<number | undefined>(undefined);
-  const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
   const [isSigning, setIsSigning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
-  const { data: quote, isLoading, error } = useQuote(quoteParams);
   const [selectedInputToken, setSelectedInputToken] = useState<
     (typeof inputTokens)[0] | undefined
   >();
@@ -48,44 +55,32 @@ export function TradeForm() {
     (typeof outputTokens)[0] | undefined
   >();
 
-  // Reset output chain if it matches the new chain
+  // Initialize default output chain and reset when chain changes
   useEffect(() => {
+    // Reset output chain if it matches the new chain
     if (selectedOutputChain === chainId) {
       setSelectedOutputChain(undefined);
       setSelectedOutputToken(undefined);
-      form.setFieldsValue({ outputToken: undefined });
+      setFormValues(prev => ({ ...prev, outputToken: '' }));
     }
-  }, [chainId, selectedOutputChain, form]);
 
-  // Initialize form with empty values and default output chain
-  useEffect(() => {
-    if (form) {
-      // Reset form values
-      form.setFieldsValue({
-        inputToken: '',
-        outputToken: '',
-        inputAmount: '',
-        slippageTolerance: 0.5,
-      });
-
-      // Get available output chains and select the first one
-      const availableChains = SUPPORTED_CHAINS.filter(
-        chain => chain.id !== chainId && chain.id !== 1
-      );
-      if (availableChains.length > 0) {
-        setSelectedOutputChain(availableChains[0].id);
-      }
+    // Get available output chains and select the first one
+    const availableChains = SUPPORTED_CHAINS.filter(
+      chain => chain.id !== chainId && chain.id !== 1
+    );
+    if (availableChains.length > 0) {
+      setSelectedOutputChain(availableChains[0].id);
     }
-  }, [form, chainId]);
+  }, [chainId, selectedOutputChain]);
 
   // Handle form value changes
-  const handleValuesChange = (
-    _changedValues: Partial<TradeFormValues>,
-    values: TradeFormValues
-  ) => {
+  const handleValuesChange = (field: keyof TradeFormValues, value: string | number) => {
+    const newValues = { ...formValues, [field]: value };
+    setFormValues(newValues);
+    
     // Update selected tokens
-    const newInputToken = inputTokens.find(token => token.address === values.inputToken);
-    const newOutputToken = outputTokens.find(token => token.address === values.outputToken);
+    const newInputToken = inputTokens.find(token => token.address === newValues.inputToken);
+    const newOutputToken = outputTokens.find(token => token.address === newValues.outputToken);
 
     if (newInputToken !== selectedInputToken) {
       setSelectedInputToken(newInputToken);
@@ -97,9 +92,9 @@ export function TradeForm() {
 
     // Update quote params if we have all required values
     if (
-      values.inputToken &&
-      values.inputAmount &&
-      values.outputToken &&
+      newValues.inputToken &&
+      newValues.inputAmount &&
+      newValues.outputToken &&
       selectedOutputChain &&
       newInputToken
     ) {
@@ -108,26 +103,20 @@ export function TradeForm() {
         : 0.5;
 
       // Convert decimal input to token units
-      const tokenUnits = parseUnits(values.inputAmount, newInputToken.decimals).toString();
+      const tokenUnits = parseUnits(newValues.inputAmount, newInputToken.decimals).toString();
 
       setQuoteParams({
         inputTokenChainId: chainId,
-        inputTokenAddress: values.inputToken,
+        inputTokenAddress: newValues.inputToken,
         inputTokenAmount: tokenUnits,
         outputTokenChainId: selectedOutputChain,
-        outputTokenAddress: values.outputToken,
+        outputTokenAddress: newValues.outputToken,
         slippageBips: Math.round(slippageTolerance * 100),
         allocatorId: '1223867955028248789127899354',
         resetPeriod: 600,
         isMultichain: true,
       });
     }
-  };
-
-  // Handle initial form submission to get quote
-  const handleFormSubmit = () => {
-    // Form submission now just validates the form
-    // Quote is automatically fetched via useQuote when form values change
   };
 
   // Handle the actual swap after quote is received
@@ -145,8 +134,8 @@ export function TradeForm() {
       const mandate = {
         ...quote.data.mandate,
         expires: quote.data.mandate.expires,
-        chainId: quote.data.mandate.chainId, // Ensure output chainId is preserved
-        tribunal: quote.data.mandate.tribunal, // Ensure tribunal is preserved
+        chainId: quote.data.mandate.chainId,
+        tribunal: quote.data.mandate.tribunal,
         salt: quote.data.mandate.salt.startsWith('0x')
           ? (quote.data.mandate.salt as `0x${string}`)
           : (`0x${quote.data.mandate.salt}` as `0x${string}`),
@@ -155,63 +144,43 @@ export function TradeForm() {
       const compactMessage = {
         arbiter: quote.data.arbiter,
         sponsor: quote.data.sponsor,
-        nonce: null, // Initialize as null, will be set from Smallocator response
+        nonce: null,
         expires: quote.data.expires,
         id: quote.data.id,
         amount: quote.data.amount,
         mandate,
       };
 
-      // Show allocation message before signing
       setStatusMessage('Allocation received — sign to confirm...');
 
-      // Sign with user's wallet - this will handle getting smallocator signature first
       const { userSignature, smallocatorSignature, nonce } = await signCompact({
-        chainId: quote.data.mandate.chainId.toString(), // Use output chainId for witness hash and smallocator
-        currentChainId: chainId.toString(), // Use current chainId for EIP-712 domain
+        chainId: quote.data.mandate.chainId.toString(),
+        currentChainId: chainId.toString(),
         tribunal: quote.data.mandate.tribunal,
         compact: compactMessage,
       });
 
-      // Show broadcasting message
       setStatusMessage('Broadcasting intent...');
 
-      // Prepare the broadcast payload
       const broadcastPayload: CompactRequestPayload = {
-        chainId: chainId.toString(), // Keep using the connected chain's ID for the top-level chainId
+        chainId: chainId.toString(),
         compact: {
           ...compactMessage,
           nonce,
           mandate: {
             ...mandate,
-            chainId: quote.data.mandate.chainId, // Use output chainId in mandate
+            chainId: quote.data.mandate.chainId,
             tribunal: quote.data.mandate.tribunal,
           },
         },
       };
 
-      // Prepare the full broadcast context
       const broadcastContext: BroadcastContext = {
         ...quote.context,
-        witnessHash: quote.context.witnessHash, // Use the actual witnessHash
+        witnessHash: quote.context.witnessHash,
         witnessTypeString:
           'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
       };
-
-      // Debug chainId value
-      console.log('Debug chainId values:', {
-        quoteChainId: quote.data.mandate.chainId,
-        quoteChainIdType: typeof quote.data.mandate.chainId,
-        stringifiedChainId: quote.data.mandate.chainId.toString(),
-      });
-
-      // Log the complete broadcast payload
-      console.log('Broadcasting payload:', {
-        compact: broadcastPayload.compact,
-        sponsorSignature: userSignature,
-        allocatorSignature: smallocatorSignature,
-        context: broadcastContext,
-      });
 
       const broadcastResponse = await broadcast(
         broadcastPayload,
@@ -224,12 +193,18 @@ export function TradeForm() {
         throw new Error('Failed to broadcast trade');
       }
 
-      // Reset form and status on success
-      form.resetFields();
+      setFormValues({
+        inputToken: '',
+        outputToken: '',
+        inputAmount: '',
+        slippageTolerance: 0.5
+      });
       setStatusMessage('');
+      showToast('Trade broadcast successfully', 'success');
     } catch (error) {
       console.error('Error executing swap:', error);
       setStatusMessage('');
+      showToast('Failed to execute trade', 'error');
     } finally {
       setIsSigning(false);
     }
@@ -238,82 +213,81 @@ export function TradeForm() {
   if (!isConnected) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-lg">Connect your wallet to start trading</p>
+        <p className="text-lg text-white">Connect your wallet to start trading</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-lg mx-auto p-4 bg-gray-900 rounded-lg border border-gray-800">
-      <Form
-        form={form}
-        onFinish={handleFormSubmit}
-        onValuesChange={handleValuesChange}
-        layout="vertical"
-        className="flex flex-col gap-4"
-        data-testid="trade-form"
-      >
+    <div className="w-full max-w-2xl p-6 bg-[#0a0a0a] rounded-xl shadow-xl border border-gray-800">
+      <div className="flex flex-col gap-4" data-testid="trade-form">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-xl font-semibold">Swap</h1>
-          <Button
-            type="text"
-            icon={<SettingOutlined />}
+          <h1 className="text-xl font-semibold text-[#00ff00]">Swap</h1>
+          <button
             onClick={() => setSettingsVisible(true)}
+            className="p-2 text-gray-400 hover:text-gray-300 hover:bg-[#1a1a1a] rounded-lg transition-colors"
             aria-label="Settings"
-          />
+          >
+            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+            </svg>
+          </button>
         </div>
 
-        <div className="rounded-lg bg-gray-800 border border-gray-800 p-4">
-          <div className="mb-2 text-sm text-gray-500">Sell</div>
-          <Space.Compact style={{ width: '100%' }}>
-            <Form.Item name="inputAmount" noStyle>
-              <InputNumber
-                style={{ width: '60%' }}
+        <div className="rounded-lg bg-[#0a0a0a] border border-gray-800 p-4">
+          <div className="mb-2 text-sm text-white">Sell</div>
+          <div className="flex items-center w-full">
+            <div className="flex-1 pr-2">
+              <NumberInput
+                value={formValues.inputAmount}
+                onChange={(value) => handleValuesChange('inputAmount', value)}
                 placeholder="0.0"
                 min={0}
-                variant="borderless"
-                controls={false}
-                stringMode
-                formatter={(value: string | number | undefined): string => {
-                  if (!value) return '';
-                  const stringValue = value.toString();
-                  // Special case: if the input is just "0", preserve it
-                  if (stringValue === '0') return '0';
-                  // Remove trailing zeros after decimal point
-                  return stringValue.replace(/\.?0+$/, '');
-                }}
-                parser={(value: string | undefined): string => value?.replace(/[^\d.]/g, '') || ''}
                 precision={selectedInputToken?.decimals ?? 18}
+                variant="borderless"
                 aria-label="Input Amount"
               />
-            </Form.Item>
-            <Form.Item name="inputToken" noStyle>
+            </div>
+            <div className="w-40">
               <Select
-                style={{ width: '40%' }}
+                value={formValues.inputToken}
+                onChange={(value) => handleValuesChange('inputToken', value.toString())}
                 placeholder="Select token"
                 options={inputTokens.map(token => ({
                   label: token.symbol,
                   value: token.address,
                 }))}
                 aria-label="Input Token"
-                id="inputToken"
                 data-testid="input-token-select"
               />
-            </Form.Item>
-          </Space.Compact>
-          {selectedInputToken && <div className="mt-1 text-sm text-gray-500">${'0.00'}</div>}
-        </div>
-
-        <div className="flex justify-center my-2">
-          <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center">
-            ↓
+            </div>
           </div>
+          {selectedInputToken && <div className="mt-1 text-sm text-[#00ff00]">${'0.00'}</div>}
         </div>
 
-        <div className="rounded-lg bg-gray-800 border border-gray-800 p-4">
-          <div className="mb-2 text-sm text-gray-500">Buy</div>
-          <Space.Compact style={{ width: '100%' }}>
-            <div style={{ width: '60%' }} className="text-2xl" data-testid="quote-amount">
+        <div className="flex justify-center -my-2 relative z-10">
+          <button 
+            className="w-8 h-8 rounded-lg bg-[#1a1a1a] border border-gray-700 hover:bg-[#2a2a2a] flex items-center justify-center text-[#00ff00] transition-colors"
+            onClick={() => {
+              // Swap token selections
+              const newValues = {
+                ...formValues,
+                inputToken: formValues.outputToken,
+                outputToken: formValues.inputToken
+              };
+              setFormValues(newValues);
+              setSelectedInputToken(selectedOutputToken);
+              setSelectedOutputToken(selectedInputToken);
+            }}
+          >
+            ↓
+          </button>
+        </div>
+
+        <div className="rounded-lg bg-[#0a0a0a] border border-gray-800 p-4">
+          <div className="mb-2 text-sm text-white">Buy</div>
+          <div className="flex items-center w-full">
+            <div className="flex-1 pr-2 text-2xl text-white" data-testid="quote-amount">
               {quote?.context?.quoteOutputAmountNet && selectedOutputToken
                 ? formatUnits(
                     BigInt(quote.context.quoteOutputAmountNet),
@@ -321,16 +295,14 @@ export function TradeForm() {
                   )
                 : '0.00'}
             </div>
-            <Space.Compact style={{ width: '40%' }}>
+            <div className="flex space-x-2">
               <Select
-                style={{ width: '60%', minWidth: '100px' }}
                 placeholder="Chain"
                 value={selectedOutputChain}
                 onChange={value => {
-                  setSelectedOutputChain(value);
-                  // Clear the output token without triggering the form's onChange
+                  setSelectedOutputChain(Number(value));
                   setSelectedOutputToken(undefined);
-                  form.setFieldsValue({ outputToken: undefined });
+                  setFormValues(prev => ({ ...prev, outputToken: '' }));
                 }}
                 options={SUPPORTED_CHAINS.filter(
                   chain => chain.id !== chainId && chain.id !== 1
@@ -339,160 +311,138 @@ export function TradeForm() {
                   value: chain.id,
                 }))}
                 aria-label="Output Chain"
+                className="w-32"
               />
-              <Form.Item name="outputToken" noStyle>
-                <Select
-                  style={{ width: '40%' }}
-                  placeholder="Token"
-                  disabled={!selectedOutputChain}
-                  onChange={value => {
-                    const token = outputTokens.find(t => t.address === value);
-                    setSelectedOutputToken(token);
-                  }}
-                  options={outputTokens
-                    .filter(token => token.chainId === selectedOutputChain)
-                    .map(token => ({
-                      label: token.symbol,
-                      value: token.address,
-                    }))}
-                  aria-label="Output Token"
-                  id="outputToken"
-                  data-testid="output-token-select"
-                />
-              </Form.Item>
-            </Space.Compact>
-          </Space.Compact>
+              <Select
+                value={formValues.outputToken}
+                onChange={(value) => {
+                  handleValuesChange('outputToken', value.toString());
+                  const token = outputTokens.find(t => t.address === value.toString());
+                  setSelectedOutputToken(token);
+                }}
+                placeholder="Token"
+                disabled={!selectedOutputChain}
+                options={outputTokens
+                  .filter(token => token.chainId === selectedOutputChain)
+                  .map(token => ({
+                    label: token.symbol,
+                    value: token.address,
+                  }))}
+                aria-label="Output Token"
+                data-testid="output-token-select"
+                className="w-28"
+              />
+            </div>
+          </div>
           {quote?.context?.dispensationUSD && (
-            <div className="mt-1 text-sm text-gray-500">
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Space>
-                  <span>Settlement Cost: {quote.context.dispensationUSD}</span>
-                  <Tooltip title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold">
-                    <InfoCircleOutlined />
+            <div className="mt-1 text-sm text-white space-y-2">
+              <div className="flex items-center gap-2">
+                <span>Settlement Cost: {quote.context.dispensationUSD}</span>
+                <Tooltip title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold">
+                  <svg className="w-4 h-4 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </Tooltip>
+              </div>
+              {quote?.data?.mandate?.minimumAmount && selectedOutputToken && (
+                <div className="flex items-center gap-2">
+                  <span>
+                    Minimum received:{' '}
+                    {Number(
+                      formatUnits(
+                        BigInt(quote.data.mandate.minimumAmount),
+                        selectedOutputToken.decimals
+                      )
+                    ).toString()}
+                  </span>
+                  <Tooltip title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides">
+                    <svg className="w-4 h-4 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
                   </Tooltip>
-                </Space>
-                {quote?.data?.mandate?.minimumAmount && selectedOutputToken && (
-                  <Space>
-                    <span>
-                      Minimum received:{' '}
-                      {Number(
-                        formatUnits(
-                          BigInt(quote.data.mandate.minimumAmount),
-                          selectedOutputToken.decimals
-                        )
-                      ).toString()}
-                    </span>
-                    <Tooltip title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides">
-                      <InfoCircleOutlined />
-                    </Tooltip>
-                  </Space>
-                )}
-              </Space>
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-900/20 border border-red-800 p-4 text-red-400">
+          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-red-500">
             <div className="font-bold">Error</div>
             <div>{error.message}</div>
           </div>
         )}
 
-        {statusMessage && <div className="mt-4 text-center text-blue-400">{statusMessage}</div>}
+        {statusMessage && <div className="mt-4 text-center text-[#00ff00]">{statusMessage}</div>}
 
-        <Form.Item>
-          <Button
-            type="primary"
-            onClick={handleSwap}
-            disabled={!isConnected || !quote?.data || isLoading || isSigning}
-            loading={isSigning}
-            block
-          >
-            {!isConnected
-              ? 'Connect Wallet'
-              : isSigning
-                ? 'Signing...'
-                : error
-                  ? 'Try Again'
-                  : 'Swap'}
-          </Button>
-        </Form.Item>
-      </Form>
-
-      <Modal
-        title="Settings"
-        open={settingsVisible}
-        onCancel={() => setSettingsVisible(false)}
-        footer={null}
-        className="bg-gray-900"
-        styles={{
-          content: {
-            background: '#111827', // bg-gray-900
-            border: '1px solid #1f2937', // border-gray-800
-          },
-          header: {
-            background: '#111827', // bg-gray-900
-            borderBottom: '1px solid #1f2937', // border-gray-800
-          },
-          body: {
-            background: '#111827', // bg-gray-900
-          },
-          mask: {
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          },
-        }}
-      >
-        <SettingsForm onClose={() => setSettingsVisible(false)} />
-      </Modal>
-    </div>
-  );
-}
-
-function SettingsForm({ onClose }: { onClose: () => void }) {
-  const [slippageTolerance, setSlippageTolerance] = useState(
-    Number(localStorage.getItem('slippageTolerance')) || 0.5
-  );
-
-  const handleSubmit = () => {
-    localStorage.setItem('slippageTolerance', slippageTolerance.toString());
-    onClose();
-  };
-
-  return (
-    <div className="py-4 text-white">
-      <div className="mb-6">
-        <label className="block text-sm font-medium mb-2 text-gray-300">
-          Slippage Tolerance (%)
-        </label>
-        <InputNumber
-          value={slippageTolerance}
-          onChange={value => setSlippageTolerance(Number(value))}
-          style={{
-            width: '100%',
-            backgroundColor: '#1f2937', // bg-gray-800
-            borderColor: '#374151', // border-gray-700
-            color: 'white',
-          }}
-          min={0}
-          max={100}
-          step={0.1}
-          precision={1}
-          aria-label="Slippage Tolerance"
-        />
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button onClick={onClose} className="hover:bg-gray-800 border-gray-700 text-gray-300">
-          Cancel
-        </Button>
-        <Button
-          type="primary"
-          onClick={handleSubmit}
-          className="bg-blue-600 hover:bg-blue-700 border-blue-500"
+        <button
+          onClick={handleSwap}
+          disabled={!isConnected || !quote?.data || isLoading || isSigning}
+          className={`w-full h-12 rounded-lg font-medium transition-colors ${
+            !isConnected || !quote?.data || isLoading || isSigning
+              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+              : 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20'
+          }`}
         >
-          Save
-        </Button>
+          {!isConnected
+            ? 'Connect Wallet'
+            : isSigning
+              ? 'Signing...'
+              : error
+                ? 'Try Again'
+                : 'Swap'}
+          {isSigning && (
+            <div className="inline-block ml-2 animate-spin h-4 w-4">
+              <svg className="text-current" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            </div>
+          )}
+        </button>
       </div>
+
+      {settingsVisible && (
+        <Modal
+          title="Settings"
+          open={settingsVisible}
+          onClose={() => setSettingsVisible(false)}
+        >
+          <div className="py-4 text-gray-200">
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-2 text-gray-200">
+                Slippage Tolerance (%)
+              </label>
+              <NumberInput
+                value={formValues.slippageTolerance?.toString()}
+                onChange={(value) => handleValuesChange('slippageTolerance', Number(value))}
+                min={0}
+                max={100}
+                precision={1}
+                placeholder="0.5"
+                aria-label="Slippage Tolerance"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setSettingsVisible(false)}
+                className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.setItem('slippageTolerance', formValues.slippageTolerance?.toString() || '0.5');
+                  setSettingsVisible(false);
+                }}
+                className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

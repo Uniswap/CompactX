@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { broadcast } from '../api/broadcast';
 import { CompactRequestPayload } from '../types/compact';
 import { BroadcastRequest, BroadcastContext, Mandate } from '../types/broadcast';
-import { message } from 'antd';
 import { keccak256, encodeAbiParameters, toBytes } from 'viem';
 
 export function useBroadcast() {
