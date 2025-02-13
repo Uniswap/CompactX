@@ -55,23 +55,30 @@ export function TradeForm() {
     (typeof outputTokens)[0] | undefined
   >();
 
-  // Initialize default output chain and reset when chain changes
+  // Initialize and manage output chain selection
   useEffect(() => {
-    // Reset output chain if it matches the new chain
-    if (selectedOutputChain === chainId) {
-      setSelectedOutputChain(undefined);
-      setSelectedOutputToken(undefined);
-      setFormValues(prev => ({ ...prev, outputToken: '' }));
-    }
-
-    // Get available output chains and select the first one
     const availableChains = SUPPORTED_CHAINS.filter(
       chain => chain.id !== chainId && chain.id !== 1
     );
-    if (availableChains.length > 0) {
+
+    // If no chains available, reset everything
+    if (availableChains.length === 0) {
+      setSelectedOutputChain(undefined);
+      setSelectedOutputToken(undefined);
+      setFormValues(prev => ({ ...prev, outputToken: '' }));
+      return;
+    }
+
+    // If current selection is invalid (matches current chain or not in available chains)
+    const isCurrentSelectionInvalid = 
+      selectedOutputChain === undefined ||
+      selectedOutputChain === chainId ||
+      !availableChains.some(chain => chain.id === selectedOutputChain);
+
+    if (isCurrentSelectionInvalid) {
       setSelectedOutputChain(availableChains[0].id);
     }
-  }, [chainId, selectedOutputChain]);
+  }, [chainId]); // Only run when chainId changes
 
   // Handle form value changes
   const handleValuesChange = (field: keyof TradeFormValues, value: string | number) => {
@@ -300,9 +307,12 @@ export function TradeForm() {
                 placeholder="Chain"
                 value={selectedOutputChain}
                 onChange={value => {
-                  setSelectedOutputChain(Number(value));
-                  setSelectedOutputToken(undefined);
-                  setFormValues(prev => ({ ...prev, outputToken: '' }));
+                  const newChainId = Number(value);
+                  if (newChainId !== selectedOutputChain) {
+                    setSelectedOutputChain(newChainId);
+                    setSelectedOutputToken(undefined);
+                    setFormValues(prev => ({ ...prev, outputToken: '' }));
+                  }
                 }}
                 options={SUPPORTED_CHAINS.filter(
                   chain => chain.id !== chainId && chain.id !== 1

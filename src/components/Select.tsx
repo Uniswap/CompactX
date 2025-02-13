@@ -40,7 +40,7 @@ export function Select({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selectedOption = options.find(option => option.value === value);
+  const selectedOption = options.find(option => String(option.value) === String(value));
 
   return (
     <div
@@ -84,7 +84,7 @@ export function Select({
                 setIsOpen(false);
               }}
               className={`w-full px-3 py-2 text-left hover:bg-[#2a2a2a] ${
-                option.value === value ? 'bg-[#2a2a2a] text-[#00ff00]' : 'text-white'
+                String(option.value) === String(value) ? 'bg-[#2a2a2a] text-[#00ff00]' : 'text-white'
               }`}
             >
               {option.label}
