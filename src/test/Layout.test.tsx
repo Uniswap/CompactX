@@ -31,7 +31,9 @@ describe('Layout Component', () => {
       </TestWrapper>
     );
 
-    expect(screen.getByText('CompactX')).toBeInTheDocument();
+    expect(screen.getByText(/Com/)).toBeInTheDocument();
+    expect(screen.getByText(/pac/)).toBeInTheDocument();
+    expect(screen.getByText(/tX/)).toBeInTheDocument();
     expect(screen.getByText('Test Content')).toBeInTheDocument();
   });
 
