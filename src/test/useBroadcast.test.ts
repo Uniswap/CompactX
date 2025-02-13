@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useBroadcast } from '../hooks/useBroadcast';
 import { broadcast } from '../api/broadcast';
-import { useToast } from '../components/Toast';
 import { keccak256 } from 'viem';
 
 vi.mock('viem', () => ({
@@ -23,9 +22,10 @@ vi.mock('viem', () => ({
   encodeAbiParameters: vi.fn(() => '0x123456'),
 }));
 
+const mockShowToast = vi.fn();
 vi.mock('../components/Toast', () => ({
   useToast: () => ({
-    showToast: vi.fn(),
+    showToast: mockShowToast,
   }),
 }));
 
@@ -111,7 +111,7 @@ describe('useBroadcast', () => {
     });
 
     expect(result.current.error).toBeNull();
-    expect(useToast().showToast).toHaveBeenCalledWith('Transaction broadcast successfully', 'success');
+    expect(mockShowToast).toHaveBeenCalledWith('Transaction broadcast successfully', 'success');
   });
 
   it('should handle broadcast error', async () => {
@@ -132,7 +132,7 @@ describe('useBroadcast', () => {
     });
 
     expect(result.current.error).toBe(error);
-    expect(useToast().showToast).toHaveBeenCalledWith('Network error', 'error');
+    expect(mockShowToast).toHaveBeenCalledWith('Network error', 'error');
   });
 
   it('should handle broadcast failure', async () => {
@@ -149,7 +149,7 @@ describe('useBroadcast', () => {
       )
     ).rejects.toThrow('Failed to broadcast transaction');
 
-    expect(useToast().showToast).toHaveBeenCalledWith('Failed to broadcast transaction', 'error');
+    expect(mockShowToast).toHaveBeenCalledWith('Failed to broadcast transaction', 'error');
   });
 
   it('should handle broadcast error', async () => {
@@ -166,7 +166,7 @@ describe('useBroadcast', () => {
       )
     ).rejects.toThrow('Failed to broadcast');
 
-    expect(useToast().showToast).toHaveBeenCalledWith('Failed to broadcast', 'error');
+    expect(mockShowToast).toHaveBeenCalledWith('Failed to broadcast', 'error');
   });
 
   it('should throw error if nonce is missing', async () => {

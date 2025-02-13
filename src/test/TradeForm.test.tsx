@@ -125,8 +125,8 @@ describe('TradeForm', () => {
     // Basic form elements should be present
     expect(screen.getByRole('heading', { name: 'Swap' })).toBeInTheDocument();
     expect(screen.getByTestId('trade-form')).toBeInTheDocument();
-    expect(screen.getByTestId('input-token-select')).toBeInTheDocument();
-    expect(screen.getByTestId('output-token-select')).toBeInTheDocument();
-    expect(screen.getByLabelText('Input Amount')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Input Token' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Output Token' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Input Amount' })).toBeInTheDocument();
   });
 });
