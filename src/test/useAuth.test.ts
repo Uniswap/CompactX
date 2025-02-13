@@ -4,13 +4,11 @@ import { useAccount, useSignMessage } from 'wagmi';
 import type { UseAccountReturnType, UseSignMessageReturnType } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { smallocator } from '../api/smallocator';
-import { TestWrapper } from './test-wrapper';
 
 // Mock environment variables
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.test' });
 vi.stubEnv('VITE_SMALLOCATOR_URL', process.env.VITE_SMALLOCATOR_URL);
-
 
 // Mock wagmi hooks
 vi.mock('wagmi', () => ({
@@ -60,23 +58,24 @@ describe('useAuth Hook', () => {
   });
 
   it('should initialize with no authentication', () => {
-    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
+    const { result } = renderHook(() => useAuth());
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.address).toBe(null);
   });
 
   it('should initialize as authenticated if session exists', async () => {
-    // Set up session ID and mock before rendering
+    // Set up session ID
     const sessionId = 'test-session';
     localStorage.setItem('sessionId', sessionId);
     smallocator.setTestSessionId(sessionId);
 
-    // Mock successful session verification synchronously
+    // Mock successful session verification
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if (url.endsWith('/session')) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({
+          json: async () => ({
+            valid: true,
             session: {
               id: sessionId,
               address: '0x1234567890123456789012345678901234567890',
@@ -88,21 +87,20 @@ describe('useAuth Hook', () => {
       return Promise.reject(new Error('Not found'));
     });
 
-    // Render hook
-    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
+    const { result } = renderHook(() => useAuth());
 
-    // Wait for all state updates to complete
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
-    });
-
-    // Verify the authentication state
-    expect(result.current.isAuthenticated).toBe(true);
-    expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
+    // Wait for session verification
+    await waitFor(
+      () => {
+        expect(result.current.isAuthenticated).toBe(true);
+        expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
+      },
+      { timeout: 2000 }
+    ); // Increase timeout to ensure we catch the state update
   });
 
   it('should handle sign in flow successfully', async () => {
-    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
+    const { result } = renderHook(() => useAuth());
 
     // Mock successful session payload request
     global.fetch = vi
@@ -158,7 +156,7 @@ describe('useAuth Hook', () => {
   });
 
   it('should handle sign in errors', async () => {
-    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
+    const { result } = renderHook(() => useAuth());
 
     // Mock failed session payload request
     global.fetch = vi.fn().mockImplementation(() => {
@@ -189,21 +187,22 @@ describe('useAuth Hook', () => {
     localStorage.setItem('sessionId', sessionId);
     smallocator.setTestSessionId(sessionId);
 
-    // Create a mock that tracks request order
-    const fetchMock = vi.fn().mockImplementation((url: string, options?: { method: string }) => {
+    // Mock successful session verification and session deletion
+    global.fetch = vi.fn().mockImplementation((url: string, options?: { method: string }) => {
       if (url.endsWith('/session')) {
         // Handle DELETE request
         if (options?.method === 'DELETE') {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({}),
+            json: async () => ({}),
           });
         }
 
         // Handle GET request for session verification
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({
+          json: async () => ({
+            valid: true,
             session: {
               id: sessionId,
               address: '0x1234567890123456789012345678901234567890',
@@ -215,33 +214,26 @@ describe('useAuth Hook', () => {
       return Promise.reject(new Error('Not found'));
     });
 
-    global.fetch = fetchMock;
+    const { result } = renderHook(() => useAuth());
 
-    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
-
-    // Wait for initial state to be set
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
+    // Wait for initial session verification
+    await waitFor(() => {
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
     });
 
-    // Verify initial authenticated state
-    expect(result.current.isAuthenticated).toBe(true);
-    expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
-
-    // Perform sign out
+    // Sign out
     await act(async () => {
       await result.current.signOut();
-      // Wait for state updates to complete
-      await new Promise(resolve => setTimeout(resolve, 0));
     });
 
-    // Verify final state
+    // Verify local state is cleared
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.address).toBe(null);
     expect(localStorage.getItem('sessionId')).toBe(null);
 
     // Verify DELETE request was made
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/session'),
       expect.objectContaining({ method: 'DELETE' })
     );
@@ -252,22 +244,23 @@ describe('useAuth Hook', () => {
     localStorage.setItem('sessionId', sessionId);
     smallocator.setTestSessionId(sessionId);
 
-    // Create a mock that tracks request order
-    const fetchMock = vi.fn().mockImplementation((url: string, options?: { method: string }) => {
+    // Mock successful session verification but failed deletion
+    global.fetch = vi.fn().mockImplementation((url: string, options?: { method: string }) => {
       if (url.endsWith('/session')) {
         // Handle DELETE request - simulate failure
         if (options?.method === 'DELETE') {
           return Promise.resolve({
             ok: false,
             status: 500,
-            json: () => Promise.resolve({ error: 'Failed to delete session. Please try again later.' }),
+            json: async () => ({ error: 'Failed to delete session. Please try again later.' }),
           });
         }
 
         // Handle GET request for session verification
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({
+          json: async () => ({
+            valid: true,
             session: {
               id: sessionId,
               address: '0x1234567890123456789012345678901234567890',
@@ -279,34 +272,27 @@ describe('useAuth Hook', () => {
       return Promise.reject(new Error('Not found'));
     });
 
-    global.fetch = fetchMock;
+    const { result } = renderHook(() => useAuth());
 
-    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
-
-    // Wait for initial state to be set
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
+    // Wait for initial session verification
+    await waitFor(() => {
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
     });
 
-    // Verify initial authenticated state
-    expect(result.current.isAuthenticated).toBe(true);
-    expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
-
-    // Perform sign out
+    // Sign out
     await act(async () => {
       await result.current.signOut();
-      // Wait for state updates to complete
-      await new Promise(resolve => setTimeout(resolve, 0));
     });
 
-    // Verify final state
+    // Verify local state is still cleared even though DELETE failed
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.address).toBe(null);
     expect(localStorage.getItem('sessionId')).toBe(null);
     expect(result.current.error).toBe('Failed to delete session. Please try again later.');
 
     // Verify DELETE request was made
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/session'),
       expect.objectContaining({ method: 'DELETE' })
     );

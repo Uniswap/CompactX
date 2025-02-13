@@ -1,6 +1,6 @@
 import { mainnet } from 'wagmi/chains';
 import { QueryClient } from '@tanstack/react-query';
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { createConfig } from 'wagmi';
 import { http } from 'viem';
 
 // Create a test chain with minimal configuration
@@ -12,10 +12,8 @@ const chain = {
   },
 };
 
-// Create mock wagmi config using RainbowKit's getDefaultConfig
-export const testConfig = getDefaultConfig({
-  appName: 'CompactX Test',
-  projectId: 'test-project-id',
+// Create mock wagmi config
+export const testConfig = createConfig({
   chains: [chain],
   transports: {
     [chain.id]: http(),
@@ -27,7 +25,6 @@ export const testQueryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
-      staleTime: Infinity,
     },
   },
 });
