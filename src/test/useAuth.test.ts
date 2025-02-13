@@ -4,17 +4,23 @@ import { useAccount, useSignMessage } from 'wagmi';
 import type { UseAccountReturnType, UseSignMessageReturnType } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { smallocator } from '../api/smallocator';
+import { TestWrapper } from './test-wrapper';
 
 // Mock environment variables
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.test' });
 vi.stubEnv('VITE_SMALLOCATOR_URL', process.env.VITE_SMALLOCATOR_URL);
 
+
 // Mock wagmi hooks
-vi.mock('wagmi', () => ({
-  useAccount: vi.fn(),
-  useSignMessage: vi.fn(),
-}));
+vi.mock('wagmi', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useAccount: vi.fn(),
+    useSignMessage: vi.fn(),
+  };
+});
 
 describe('useAuth Hook', () => {
   beforeEach(() => {
@@ -58,7 +64,7 @@ describe('useAuth Hook', () => {
   });
 
   it('should initialize with no authentication', () => {
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.address).toBe(null);
   });
@@ -87,7 +93,7 @@ describe('useAuth Hook', () => {
       return Promise.reject(new Error('Not found'));
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
 
     // Wait for session verification
     await waitFor(
@@ -100,7 +106,7 @@ describe('useAuth Hook', () => {
   });
 
   it('should handle sign in flow successfully', async () => {
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
 
     // Mock successful session payload request
     global.fetch = vi
@@ -156,7 +162,7 @@ describe('useAuth Hook', () => {
   });
 
   it('should handle sign in errors', async () => {
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
 
     // Mock failed session payload request
     global.fetch = vi.fn().mockImplementation(() => {
@@ -214,7 +220,7 @@ describe('useAuth Hook', () => {
       return Promise.reject(new Error('Not found'));
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
 
     // Wait for initial session verification
     await waitFor(() => {
@@ -272,7 +278,7 @@ describe('useAuth Hook', () => {
       return Promise.reject(new Error('Not found'));
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper: TestWrapper });
 
     // Wait for initial session verification
     await waitFor(() => {

@@ -92,11 +92,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const signature = await signMessageAsync({ message });
 
       // Create session with signed payload
-      await smallocator.createSession({
+      const { sessionId } = await smallocator.createSession({
         signature,
         payload: session,
       });
 
+      // Store session ID in localStorage
+      localStorage.setItem('sessionId', sessionId);
       setIsAuthenticated(true);
       setAddress(walletAddress);
     } catch (err) {
@@ -115,6 +117,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (address) {
         await smallocator.clearSession(address);
       }
+      // Clear session ID from localStorage
+      localStorage.removeItem('sessionId');
       setIsAuthenticated(false);
       setAddress(null);
       setError(null);
@@ -123,6 +127,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       console.error('Error during sign out:', message);
       setError(message);
       // Still clear local state even if server deletion fails
+      localStorage.removeItem('sessionId');
       setIsAuthenticated(false);
       setAddress(null);
     }

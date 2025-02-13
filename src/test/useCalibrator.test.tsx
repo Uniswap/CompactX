@@ -26,21 +26,9 @@ const mockFetch: MockInstance = vi.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
 
 const createWrapper = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
-  });
-
-  const Wrapper = ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <TestWrapper>{children}</TestWrapper>
-    </QueryClientProvider>
+  return ({ children }: { children: React.ReactNode }) => (
+    <TestWrapper>{children}</TestWrapper>
   );
-
-  return Wrapper;
 };
 
 describe('useCalibrator', () => {

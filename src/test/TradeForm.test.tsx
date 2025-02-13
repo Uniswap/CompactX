@@ -10,10 +10,9 @@ window.ResizeObserver = ResizeObserver;
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, afterEach } from 'vitest';
+import { useAccount } from 'wagmi';
 import { TradeForm } from '../components/TradeForm';
 import { TestWrapper } from './test-wrapper';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useAccount } from 'wagmi';
 import { AuthProvider } from '../contexts/AuthContext';
 import { smallocator } from '../api/smallocator';
 
@@ -46,59 +45,11 @@ vi.mock('wagmi', async () => {
 
 // Create a simple wrapper component
 const createWrapper = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
-  });
-
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <TestWrapper>
-        <AuthProvider>{children}</AuthProvider>
-      </TestWrapper>
-    </QueryClientProvider>
+    <TestWrapper>{children}</TestWrapper>
   );
 };
 
-// Mock all required dependencies
-vi.mock('@tanstack/react-query', () => ({
-  useQuery: vi.fn(),
-  QueryClient: vi.fn(() => ({
-    defaultOptions: {},
-    setDefaultOptions: vi.fn(),
-    getDefaultOptions: vi.fn(),
-    setQueryDefaults: vi.fn(),
-    getQueryDefaults: vi.fn(),
-    setMutationDefaults: vi.fn(),
-    getMutationDefaults: vi.fn(),
-    getQueryCache: vi.fn(() => ({
-      build: vi.fn(),
-      add: vi.fn(),
-      remove: vi.fn(),
-    })),
-    getMutationCache: vi.fn(() => ({
-      build: vi.fn(),
-      add: vi.fn(),
-      remove: vi.fn(),
-    })),
-    clear: vi.fn(),
-    resumePausedMutations: vi.fn(),
-    fetchQuery: vi.fn(),
-    prefetchQuery: vi.fn(),
-    fetchInfiniteQuery: vi.fn(),
-    prefetchInfiniteQuery: vi.fn(),
-    cancelMutations: vi.fn(),
-    executeMutation: vi.fn(),
-    isFetching: vi.fn(),
-    isMutating: vi.fn(),
-    getLogger: vi.fn(),
-    mount: vi.fn(),
-  })),
-  QueryClientProvider: ({ children }: { children: React.ReactNode }) => children,
-}));
 
 vi.mock('../hooks/useCustomTokens', () => ({
   useCustomTokens: vi.fn(() => ({

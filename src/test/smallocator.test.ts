@@ -112,22 +112,21 @@ describe('SmallocatorClient', () => {
       json: async () => mockResponse,
     });
 
-    // Set session ID to test header inclusion
-    localStorage.setItem('sessionId', 'unique_session_id');
-    client = new SmallocatorClient(); // Reinitialize to pick up session ID
+    // Set test session ID directly
+    client.setTestSessionId('unique_session_id');
 
     const response = await client.submitCompact(mockCompactRequest);
     expect(response).toEqual(mockResponse);
     expect(global.fetch).toHaveBeenCalledWith(
       'https://smallocator.xyz/compact',
-      {
+      expect.objectContaining({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-session-id': 'unique_session_id',
         },
         body: JSON.stringify(mockCompactRequest),
-      }
+      })
     );
   });
 

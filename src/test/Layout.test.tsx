@@ -74,8 +74,12 @@ describe('Layout Component', () => {
       </TestWrapper>
     );
 
-    // Wait for auth check to complete
-    expect(await screen.findByText('CompactX')).toBeInTheDocument();
+    // Wait for auth check to complete and verify title parts
+    const titleContainer = await screen.findByRole('heading');
+    expect(titleContainer).toHaveTextContent('CompactX');
+    expect(screen.getByText('Com')).toBeInTheDocument();
+    expect(screen.getByText('pac')).toBeInTheDocument();
+    expect(screen.getByText('tX')).toBeInTheDocument();
     expect(screen.getByText('Test Content')).toBeInTheDocument();
   });
 
@@ -88,8 +92,8 @@ describe('Layout Component', () => {
       </TestWrapper>
     );
 
-    // RainbowKit's ConnectButton renders a button with role="button"
-    const connectButton = await screen.findByRole('button');
+    // RainbowKit's ConnectButton renders a button with specific test id
+    const connectButton = await screen.findByTestId('rk-connect-button');
     expect(connectButton).toBeInTheDocument();
   });
 });
