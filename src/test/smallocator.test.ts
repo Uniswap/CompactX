@@ -113,8 +113,11 @@ describe('SmallocatorClient', () => {
     });
 
     // Set session ID to test header inclusion
-    localStorage.setItem('sessionId', 'unique_session_id');
+    const mockAddress = '0x1234567890123456789012345678901234567890';
+    const sessions = { [mockAddress.toLowerCase()]: 'unique_session_id' };
+    localStorage.setItem('smallocator_sessions', JSON.stringify(sessions));
     client = new SmallocatorClient(); // Reinitialize to pick up session ID
+    client.setTestSessionId('unique_session_id'); // Set the session ID directly
 
     const response = await client.submitCompact(mockCompactRequest);
     expect(response).toEqual(mockResponse);
