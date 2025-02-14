@@ -528,7 +528,7 @@ export function TradeForm() {
                 onChange={value => handleValuesChange('slippageTolerance', Number(value))}
                 min={0}
                 max={100}
-                precision={1}
+                precision={3}
                 placeholder="0.5"
                 aria-label="Slippage Tolerance"
               />
@@ -541,7 +541,7 @@ export function TradeForm() {
                     value={formValues.baselinePriorityFee?.toString()}
                     onChange={value => handleValuesChange('baselinePriorityFee', Number(value))}
                     min={0}
-                    precision={1}
+                    precision={9}
                     placeholder="0"
                     aria-label="Baseline Priority Fee"
                   />
@@ -556,14 +556,29 @@ export function TradeForm() {
               </button>
               <button
                 onClick={() => {
+                  // Format numbers before saving
+                  const formatNumber = (num: number | undefined, defaultValue: string) => {
+                    if (num === undefined) return defaultValue;
+                    // Convert to number to remove unnecessary zeros, then back to string
+                    return Number(num).toString();
+                  };
+
                   localStorage.setItem(
                     'slippageTolerance',
-                    formValues.slippageTolerance?.toString() || '0.5'
+                    formatNumber(formValues.slippageTolerance, '0.5')
                   );
                   localStorage.setItem(
                     'baselinePriorityFee',
-                    formValues.baselinePriorityFee?.toString() || '0'
+                    formatNumber(formValues.baselinePriorityFee, '0')
                   );
+                  
+                  // Update form values with formatted numbers
+                  setFormValues(prev => ({
+                    ...prev,
+                    slippageTolerance: Number(formatNumber(formValues.slippageTolerance, '0.5')),
+                    baselinePriorityFee: Number(formatNumber(formValues.baselinePriorityFee, '0'))
+                  }));
+                  
                   setSettingsVisible(false);
                 }}
                 className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"

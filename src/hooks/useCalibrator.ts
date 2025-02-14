@@ -60,7 +60,7 @@ export function useCalibrator() {
       context: {
         slippageBips: params.slippageBips,
         recipient: address || '0x0000000000000000000000000000000000000000',
-        baselinePriorityFee: '0',
+        baselinePriorityFee: params.baselinePriorityFee || '0', // Value is already scaled from gwei to wei
         scalingFactor: '1000000000100000000',
         fillExpires: params.fillExpires || Math.floor(Date.now() / 1000 + 180).toString(), // Default: 3 minutes from now
         claimExpires: params.claimExpires || Math.floor(Date.now() / 1000 + 540).toString(), // Default: 9 minutes from now
