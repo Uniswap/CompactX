@@ -32,6 +32,7 @@ interface TradeFormValues {
   outputToken: string;
   inputAmount: string;
   slippageTolerance: number;
+  baselinePriorityFee: number;
 }
 
 export function TradeForm() {
@@ -42,12 +43,17 @@ export function TradeForm() {
   const { broadcast } = useBroadcast();
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
   const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams);
-  const [formValues, setFormValues] = useState<Partial<TradeFormValues>>({
+  const [formValues, setFormValues] = useState<Partial<TradeFormValues>>(() => ({
     inputToken: '',
     outputToken: '',
     inputAmount: '',
-    slippageTolerance: 0.5,
-  });
+    slippageTolerance: localStorage.getItem('slippageTolerance')
+      ? Number(localStorage.getItem('slippageTolerance'))
+      : 0.5,
+    baselinePriorityFee: localStorage.getItem('baselinePriorityFee')
+      ? Number(localStorage.getItem('baselinePriorityFee'))
+      : 0,
+  }));
   const { showToast } = useToast();
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [selectedInputChain, setSelectedInputChain] = useState<number>(1); // Default to Ethereum
@@ -108,10 +114,6 @@ export function TradeForm() {
       selectedOutputChain &&
       newInputToken
     ) {
-      const slippageTolerance = localStorage.getItem('slippageTolerance')
-        ? Number(localStorage.getItem('slippageTolerance'))
-        : 0.5;
-
       // Convert decimal input to token units
       const tokenUnits = parseUnits(newValues.inputAmount, newInputToken.decimals).toString();
 
@@ -121,8 +123,9 @@ export function TradeForm() {
         inputTokenAmount: tokenUnits,
         outputTokenChainId: selectedOutputChain,
         outputTokenAddress: newValues.outputToken,
-        slippageBips: Math.round(slippageTolerance * 100),
+        slippageBips: Math.round((formValues.slippageTolerance ?? 0.5) * 100),
         allocatorId: '1223867955028248789127899354',
+        baselinePriorityFee: parseUnits((formValues.baselinePriorityFee ?? 0).toString(), 9).toString(), // Convert gwei to wei
         resetPeriod: 600,
         isMultichain: true,
       } as const;
@@ -221,6 +224,7 @@ export function TradeForm() {
         outputToken: '',
         inputAmount: '',
         slippageTolerance: 0.5,
+        baselinePriorityFee: 0,
       });
       setStatusMessage('');
       showToast('Trade broadcast successfully', 'success');
@@ -514,7 +518,8 @@ export function TradeForm() {
       {settingsVisible && (
         <Modal title="Settings" open={settingsVisible} onClose={() => setSettingsVisible(false)}>
           <div className="py-4 text-gray-200">
-            <div className="mb-6">
+              <div className="space-y-6">
+                <div>
               <label className="block text-sm font-medium mb-2 text-gray-200">
                 Slippage Tolerance (%)
               </label>
@@ -527,8 +532,22 @@ export function TradeForm() {
                 placeholder="0.5"
                 aria-label="Slippage Tolerance"
               />
-            </div>
-            <div className="flex justify-end gap-2">
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-200">
+                    Baseline Priority Fee (gwei)
+                  </label>
+                  <NumberInput
+                    value={formValues.baselinePriorityFee?.toString()}
+                    onChange={value => handleValuesChange('baselinePriorityFee', Number(value))}
+                    min={0}
+                    precision={1}
+                    placeholder="0"
+                    aria-label="Baseline Priority Fee"
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setSettingsVisible(false)}
                 className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
@@ -540,6 +559,10 @@ export function TradeForm() {
                   localStorage.setItem(
                     'slippageTolerance',
                     formValues.slippageTolerance?.toString() || '0.5'
+                  );
+                  localStorage.setItem(
+                    'baselinePriorityFee',
+                    formValues.baselinePriorityFee?.toString() || '0'
                   );
                   setSettingsVisible(false);
                 }}

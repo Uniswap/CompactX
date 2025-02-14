@@ -86,4 +86,5 @@ export interface GetQuoteParams {
   claimExpires?: string;
   sponsor: string;
   recipient?: string;
+  baselinePriorityFee?: string;
 }
