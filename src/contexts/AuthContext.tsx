@@ -1,36 +1,10 @@
-import { createContext, useContext, useCallback, useEffect, useState, PropsWithChildren } from 'react';
+import { useCallback, useEffect, useState, PropsWithChildren } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
-import { smallocator, type SessionPayload } from '../api/smallocator';
+import { smallocator } from '../api/smallocator';
+import { formatMessage } from '../utils/auth';
+import { AuthContext } from './auth-context';
 
-// Format the message according to EIP-4361
-function formatMessage(session: SessionPayload): string {
-  return [
-    `${session.domain} wants you to sign in with your Ethereum account:`,
-    session.address,
-    '',
-    session.statement,
-    '',
-    `URI: ${session.uri}`,
-    `Version: ${session.version}`,
-    `Chain ID: ${session.chainId}`,
-    `Nonce: ${session.nonce}`,
-    `Issued At: ${session.issuedAt}`,
-    `Expiration Time: ${session.expirationTime}`,
-  ].join('\n');
-}
-
-interface AuthContextType {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
-  address: string | null;
-  signIn: () => Promise<void>;
-  signOut: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | null>(null);
-
-export function AuthProvider({ children }: PropsWithChildren) {
+export function AuthProvider({ children }: PropsWithChildren<unknown>) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
@@ -147,12 +121,4 @@ export function AuthProvider({ children }: PropsWithChildren) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 }

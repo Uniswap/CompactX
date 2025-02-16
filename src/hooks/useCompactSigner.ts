@@ -3,7 +3,6 @@ import { signTypedData } from '@wagmi/core';
 import { CompactRequestPayload } from '../types/compact';
 import { smallocator } from '../api/smallocator';
 import { config } from '../config/wallet';
-import { useChainId } from 'wagmi';
 import {
   encodeAbiParameters,
   toBytes,
@@ -24,22 +23,21 @@ export interface CompactSignature {
   nonce: string;
 }
 
+interface MandateHashInput {
+  chainId: number | string;
+  tribunal: string;
+  recipient: string;
+  expires: string;
+  token: string;
+  minimumAmount: string;
+  baselinePriorityFee: string;
+  scalingFactor: string;
+  salt: string;
+}
+
 export function useCompactSigner() {
-  const chainId = useChainId();
-
-  interface MandateHashInput {
-    chainId: number | string;
-    tribunal: string;
-    recipient: string;
-    expires: string;
-    token: string;
-    minimumAmount: string;
-    baselinePriorityFee: string;
-    scalingFactor: string;
-    salt: string;
-  }
-
-  const deriveMandateHash = (mandate: MandateHashInput): `0x${string}` => {
+  return useMemo(() => {
+    const deriveMandateHash = (mandate: MandateHashInput): `0x${string}` => {
     // Calculate MANDATE_TYPEHASH to match Solidity's EIP-712 typed data
     const MANDATE_TYPE_STRING =
       'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
@@ -98,8 +96,7 @@ export function useCompactSigner() {
     return keccak256(encodedData);
   };
 
-  return useMemo(
-    () => ({
+    return {
       signCompact: async (
         request: CompactRequestPayload & { tribunal: string; currentChainId: string }
       ): Promise<CompactSignature> => {
@@ -230,7 +227,6 @@ export function useCompactSigner() {
           nonce,
         };
       },
-    }),
-    [chainId, deriveMandateHash]
-  );
+    };
+  }, []);
 }

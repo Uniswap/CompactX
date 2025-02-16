@@ -1,13 +1,16 @@
-import React from 'react';
-
-interface ToggleGroupProps {
-  options: { label: string; value: any }[];
-  value: any;
-  onChange: (value: any) => void;
+interface ToggleGroupProps<T> {
+  options: { label: string; value: T }[];
+  value: T;
+  onChange: (value: T) => void;
   'aria-label'?: string;
 }
 
-export function ToggleGroup({ options, value, onChange, 'aria-label': ariaLabel }: ToggleGroupProps) {
+export function ToggleGroup<T extends string | number>({ 
+  options, 
+  value, 
+  onChange, 
+  'aria-label': ariaLabel 
+}: ToggleGroupProps<T>) {
   return (
     <div 
       className="flex gap-2" 

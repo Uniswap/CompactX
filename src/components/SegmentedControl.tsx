@@ -1,20 +1,18 @@
-import React from 'react';
-
-interface SegmentedControlProps {
-  options: { label: string; value: any }[];
-  value: any;
-  onChange: (value: any) => void;
+interface SegmentedControlProps<T> {
+  options: { label: string; value: T }[];
+  value: T;
+  onChange: (value: T) => void;
   'aria-label'?: string;
   columns?: number;
 }
 
-export function SegmentedControl({
+export function SegmentedControl<T extends string | number | boolean>({
   options,
   value,
   onChange,
   'aria-label': ariaLabel,
   columns = 1,
-}: SegmentedControlProps) {
+}: SegmentedControlProps<T>) {
   const isGrid = columns > 1;
   
   return (

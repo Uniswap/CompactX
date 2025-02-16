@@ -362,27 +362,22 @@ export class SmallocatorClient {
    * Clear the current session
    */
   public async clearSession(address?: string): Promise<void> {
-    try {
-      if (address) {
-        // Clear specific address session
-        const sessionId = this.getSessionForAddress(address);
-        if (sessionId) {
-          this.sessionId = sessionId;
-          await this.deleteSession();
-          this.removeSessionForAddress(address);
-        }
-      } else {
-        // Clear current session
-        const sessionId = localStorage.getItem('sessionId');
-        if (sessionId) {
-          this.sessionId = sessionId;
-          await this.deleteSession();
-          localStorage.removeItem('sessionId');
-        }
+    if (address) {
+      // Clear specific address session
+      const sessionId = this.getSessionForAddress(address);
+      if (sessionId) {
+        this.sessionId = sessionId;
+        await this.deleteSession();
+        this.removeSessionForAddress(address);
       }
-    } catch (error) {
-      // Rethrow the error without modifying it
-      throw error;
+    } else {
+      // Clear current session
+      const sessionId = localStorage.getItem('sessionId');
+      if (sessionId) {
+        this.sessionId = sessionId;
+        await this.deleteSession();
+        localStorage.removeItem('sessionId');
+      }
     }
   }
 

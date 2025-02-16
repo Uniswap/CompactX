@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useToast } from '../components/Toast';
+import { useToast } from './useToast';
 import { broadcast } from '../api/broadcast';
 import { CompactRequestPayload } from '../types/compact';
 import { BroadcastRequest, BroadcastContext, Mandate } from '../types/broadcast';

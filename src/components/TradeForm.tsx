@@ -1,15 +1,14 @@
 import { Select } from './Select';
 import { NumberInput } from './NumberInput';
-import { useToast } from './Toast';
+import { useToast } from '../hooks/useToast';
 import { Modal } from './Modal';
 import { SegmentedControl } from './SegmentedControl';
 import { TooltipIcon } from './TooltipIcon';
-import { ToggleGroup } from './ToggleGroup';
 import { useAccount, useChainId } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { ConnectButton } from '../config/wallet';
 import { formatUnits, parseUnits, type Hex } from 'viem';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
 import { useCompactSigner } from '../hooks/useCompactSigner';
@@ -84,6 +83,67 @@ export function TradeForm() {
     (typeof outputTokens)[0] | undefined
   >();
 
+  // Handle form value changes
+  const handleValuesChange = useCallback(
+    (field: keyof TradeFormValues, value: string | number | boolean) => {
+      const newValues = { ...formValues, [field]: value };
+      setFormValues(newValues);
+
+      // Update selected tokens
+      const newInputToken = inputTokens.find(token => token.address === newValues.inputToken);
+      const newOutputToken = outputTokens.find(token => token.address === newValues.outputToken);
+
+      if (newInputToken !== selectedInputToken) {
+        setSelectedInputToken(newInputToken);
+      }
+
+      if (newOutputToken !== selectedOutputToken) {
+        setSelectedOutputToken(newOutputToken);
+      }
+
+      // Update quote params if we have all required values
+      if (
+        newValues.inputToken &&
+        newValues.inputAmount &&
+        newValues.outputToken &&
+        selectedOutputChain &&
+        newInputToken
+      ) {
+        // Convert decimal input to token units
+        const tokenUnits = parseUnits(newValues.inputAmount, newInputToken.decimals).toString();
+
+        const params: GetQuoteParams = {
+          inputTokenChainId: isConnected ? chainId : selectedInputChain,
+          inputTokenAddress: newValues.inputToken,
+          inputTokenAmount: tokenUnits,
+          outputTokenChainId: selectedOutputChain,
+          outputTokenAddress: newValues.outputToken,
+          slippageBips: Math.floor(Number(newValues.slippageTolerance) * 100),
+          baselinePriorityFee: newValues.baselinePriorityFee 
+            ? (BigInt(Math.floor(newValues.baselinePriorityFee * 1e9))).toString()
+            : undefined,
+          resetPeriod: newValues.resetPeriod,
+          isMultichain: newValues.isMultichain,
+          sponsor: isConnected ? address : DEFAULT_SPONSOR,
+          allocatorId: "1223867955028248789127899354",
+        };
+        setQuoteParams(params);
+      }
+    },
+    [
+      formValues,
+      inputTokens,
+      outputTokens,
+      selectedOutputChain,
+      isConnected,
+      chainId,
+      selectedInputToken,
+      selectedOutputToken,
+      address,
+      selectedInputChain
+    ]
+  );
+
   // Handle chain changes and conflicts
   useEffect(() => {
     if (isConnected && chainId === selectedOutputChain) {
@@ -94,62 +154,15 @@ export function TradeForm() {
       setSelectedOutputToken(undefined);
       setFormValues(prev => ({ ...prev, outputToken: '' }));
     }
-  }, [chainId, isConnected]);
+  }, [chainId, isConnected, selectedOutputChain]);
 
   // Refresh quote when wallet connects if form is filled out
   useEffect(() => {
-    if (isConnected && quoteParams) {
+    if (isConnected && quoteParams && formValues.inputAmount) {
       // Re-trigger quote fetch with current form values
-      handleValuesChange('inputAmount', formValues.inputAmount || '');
+      handleValuesChange('inputAmount', formValues.inputAmount);
     }
-  }, [isConnected]); // Re-run when wallet connection status changes
-
-  // Handle form value changes
-  const handleValuesChange = (field: keyof TradeFormValues, value: string | number) => {
-    const newValues = { ...formValues, [field]: value };
-    setFormValues(newValues);
-
-    // Update selected tokens
-    const newInputToken = inputTokens.find(token => token.address === newValues.inputToken);
-    const newOutputToken = outputTokens.find(token => token.address === newValues.outputToken);
-
-    if (newInputToken !== selectedInputToken) {
-      setSelectedInputToken(newInputToken);
-    }
-
-    if (newOutputToken !== selectedOutputToken) {
-      setSelectedOutputToken(newOutputToken);
-    }
-
-    // Update quote params if we have all required values
-    if (
-      newValues.inputToken &&
-      newValues.inputAmount &&
-      newValues.outputToken &&
-      selectedOutputChain &&
-      newInputToken
-    ) {
-      // Convert decimal input to token units
-      const tokenUnits = parseUnits(newValues.inputAmount, newInputToken.decimals).toString();
-
-      const params: GetQuoteParams = {
-        inputTokenChainId: isConnected ? chainId : selectedInputChain,
-        inputTokenAddress: newValues.inputToken,
-        inputTokenAmount: tokenUnits,
-        outputTokenChainId: selectedOutputChain,
-        outputTokenAddress: newValues.outputToken,
-        slippageBips: Math.floor(Number(newValues.slippageTolerance) * 100),
-        baselinePriorityFee: newValues.baselinePriorityFee 
-          ? (BigInt(Math.floor(newValues.baselinePriorityFee * 1e9))).toString()
-          : undefined,
-        resetPeriod: newValues.resetPeriod,
-        isMultichain: newValues.isMultichain,
-        sponsor: isConnected ? address : DEFAULT_SPONSOR,
-        allocatorId: "1223867955028248789127899354",
-      };
-      setQuoteParams(params);
-    }
-  };
+  }, [isConnected, quoteParams, formValues.inputAmount, handleValuesChange]);
 
   // Handle the actual swap after quote is received
   const handleSwap = async () => {
@@ -254,16 +267,6 @@ export function TradeForm() {
     }
   };
 
-  // Reset period options excluding OneSecond and ThirtyDays
-  const resetPeriodOptions = [
-    { label: '15 Seconds', value: ResetPeriod.FifteenSeconds },
-    { label: '1 Minute', value: ResetPeriod.OneMinute },
-    { label: '10 Minutes', value: ResetPeriod.TenMinutes },
-    { label: '1 Hour & 5 Minutes', value: ResetPeriod.OneHourAndFiveMinutes },
-    { label: '1 Day', value: ResetPeriod.OneDay },
-    { label: '7 Days & 1 Hour', value: ResetPeriod.SevenDaysAndOneHour },
-  ];
-
   const scopeOptions = [
     { label: 'Multichain', value: true },
     { label: 'Chain-specific', value: false },
@@ -321,8 +324,15 @@ export function TradeForm() {
                       if (selectedOutputChain === newChainId) {
                         // Try to set to Unichain first, fallback to first available non-conflicting chain
                         const availableChains = SUPPORTED_CHAINS.filter(
-                          chain => chain.id !== newChainId && chain.id !== 1
+                          chain => {
+                            if (isConnected) {
+                              return chain.id !== chainId && chain.id !== 1;
+                            }
+                            return chain.id !== selectedInputChain && chain.id !== 1;
+                          }
                         );
+                        
+                        // Sort to ensure Unichain appears first if available
                         const unichain = availableChains.find(chain => chain.id === 130);
                         setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
                         setSelectedOutputToken(undefined);
@@ -572,11 +582,18 @@ export function TradeForm() {
                 </label>
                 <TooltipIcon title="The reset period on the resource lock" />
               </div>
-              <SegmentedControl
-                options={resetPeriodOptions}
-                value={formValues.resetPeriod}
-                onChange={(value) => handleValuesChange('resetPeriod', value)}
-                aria-label="Resource lock reset period"
+              <SegmentedControl<number>
+                options={[
+                  { label: '15s', value: ResetPeriod.FifteenSeconds },
+                  { label: '1m', value: ResetPeriod.OneMinute },
+                  { label: '10m', value: ResetPeriod.TenMinutes },
+                  { label: '1h 5m', value: ResetPeriod.OneHourAndFiveMinutes },
+                  { label: '1d', value: ResetPeriod.OneDay },
+                  { label: '7d 1h', value: ResetPeriod.SevenDaysAndOneHour },
+                ]}
+                value={formValues.resetPeriod || ResetPeriod.TenMinutes}
+                onChange={value => handleValuesChange('resetPeriod', value)}
+                aria-label="Reset Period"
                 columns={3}
               />
             </div>
@@ -587,11 +604,11 @@ export function TradeForm() {
                 </label>
                 <TooltipIcon title="The scope of the resource lock" />
               </div>
-              <SegmentedControl
+              <SegmentedControl<boolean>
                 options={scopeOptions}
-                value={formValues.isMultichain}
-                onChange={(value) => handleValuesChange('isMultichain', value)}
-                aria-label="Resource lock scope"
+                value={formValues.isMultichain ?? true}
+                onChange={value => handleValuesChange('isMultichain', value)}
+                aria-label="Resource Lock Scope"
               />
             </div>
           </div>

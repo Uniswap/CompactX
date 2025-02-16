@@ -61,11 +61,3 @@ export const Toast = ({ message, type, onClose }: ToastProps) => (
     </button>
   </div>
 );
-
-export const useToast = () => {
-  const showToast = (_message: string, _type: 'success' | 'error') => {
-    // Mock implementation
-  };
-
-  return { showToast };
-};

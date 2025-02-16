@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useCustomTokens } from '../hooks/useCustomTokens';
 import { useChainId } from 'wagmi';
-import { useToast, Toast } from './Toast';
+import { Toast } from './Toast';
+import { useToast } from '../hooks/useToast';
 import { isAddress } from 'viem';
 
 interface FormValues {
