@@ -2,7 +2,9 @@ import { Select } from './Select';
 import { NumberInput } from './NumberInput';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
-import { Tooltip } from './Tooltip';
+import { SegmentedControl } from './SegmentedControl';
+import { TooltipIcon } from './TooltipIcon';
+import { ToggleGroup } from './ToggleGroup';
 import { useAccount, useChainId } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { ConnectButton } from '../config/wallet';
@@ -27,12 +29,23 @@ const SUPPORTED_CHAINS = [
 // Default sponsor address when wallet is not connected
 const DEFAULT_SPONSOR = '0x0000000000000000000000000000000000000000';
 
+enum ResetPeriod {
+  FifteenSeconds = 15,
+  OneMinute = 60,
+  TenMinutes = 600,
+  OneHourAndFiveMinutes = 3900,
+  OneDay = 86400,
+  SevenDaysAndOneHour = 604800,
+}
+
 interface TradeFormValues {
   inputToken: string;
   outputToken: string;
   inputAmount: string;
   slippageTolerance: number;
   baselinePriorityFee: number;
+  resetPeriod: ResetPeriod;
+  isMultichain: boolean;
 }
 
 export function TradeForm() {
@@ -53,6 +66,8 @@ export function TradeForm() {
     baselinePriorityFee: localStorage.getItem('baselinePriorityFee')
       ? Number(localStorage.getItem('baselinePriorityFee'))
       : 0,
+    resetPeriod: ResetPeriod.TenMinutes,
+    isMultichain: true,
   }));
   const { showToast } = useToast();
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -117,22 +132,22 @@ export function TradeForm() {
       // Convert decimal input to token units
       const tokenUnits = parseUnits(newValues.inputAmount, newInputToken.decimals).toString();
 
-      const params = {
+      const params: GetQuoteParams = {
         inputTokenChainId: isConnected ? chainId : selectedInputChain,
         inputTokenAddress: newValues.inputToken,
         inputTokenAmount: tokenUnits,
         outputTokenChainId: selectedOutputChain,
         outputTokenAddress: newValues.outputToken,
-        slippageBips: Math.round((formValues.slippageTolerance ?? 0.5) * 100),
-        allocatorId: '1223867955028248789127899354',
-        baselinePriorityFee: parseUnits((formValues.baselinePriorityFee ?? 0).toString(), 9).toString(), // Convert gwei to wei
-        resetPeriod: 600,
-        isMultichain: true,
-      } as const;
-      setQuoteParams({
-        ...params,
+        slippageBips: Math.floor(Number(newValues.slippageTolerance) * 100),
+        baselinePriorityFee: newValues.baselinePriorityFee 
+          ? (BigInt(Math.floor(newValues.baselinePriorityFee * 1e9))).toString()
+          : undefined,
+        resetPeriod: newValues.resetPeriod,
+        isMultichain: newValues.isMultichain,
         sponsor: isConnected ? address : DEFAULT_SPONSOR,
-      });
+        allocatorId: "1223867955028248789127899354",
+      };
+      setQuoteParams(params);
     }
   };
 
@@ -225,6 +240,8 @@ export function TradeForm() {
         inputAmount: '',
         slippageTolerance: 0.5,
         baselinePriorityFee: 0,
+        resetPeriod: ResetPeriod.TenMinutes,
+        isMultichain: true,
       });
       setStatusMessage('');
       showToast('Trade broadcast successfully', 'success');
@@ -236,6 +253,21 @@ export function TradeForm() {
       setIsSigning(false);
     }
   };
+
+  // Reset period options excluding OneSecond and ThirtyDays
+  const resetPeriodOptions = [
+    { label: '15 Seconds', value: ResetPeriod.FifteenSeconds },
+    { label: '1 Minute', value: ResetPeriod.OneMinute },
+    { label: '10 Minutes', value: ResetPeriod.TenMinutes },
+    { label: '1 Hour & 5 Minutes', value: ResetPeriod.OneHourAndFiveMinutes },
+    { label: '1 Day', value: ResetPeriod.OneDay },
+    { label: '7 Days & 1 Hour', value: ResetPeriod.SevenDaysAndOneHour },
+  ];
+
+  const scopeOptions = [
+    { label: 'Multichain', value: true },
+    { label: 'Chain-specific', value: false },
+  ];
 
   return (
     <div className="w-full max-w-2xl p-6 bg-[#0a0a0a] rounded-xl shadow-xl border border-gray-800">
@@ -278,25 +310,25 @@ export function TradeForm() {
                   value={selectedInputChain}
                   onChange={value => {
                     const newChainId = Number(value);
-                  if (newChainId !== selectedInputChain) {
-                    setSelectedInputChain(newChainId);
-                    setSelectedInputToken(undefined);
-                    // Clear quote parameters when input chain changes
-                    setQuoteParams(undefined);
-                    setFormValues(prev => ({ ...prev, inputToken: '', inputAmount: '' }));
+                    if (newChainId !== selectedInputChain) {
+                      setSelectedInputChain(newChainId);
+                      setSelectedInputToken(undefined);
+                      // Clear quote parameters when input chain changes
+                      setQuoteParams(undefined);
+                      setFormValues(prev => ({ ...prev, inputToken: '', inputAmount: '' }));
 
-                    // Only reset output chain if it conflicts with new input chain
-                    if (selectedOutputChain === newChainId) {
-                      // Try to set to Unichain first, fallback to first available non-conflicting chain
-                      const availableChains = SUPPORTED_CHAINS.filter(
-                        chain => chain.id !== newChainId && chain.id !== 1
-                      );
-                      const unichain = availableChains.find(chain => chain.id === 130);
-                      setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
-                      setSelectedOutputToken(undefined);
-                      setFormValues(prev => ({ ...prev, outputToken: '' }));
+                      // Only reset output chain if it conflicts with new input chain
+                      if (selectedOutputChain === newChainId) {
+                        // Try to set to Unichain first, fallback to first available non-conflicting chain
+                        const availableChains = SUPPORTED_CHAINS.filter(
+                          chain => chain.id !== newChainId && chain.id !== 1
+                        );
+                        const unichain = availableChains.find(chain => chain.id === 130);
+                        setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
+                        setSelectedOutputToken(undefined);
+                        setFormValues(prev => ({ ...prev, outputToken: '' }));
+                      }
                     }
-                  }
                   }}
                   options={SUPPORTED_CHAINS.map(chain => ({
                     label: chain.name,
@@ -423,15 +455,7 @@ export function TradeForm() {
               {quote.context.dispensationUSD && (
                 <div className="flex items-center gap-2">
                   <span>Settlement Cost: {quote.context.dispensationUSD}</span>
-                  <Tooltip title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold">
-                    <svg className="w-4 h-4 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </Tooltip>
+                  <TooltipIcon title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold" />
                 </div>
               )}
               {quote?.data?.mandate?.minimumAmount && selectedOutputToken && (
@@ -445,15 +469,7 @@ export function TradeForm() {
                       )
                     ).toString()}
                   </span>
-                  <Tooltip title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides">
-                    <svg className="w-4 h-4 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </Tooltip>
+                  <TooltipIcon title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides" />
                 </div>
               )}
             </div>
@@ -517,75 +533,106 @@ export function TradeForm() {
 
       {settingsVisible && (
         <Modal title="Settings" open={settingsVisible} onClose={() => setSettingsVisible(false)}>
-          <div className="py-4 text-gray-200">
-              <div className="space-y-6">
-                <div>
-              <label className="block text-sm font-medium mb-2 text-gray-200">
-                Slippage Tolerance (%)
-              </label>
-              <NumberInput
-                value={formValues.slippageTolerance?.toString()}
-                onChange={value => handleValuesChange('slippageTolerance', Number(value))}
-                min={0}
-                max={100}
-                precision={3}
-                placeholder="0.5"
-                aria-label="Slippage Tolerance"
-              />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-200">
-                    Baseline Priority Fee (gwei)
-                  </label>
-                  <NumberInput
-                    value={formValues.baselinePriorityFee?.toString()}
-                    onChange={value => handleValuesChange('baselinePriorityFee', Number(value))}
-                    min={0}
-                    precision={9}
-                    placeholder="0"
-                    aria-label="Baseline Priority Fee"
-                  />
-                </div>
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <label className="text-sm font-medium text-gray-400">
+                  Slippage Tolerance (%)
+                </label>
+                <TooltipIcon title="Maximum allowed price movement before trade reverts" />
               </div>
-              <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={() => setSettingsVisible(false)}
-                className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  // Format numbers before saving
-                  const formatNumber = (num: number | undefined, defaultValue: string) => {
-                    if (num === undefined) return defaultValue;
-                    // Convert to number to remove unnecessary zeros, then back to string
-                    return Number(num).toString();
-                  };
-
-                  localStorage.setItem(
-                    'slippageTolerance',
-                    formatNumber(formValues.slippageTolerance, '0.5')
-                  );
-                  localStorage.setItem(
-                    'baselinePriorityFee',
-                    formatNumber(formValues.baselinePriorityFee, '0')
-                  );
-                  
-                  // Update form values with formatted numbers
-                  setFormValues(prev => ({
-                    ...prev,
-                    slippageTolerance: Number(formatNumber(formValues.slippageTolerance, '0.5')),
-                    baselinePriorityFee: Number(formatNumber(formValues.baselinePriorityFee, '0'))
-                  }));
-                  
-                  setSettingsVisible(false);
-                }}
-                className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
-              >
-                Save
-              </button>
+              <NumberInput
+                value={formValues.slippageTolerance}
+                onChange={(value) => handleValuesChange('slippageTolerance', value)}
+                min={0.01}
+                max={100}
+                precision={2}
+                aria-label="Slippage tolerance percentage"
+              />
             </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <label className="text-sm font-medium text-gray-400">
+                  Baseline Priority Fee (GWEI)
+                </label>
+                <TooltipIcon title="Minimum gas priority fee for transaction" />
+              </div>
+              <NumberInput
+                value={formValues.baselinePriorityFee}
+                onChange={(value) => handleValuesChange('baselinePriorityFee', value)}
+                min={0}
+                precision={2}
+                aria-label="Baseline priority fee in GWEI"
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <label className="text-sm font-medium text-gray-400">
+                  Resource Lock Reset Period
+                </label>
+                <TooltipIcon title="The reset period on the resource lock" />
+              </div>
+              <SegmentedControl
+                options={resetPeriodOptions}
+                value={formValues.resetPeriod}
+                onChange={(value) => handleValuesChange('resetPeriod', value)}
+                aria-label="Resource lock reset period"
+                columns={3}
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <label className="text-sm font-medium text-gray-400">
+                  Resource Lock Scope
+                </label>
+                <TooltipIcon title="The scope of the resource lock" />
+              </div>
+              <SegmentedControl
+                options={scopeOptions}
+                value={formValues.isMultichain}
+                onChange={(value) => handleValuesChange('isMultichain', value)}
+                aria-label="Resource lock scope"
+              />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              onClick={() => setSettingsVisible(false)}
+              className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                // Format numbers before saving
+                const formatNumber = (num: number | undefined, defaultValue: string) => {
+                  if (num === undefined) return defaultValue;
+                  // Convert to number to remove unnecessary zeros, then back to string
+                  return Number(num).toString();
+                };
+
+                localStorage.setItem(
+                  'slippageTolerance',
+                  formatNumber(formValues.slippageTolerance, '0.5')
+                );
+                localStorage.setItem(
+                  'baselinePriorityFee',
+                  formatNumber(formValues.baselinePriorityFee, '0')
+                );
+                
+                // Update form values with formatted numbers
+                setFormValues(prev => ({
+                  ...prev,
+                  slippageTolerance: Number(formatNumber(formValues.slippageTolerance, '0.5')),
+                  baselinePriorityFee: Number(formatNumber(formValues.baselinePriorityFee, '0'))
+                }));
+                
+                setSettingsVisible(false);
+              }}
+              className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
+            >
+              Save
+            </button>
           </div>
         </Modal>
       )}
