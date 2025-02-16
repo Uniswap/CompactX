@@ -23,7 +23,7 @@ vi.mock('viem', () => ({
 }));
 
 const mockShowToast = vi.fn();
-vi.mock('../components/Toast', () => ({
+vi.mock('../hooks/useToast', () => ({
   useToast: () => ({
     showToast: mockShowToast,
   }),
