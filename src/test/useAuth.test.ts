@@ -4,6 +4,7 @@ import { useAccount, useSignMessage } from 'wagmi';
 import type { UseAccountReturnType, UseSignMessageReturnType } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { smallocator } from '../api/smallocator';
+import { AuthProvider } from '../contexts/AuthContext';
 
 // Mock environment variables
 import dotenv from 'dotenv';
@@ -57,8 +58,12 @@ describe('useAuth Hook', () => {
     } as unknown as UseSignMessageReturnType);
   });
 
+  const wrapper = ({ children }) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+
   it('should initialize with no authentication', () => {
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.address).toBe(null);
   });
@@ -87,20 +92,22 @@ describe('useAuth Hook', () => {
       return Promise.reject(new Error('Not found'));
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     // Wait for session verification
-    await waitFor(
-      () => {
-        expect(result.current.isAuthenticated).toBe(true);
-        expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
-      },
-      { timeout: 2000 }
-    ); // Increase timeout to ensure we catch the state update
+    await act(async () => {
+      await waitFor(
+        () => {
+          expect(result.current.isAuthenticated).toBe(true);
+          expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
+        },
+        { timeout: 2000 }
+      );
+    });
   });
 
   it('should handle sign in flow successfully', async () => {
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     // Mock successful session payload request
     global.fetch = vi
@@ -156,7 +163,7 @@ describe('useAuth Hook', () => {
   });
 
   it('should handle sign in errors', async () => {
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     // Mock failed session payload request
     global.fetch = vi.fn().mockImplementation(() => {
@@ -214,12 +221,14 @@ describe('useAuth Hook', () => {
       return Promise.reject(new Error('Not found'));
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     // Wait for initial session verification
-    await waitFor(() => {
-      expect(result.current.isAuthenticated).toBe(true);
-      expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
+    await act(async () => {
+      await waitFor(() => {
+        expect(result.current.isAuthenticated).toBe(true);
+        expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
+      });
     });
 
     // Sign out
@@ -272,12 +281,14 @@ describe('useAuth Hook', () => {
       return Promise.reject(new Error('Not found'));
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     // Wait for initial session verification
-    await waitFor(() => {
-      expect(result.current.isAuthenticated).toBe(true);
-      expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
+    await act(async () => {
+      await waitFor(() => {
+        expect(result.current.isAuthenticated).toBe(true);
+        expect(result.current.address).toBe('0x1234567890123456789012345678901234567890');
+      });
     });
 
     // Sign out
