@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor, cleanup } from '@testing-library/react';
 import { useAccount, useSignMessage } from 'wagmi';
 import type { UseAccountReturnType, UseSignMessageReturnType } from 'wagmi';
+import React from 'react';
 import { AuthProvider } from '../contexts/AuthContext';
 import { useAuth } from '../hooks/useAuth';
 import { smallocator } from '../api/smallocator';
@@ -24,7 +25,7 @@ describe('useAuth Hook', () => {
     // Clear any existing storage and mocks
     localStorage.clear();
     vi.clearAllMocks();
-    
+
     // Mock wagmi hooks
     vi.mocked(useAccount).mockReturnValue({
       address,
@@ -32,7 +33,7 @@ describe('useAuth Hook', () => {
       isConnecting: false,
       isDisconnected: false,
       status: 'connected',
-    } as any);
+    } as unknown as UseAccountReturnType);
 
     vi.mocked(useSignMessage).mockReturnValue({
       signMessageAsync: vi.fn().mockResolvedValue('0xsignature'),
@@ -40,7 +41,7 @@ describe('useAuth Hook', () => {
       isError: false,
       isLoading: false,
       isSuccess: false,
-    } as any);
+    } as unknown as UseSignMessageReturnType);
 
     // Mock smallocator methods with consistent session ID
     vi.spyOn(smallocator, 'verifySession').mockImplementation(async () => {
@@ -81,7 +82,7 @@ describe('useAuth Hook', () => {
     cleanup();
   });
 
-  const wrapper = ({ children }) => (
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
     <AuthProvider>{children}</AuthProvider>
   );
 
@@ -144,7 +145,7 @@ describe('useAuth Hook', () => {
     await act(async () => {
       try {
         await result.current.signIn();
-      } catch (error) {
+      } catch {
         // Expected error
       }
     });
