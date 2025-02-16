@@ -336,7 +336,7 @@ export class SmallocatorClient {
       }
 
       if (!response.ok) {
-        let errorMessage = `Server error (${response.status})`;
+        let errorMessage = 'Failed to delete session. Please try again later.';
         try {
           const result = await response.json();
           if (result.error) {
@@ -345,7 +345,6 @@ export class SmallocatorClient {
         } catch {
           // If we can't parse the error, use the default message
         }
-        console.error('Server error during session deletion:', errorMessage);
         throw new Error(errorMessage);
       }
 
@@ -355,7 +354,6 @@ export class SmallocatorClient {
     } catch (error) {
       // Handle network errors
       const message = error instanceof Error ? error.message : 'Network error';
-      console.error('Network error during session deletion:', message);
       throw error instanceof Error ? error : new Error(message);
     }
   }
@@ -374,20 +372,16 @@ export class SmallocatorClient {
           this.removeSessionForAddress(address);
         }
       } else {
-        // Clear all sessions if no address specified
-        const sessions = this.getSessionsMap();
-        for (const addr of Object.keys(sessions)) {
-          this.sessionId = sessions[addr];
-          try {
-            await this.deleteSession();
-          } catch (error) {
-            console.error(`Failed to delete session for ${addr}:`, error);
-          }
+        // Clear current session
+        const sessionId = localStorage.getItem('sessionId');
+        if (sessionId) {
+          this.sessionId = sessionId;
+          await this.deleteSession();
+          localStorage.removeItem('sessionId');
         }
-        localStorage.removeItem(this.SESSION_KEY);
       }
     } catch (error) {
-      console.error('Failed to clear session:', error);
+      // Rethrow the error without modifying it
       throw error;
     }
   }

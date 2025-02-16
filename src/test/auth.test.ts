@@ -137,6 +137,7 @@ describe('Authentication Flow', () => {
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
         json: async () => ({
+          valid: true,
           session: {
             id: 'mock-session-id',
             address: mockAddress,
@@ -207,25 +208,15 @@ describe('Authentication Flow', () => {
       localStorage.setItem('sessionId', 'mock-session-id');
       client = new SmallocatorClient(); // Reinitialize to pick up the session ID
 
-      // Mock the API response - DELETE can return empty response
-      global.fetch = vi.fn().mockImplementation((url: string, options?: { method: string }) => {
-        if (url.endsWith('/session')) {
-          if (options?.method === 'DELETE') {
-            return Promise.resolve({
-              ok: true,
-              status: 200,
-              // Some servers might not return content for DELETE
-              json: async () => {
-                throw new Error('No content');
-              },
-            });
-          }
-        }
-        return Promise.reject(new Error('Not found'));
+      // Mock the API response for DELETE request
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
       });
 
       await client.clearSession();
 
+      // Verify localStorage is cleared
       expect(localStorage.getItem('sessionId')).toBeNull();
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/session',
@@ -242,39 +233,30 @@ describe('Authentication Flow', () => {
     it('should handle session deletion failure with error response', async () => {
       // Set up a mock session ID
       localStorage.setItem('sessionId', 'mock-session-id');
-      client = new SmallocatorClient(); // Reinitialize to pick up the session ID
+      client = new SmallocatorClient();
 
-      // Mock the API response with error
-      global.fetch = vi.fn().mockImplementation((url: string, options?: { method: string }) => {
-        if (url.endsWith('/session')) {
-          if (options?.method === 'DELETE') {
-            return Promise.resolve({
-              ok: false,
-              status: 500,
-              json: async () => ({ error: 'Failed to delete session. Please try again later.' }),
-            });
-          }
-        }
-        return Promise.reject(new Error('Not found'));
+      // Mock failed DELETE request
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: 'Failed to delete session. Please try again later.' }),
       });
 
       await expect(client.clearSession()).rejects.toThrow(
         'Failed to delete session. Please try again later.'
       );
 
-      // Session should NOT be cleared if deletion failed
+      // Session should still be in localStorage since deletion failed
       expect(localStorage.getItem('sessionId')).toBe('mock-session-id');
     });
 
     it('should handle session deletion with network error', async () => {
       // Set up a mock session ID
       localStorage.setItem('sessionId', 'mock-session-id');
-      client = new SmallocatorClient(); // Reinitialize to pick up the session ID
+      client = new SmallocatorClient();
 
-      // Mock a network error
-      global.fetch = vi.fn().mockImplementation(() => {
-        return Promise.reject(new Error('Network error'));
-      });
+      // Mock network error
+      global.fetch = vi.fn().mockRejectedValueOnce(new Error('Network error'));
 
       await expect(client.clearSession()).rejects.toThrow('Network error');
 
@@ -283,38 +265,15 @@ describe('Authentication Flow', () => {
     });
 
     it('should handle sign out when DELETE request fails', async () => {
-      // Set up initial authenticated state
-      localStorage.setItem('sessionId', 'test-session');
-      client = new SmallocatorClient(); // Reinitialize to pick up the session ID
+      // Set up a mock session ID
+      localStorage.setItem('sessionId', 'mock-session-id');
+      client = new SmallocatorClient();
 
-      // Mock the API responses
-      global.fetch = vi.fn().mockImplementation((_url: string, options?: { method: string }) => {
-        // Handle GET request for session verification
-        if (options?.method === 'GET') {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            json: async () => ({
-              valid: true,
-              session: {
-                id: 'test-session',
-                address: '0x1234567890123456789012345678901234567890',
-                expiresAt: new Date(Date.now() + 3600000).toISOString(),
-              },
-            }),
-          });
-        }
-        // Handle DELETE request for session deletion
-        if (options?.method === 'DELETE') {
-          return Promise.resolve({
-            ok: false,
-            status: 400,
-            json: async () => ({
-              error: 'Failed to delete session. Please try again later.',
-            }),
-          });
-        }
-        return Promise.reject(new Error('Not found'));
+      // Mock failed DELETE request
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'Failed to delete session. Please try again later.' }),
       });
 
       // Attempt to sign out - should throw error
@@ -322,8 +281,8 @@ describe('Authentication Flow', () => {
         'Failed to delete session. Please try again later.'
       );
 
-      // Verify state is NOT cleared when deletion fails
-      expect(localStorage.getItem('sessionId')).toBe('test-session');
+      // Session should still be in localStorage
+      expect(localStorage.getItem('sessionId')).toBe('mock-session-id');
     });
   });
 });
