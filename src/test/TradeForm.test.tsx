@@ -23,8 +23,8 @@ vi.mock('wagmi', () => ({
     },
   }),
   WagmiConfig: ({ children }: { children: React.ReactNode }) => children,
-  useAccount: () => ({
-    address: '0x1234567890123456789012345678901234567890',
+  useAccount: vi.fn().mockReturnValue({
+    address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
     isConnected: true,
   }),
   useNetwork: () => ({
@@ -33,15 +33,6 @@ vi.mock('wagmi', () => ({
   useChainId: () => 1,
   http: () => ({
     request: vi.fn(),
-  }),
-}));
-
-// Mock wagmi hooks
-vi.mock('wagmi', () => ({
-  ...vi.mock('wagmi'),
-  useAccount: vi.fn().mockReturnValue({
-    address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-    isConnected: true,
   }),
   useSignMessage: vi.fn().mockReturnValue({
     signMessageAsync: vi.fn().mockResolvedValue('0xmocksignature'),
