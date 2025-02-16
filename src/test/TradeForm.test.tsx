@@ -39,6 +39,10 @@ vi.mock('wagmi', () => ({
     isLoading: false,
     error: null,
   }),
+  useContractRead: vi.fn().mockReturnValue({
+    data: BigInt(0),
+    isError: false,
+  }),
 }));
 
 // Create a simple wrapper component

@@ -13,6 +13,7 @@ import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
 import { useCompactSigner } from '../hooks/useCompactSigner';
 import { useBroadcast } from '../hooks/useBroadcast';
+import { useTokenBalanceCheck } from '../hooks/useTokenBalanceCheck';
 import type { GetQuoteParams } from '../types/index';
 import { CompactRequestPayload, Mandate } from '../types/compact';
 import { BroadcastContext } from '../types/broadcast';
@@ -54,7 +55,27 @@ export function TradeForm() {
   const { signCompact } = useCompactSigner();
   const { broadcast } = useBroadcast();
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
+  const [selectedInputChain, setSelectedInputChain] = useState<number>(1); // Default to Ethereum
+  const { inputTokens, outputTokens } = useTokens(selectedInputChain);
+  const [selectedInputToken, setSelectedInputToken] = useState<
+    (typeof inputTokens)[0] | undefined
+  >();
+  const [selectedOutputToken, setSelectedOutputToken] = useState<
+    (typeof outputTokens)[0] | undefined
+  >();
   const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams);
+  const { lockedBalance, unlockedBalance } = useTokenBalanceCheck(
+    selectedInputToken?.address as `0x${string}` | undefined,
+    quote?.data ? BigInt(quote.data.id) : undefined
+  );
+
+  useEffect(() => {
+    if (quote?.data && lockedBalance !== undefined && unlockedBalance !== undefined) {
+      console.log('Locked balance in The Compact:', lockedBalance.toString());
+      console.log('Unlocked balance in input token:', unlockedBalance.toString());
+    }
+  }, [quote, lockedBalance, unlockedBalance]);
+
   const [formValues, setFormValues] = useState<Partial<TradeFormValues>>(() => ({
     inputToken: '',
     outputToken: '',
@@ -70,18 +91,10 @@ export function TradeForm() {
   }));
   const { showToast } = useToast();
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [selectedInputChain, setSelectedInputChain] = useState<number>(1); // Default to Ethereum
   // Initialize with Unichain as default output chain
   const [selectedOutputChain, setSelectedOutputChain] = useState<number>(130);
   const [isSigning, setIsSigning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
-  const { inputTokens, outputTokens } = useTokens(selectedInputChain);
-  const [selectedInputToken, setSelectedInputToken] = useState<
-    (typeof inputTokens)[0] | undefined
-  >();
-  const [selectedOutputToken, setSelectedOutputToken] = useState<
-    (typeof outputTokens)[0] | undefined
-  >();
 
   // Handle form value changes
   const handleValuesChange = useCallback(
@@ -119,13 +132,13 @@ export function TradeForm() {
           outputTokenChainId: selectedOutputChain,
           outputTokenAddress: newValues.outputToken,
           slippageBips: Math.floor(Number(newValues.slippageTolerance) * 100),
-          baselinePriorityFee: newValues.baselinePriorityFee 
-            ? (BigInt(Math.floor(newValues.baselinePriorityFee * 1e9))).toString()
+          baselinePriorityFee: newValues.baselinePriorityFee
+            ? BigInt(Math.floor(newValues.baselinePriorityFee * 1e9)).toString()
             : undefined,
           resetPeriod: newValues.resetPeriod,
           isMultichain: newValues.isMultichain,
           sponsor: isConnected ? address : DEFAULT_SPONSOR,
-          allocatorId: "1223867955028248789127899354",
+          allocatorId: '1223867955028248789127899354',
         };
         setQuoteParams(params);
       }
@@ -140,7 +153,7 @@ export function TradeForm() {
       selectedInputToken,
       selectedOutputToken,
       address,
-      selectedInputChain
+      selectedInputChain,
     ]
   );
 
@@ -148,7 +161,9 @@ export function TradeForm() {
   useEffect(() => {
     if (isConnected && chainId === selectedOutputChain) {
       // When connected and chainId matches output chain, select first available chain (preferring Unichain)
-      const availableChains = SUPPORTED_CHAINS.filter(chain => chain.id !== chainId && chain.id !== 1);
+      const availableChains = SUPPORTED_CHAINS.filter(
+        chain => chain.id !== chainId && chain.id !== 1
+      );
       const unichain = availableChains.find(chain => chain.id === 130);
       setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
       setSelectedOutputToken(undefined);
@@ -323,15 +338,13 @@ export function TradeForm() {
                       // Only reset output chain if it conflicts with new input chain
                       if (selectedOutputChain === newChainId) {
                         // Try to set to Unichain first, fallback to first available non-conflicting chain
-                        const availableChains = SUPPORTED_CHAINS.filter(
-                          chain => {
-                            if (isConnected) {
-                              return chain.id !== chainId && chain.id !== 1;
-                            }
-                            return chain.id !== selectedInputChain && chain.id !== 1;
+                        const availableChains = SUPPORTED_CHAINS.filter(chain => {
+                          if (isConnected) {
+                            return chain.id !== chainId && chain.id !== 1;
                           }
-                        );
-                        
+                          return chain.id !== selectedInputChain && chain.id !== 1;
+                        });
+
                         // Sort to ensure Unichain appears first if available
                         const unichain = availableChains.find(chain => chain.id === 130);
                         setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
@@ -422,16 +435,18 @@ export function TradeForm() {
                     }
                     return chain.id !== selectedInputChain && chain.id !== 1;
                   });
-                  
+
                   // Sort to ensure Unichain appears first if available
-                  return filtered.sort((a, b) => {
-                    if (a.id === 130) return -1;
-                    if (b.id === 130) return 1;
-                    return 0;
-                  }).map(chain => ({
-                    label: chain.name,
-                    value: chain.id,
-                  }));
+                  return filtered
+                    .sort((a, b) => {
+                      if (a.id === 130) return -1;
+                      if (b.id === 130) return 1;
+                      return 0;
+                    })
+                    .map(chain => ({
+                      label: chain.name,
+                      value: chain.id,
+                    }));
                 })()}
                 aria-label="Output Chain"
                 className="w-32"
@@ -460,7 +475,9 @@ export function TradeForm() {
           {quote?.context && (
             <div className="mt-1 text-sm text-white space-y-2">
               {!quote.context.dispensationUSD && (
-                <div className="text-yellow-500">Warning: Settlement cost information unavailable</div>
+                <div className="text-yellow-500">
+                  Warning: Settlement cost information unavailable
+                </div>
               )}
               {quote.context.dispensationUSD && (
                 <div className="flex items-center gap-2">
@@ -546,14 +563,12 @@ export function TradeForm() {
           <div className="space-y-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <label className="text-sm font-medium text-gray-400">
-                  Slippage Tolerance (%)
-                </label>
+                <label className="text-sm font-medium text-gray-400">Slippage Tolerance (%)</label>
                 <TooltipIcon title="Maximum allowed price movement before trade reverts" />
               </div>
               <NumberInput
                 value={formValues.slippageTolerance}
-                onChange={(value) => handleValuesChange('slippageTolerance', value)}
+                onChange={value => handleValuesChange('slippageTolerance', value)}
                 min={0.01}
                 max={100}
                 precision={2}
@@ -569,7 +584,7 @@ export function TradeForm() {
               </div>
               <NumberInput
                 value={formValues.baselinePriorityFee}
-                onChange={(value) => handleValuesChange('baselinePriorityFee', value)}
+                onChange={value => handleValuesChange('baselinePriorityFee', value)}
                 min={0}
                 precision={2}
                 aria-label="Baseline priority fee in GWEI"
@@ -599,9 +614,7 @@ export function TradeForm() {
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <label className="text-sm font-medium text-gray-400">
-                  Resource Lock Scope
-                </label>
+                <label className="text-sm font-medium text-gray-400">Resource Lock Scope</label>
                 <TooltipIcon title="The scope of the resource lock" />
               </div>
               <SegmentedControl<boolean>
@@ -636,14 +649,14 @@ export function TradeForm() {
                   'baselinePriorityFee',
                   formatNumber(formValues.baselinePriorityFee, '0')
                 );
-                
+
                 // Update form values with formatted numbers
                 setFormValues(prev => ({
                   ...prev,
                   slippageTolerance: Number(formatNumber(formValues.slippageTolerance, '0.5')),
-                  baselinePriorityFee: Number(formatNumber(formValues.baselinePriorityFee, '0'))
+                  baselinePriorityFee: Number(formatNumber(formValues.baselinePriorityFee, '0')),
                 }));
-                
+
                 setSettingsVisible(false);
               }}
               className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
