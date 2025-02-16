@@ -70,7 +70,15 @@ interface GraphQLResponse {
 
 // Mock wagmi hooks
 vi.mock('wagmi', () => ({
-  useAccount: vi.fn(),
+  useAccount: vi.fn().mockReturnValue({
+    address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+    isConnected: true,
+  }),
+  useSignMessage: vi.fn().mockReturnValue({
+    signMessageAsync: vi.fn().mockResolvedValue('0xmocksignature'),
+    isLoading: false,
+    error: null,
+  }),
   createConfig: () => ({
     chains: [],
     transports: {},

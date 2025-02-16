@@ -14,7 +14,11 @@ vi.stubEnv('VITE_SMALLOCATOR_URL', process.env.VITE_SMALLOCATOR_URL);
 // Mock wagmi hooks
 vi.mock('wagmi', () => ({
   useAccount: vi.fn(),
-  useSignMessage: vi.fn(),
+  useSignMessage: vi.fn().mockReturnValue({
+    signMessageAsync: vi.fn().mockResolvedValue('0xmocksignature'),
+    isLoading: false,
+    error: null,
+  }),
 }));
 
 describe('useAuth Hook', () => {

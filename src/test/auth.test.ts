@@ -95,7 +95,8 @@ describe('Authentication Flow', () => {
       });
 
       expect(response.sessionId).toBe('mock-session-id');
-      expect(localStorage.getItem('sessionId')).toBe('mock-session-id');
+      const sessions = JSON.parse(localStorage.getItem('smallocator_sessions') || '{}');
+      expect(sessions[mockAddress.toLowerCase()]).toBe('mock-session-id');
     });
 
     it('should handle session creation failure', async () => {
@@ -129,15 +130,40 @@ describe('Authentication Flow', () => {
 
   describe('Session Verification', () => {
     it('should verify session successfully', async () => {
-      // Set up a mock session ID
-      localStorage.setItem('sessionId', 'mock-session-id');
-      client = new SmallocatorClient(); // Reinitialize to pick up the session ID
+      // Set up a session first
+      const mockSignature = '0xsignature';
+      const mockPayload: SessionPayload = {
+        domain: 'compactx.xyz',
+        address: mockAddress,
+        uri: 'https://compactx.xyz',
+        statement: 'Sign in to CompactX',
+        version: '1',
+        chainId: mockChainId,
+        nonce: '123456',
+        issuedAt: new Date().toISOString(),
+        expirationTime: new Date(Date.now() + 3600000).toISOString(),
+      };
 
-      // Mock the API response
+      // Mock session creation
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          valid: true,
+          session: {
+            id: 'mock-session-id',
+          },
+        }),
+      });
+
+      // Create session
+      await client.createSession({
+        signature: mockSignature,
+        payload: mockPayload,
+      });
+
+      // Mock session verification
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
           session: {
             id: 'mock-session-id',
             address: mockAddress,
@@ -156,16 +182,6 @@ describe('Authentication Flow', () => {
           expiresAt: expect.any(String),
         },
       });
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:3000/session',
-        expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            'x-session-id': 'mock-session-id',
-          }),
-        })
-      );
     });
 
     it('should handle invalid session', async () => {

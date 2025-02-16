@@ -14,29 +14,41 @@ import { TestWrapper } from './test-wrapper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Mock wagmi
-vi.mock('wagmi', () => {
-  return {
-    createConfig: () => ({
-      state: {
-        chainId: 1,
-        chains: [],
-        transport: {},
-      },
-    }),
-    WagmiConfig: ({ children }: { children: React.ReactNode }) => children,
-    useAccount: () => ({
-      address: '0x1234567890123456789012345678901234567890',
-      isConnected: true,
-    }),
-    useNetwork: () => ({
-      chain: { id: 1, name: 'Mainnet' },
-    }),
-    useChainId: () => 1,
-    http: () => ({
-      request: vi.fn(),
-    }),
-  };
-});
+vi.mock('wagmi', () => ({
+  createConfig: () => ({
+    state: {
+      chainId: 1,
+      chains: [],
+      transport: {},
+    },
+  }),
+  WagmiConfig: ({ children }: { children: React.ReactNode }) => children,
+  useAccount: () => ({
+    address: '0x1234567890123456789012345678901234567890',
+    isConnected: true,
+  }),
+  useNetwork: () => ({
+    chain: { id: 1, name: 'Mainnet' },
+  }),
+  useChainId: () => 1,
+  http: () => ({
+    request: vi.fn(),
+  }),
+}));
+
+// Mock wagmi hooks
+vi.mock('wagmi', () => ({
+  ...vi.mock('wagmi'),
+  useAccount: vi.fn().mockReturnValue({
+    address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+    isConnected: true,
+  }),
+  useSignMessage: vi.fn().mockReturnValue({
+    signMessageAsync: vi.fn().mockResolvedValue('0xmocksignature'),
+    isLoading: false,
+    error: null,
+  }),
+}));
 
 // Create a simple wrapper component
 const createWrapper = () => {
