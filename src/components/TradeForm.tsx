@@ -21,6 +21,7 @@ import { toId } from '../utils/lockId';
 import { erc20Abi } from 'viem';
 import { usePublicClient, useReadContract, useWriteContract } from 'wagmi';
 import { useHealthCheck } from '../hooks/useHealthCheck';
+import { smallocator } from '../api/smallocator';
 
 // Max uint256 value for infinite approval
 const MAX_UINT256 = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const;
@@ -311,7 +312,7 @@ export function TradeForm() {
   }, [isConnected]);
 
   // Handle the actual swap after quote is received
-  const handleSwap = async () => {
+  const handleSwap = async (skipSignature = false) => {
     try {
       setIsSigning(true);
       setStatusMessage('Requesting allocation...');
@@ -351,14 +352,47 @@ export function TradeForm() {
         mandate,
       };
 
-      setStatusMessage('Allocation received — sign to confirm...');
+      setStatusMessage(
+        skipSignature ? 'Preparing broadcast...' : 'Allocation received — sign to confirm...'
+      );
 
-      const { userSignature, smallocatorSignature, nonce } = await signCompact({
-        chainId: quote.data.mandate.chainId.toString(),
-        currentChainId: chainId.toString(),
-        tribunal: quote.data.mandate.tribunal,
-        compact: compactMessage,
-      });
+      let userSignature = '0x';
+      let smallocatorSignature = '0x';
+      let nonce = '0';
+
+      if (!skipSignature) {
+        // Get signatures only if not skipping
+        const signatures = await signCompact({
+          chainId: quote.data.mandate.chainId.toString(),
+          currentChainId: chainId.toString(),
+          tribunal: quote.data.mandate.tribunal,
+          compact: compactMessage,
+        });
+        userSignature = signatures.userSignature;
+        smallocatorSignature = signatures.smallocatorSignature;
+        nonce = signatures.nonce;
+      } else {
+        // When skipping signature (after deposit), only get smallocator signature
+        const witnessHash = quote.context.witnessHash;
+        const smallocatorRequest = {
+          chainId: chainId.toString(),
+          compact: {
+            arbiter: quote.data.arbiter,
+            sponsor: quote.data.sponsor,
+            nonce: null,
+            expires: quote.data.expires,
+            id: quote.data.id,
+            amount: quote.data.amount,
+            witnessHash,
+            witnessTypeString:
+              'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+          },
+        };
+
+        const { signature, nonce: newNonce } = await smallocator.submitCompact(smallocatorRequest);
+        smallocatorSignature = signature;
+        nonce = newNonce;
+      }
 
       setStatusMessage('Broadcasting intent...');
 
@@ -624,8 +658,8 @@ export function TradeForm() {
           if (Number(latestBlock.timestamp) >= targetTimestamp) {
             clearInterval(pollInterval);
             setIsWaitingForFinalization(false);
-            // Proceed with swap
-            await handleSwap();
+            // Proceed with swap, skipping signature since we already registered on-chain
+            await handleSwap(true);
           }
         } catch (error) {
           console.error('Error polling for finalization:', error);
