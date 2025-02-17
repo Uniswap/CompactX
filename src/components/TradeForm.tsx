@@ -19,7 +19,7 @@ import { CompactRequestPayload, Mandate } from '../types/compact';
 import { BroadcastContext } from '../types/broadcast';
 import { toId } from '../utils/lockId';
 import { erc20Abi } from 'viem';
-import { useReadContract, useWriteContract, usePublicClient, useWaitForTransactionReceipt } from 'wagmi';
+import { usePublicClient, useReadContract, useWriteContract } from 'wagmi';
 import { useHealthCheck } from '../hooks/useHealthCheck';
 
 // Max uint256 value for infinite approval
@@ -520,9 +520,7 @@ export function TradeForm() {
 
   // State for tracking deposit transaction
   const [isDepositing, setIsDepositing] = useState(false);
-  const [depositTxHash, setDepositTxHash] = useState<`0x${string}` | undefined>();
   const [isWaitingForFinalization, setIsWaitingForFinalization] = useState(false);
-  const [finalizationTimestamp, setFinalizationTimestamp] = useState<number | undefined>();
 
   // Get finalization threshold from health check
   const { chainInfo } = useHealthCheck();
@@ -534,7 +532,14 @@ export function TradeForm() {
 
   // Handle deposit and swap
   const handleDepositAndSwap = async () => {
-    if (!quote?.data || !quote.context || !selectedInputToken || !formValues.inputAmount || !writeContractAsync || !publicClient) {
+    if (
+      !quote?.data ||
+      !quote.context ||
+      !selectedInputToken ||
+      !formValues.inputAmount ||
+      !writeContractAsync ||
+      !publicClient
+    ) {
       return;
     }
 
@@ -544,16 +549,21 @@ export function TradeForm() {
 
       // Calculate deposit parameters
       const inputAmount = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
-      const duration = Math.min(540, resetPeriodToSeconds(formValues.resetPeriod || ResetPeriod.TenMinutes));
-      
+      const duration = Math.min(
+        540,
+        resetPeriodToSeconds(formValues.resetPeriod || ResetPeriod.TenMinutes)
+      );
+
       // Calculate the shortfall - this is what we need to deposit
       const shortfallAmount = inputAmount - (lockedBalance || 0n);
-      
+
       const idsAndAmounts = [[BigInt(quote.data.id), shortfallAmount]] as [bigint, bigint][];
-      const claimHashesAndTypehashes = [[
-        quote.context.witnessHash as `0x${string}`,
-        '0x27f09e0bb8ce2ae63380578af7af85055d3ada248c502e2378b85bc3d05ee0b0' as `0x${string}`
-      ]] as [`0x${string}`, `0x${string}`][];
+      const claimHashesAndTypehashes = [
+        [
+          quote.context.witnessHash as `0x${string}`,
+          '0x27f09e0bb8ce2ae63380578af7af85055d3ada248c502e2378b85bc3d05ee0b0' as `0x${string}`,
+        ],
+      ] as [`0x${string}`, `0x${string}`][];
 
       // Submit deposit transaction
       const hash = await writeContractAsync({
@@ -562,39 +572,41 @@ export function TradeForm() {
           {
             inputs: [
               {
-                internalType: "uint256[2][]",
-                name: "idsAndAmounts",
-                type: "uint256[2][]"
+                internalType: 'uint256[2][]',
+                name: 'idsAndAmounts',
+                type: 'uint256[2][]',
               },
               {
-                internalType: "bytes32[2][]",
-                name: "claimHashesAndTypehashes",
-                type: "bytes32[2][]"
+                internalType: 'bytes32[2][]',
+                name: 'claimHashesAndTypehashes',
+                type: 'bytes32[2][]',
               },
               {
-                internalType: "uint256",
-                name: "duration",
-                type: "uint256"
-              }
+                internalType: 'uint256',
+                name: 'duration',
+                type: 'uint256',
+              },
             ],
-            name: "depositAndRegister",
-            outputs: [{ internalType: "bool", name: "", type: "bool" }],
-            stateMutability: "payable",
-            type: "function"
-          }
+            name: 'depositAndRegister',
+            outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+            stateMutability: 'payable',
+            type: 'function',
+          },
         ],
         functionName: 'depositAndRegister',
         args: [idsAndAmounts, claimHashesAndTypehashes, BigInt(duration)],
         // Include value only for native token
-        value: selectedInputToken.address === '0x0000000000000000000000000000000000000000' ? shortfallAmount : 0n,
+        value:
+          selectedInputToken.address === '0x0000000000000000000000000000000000000000'
+            ? shortfallAmount
+            : 0n,
       });
 
-      setDepositTxHash(hash);
       setStatusMessage('Waiting for deposit confirmation...');
 
       // Wait for transaction receipt
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
+
       if (receipt.status !== 'success') {
         throw new Error('Deposit transaction failed');
       }
@@ -602,7 +614,6 @@ export function TradeForm() {
       // Get block info and calculate finalization time
       const depositBlock = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
       const targetTimestamp = Number(depositBlock.timestamp) + (finalizationThreshold || 0);
-      setFinalizationTimestamp(targetTimestamp);
       setIsWaitingForFinalization(true);
       setStatusMessage('Waiting for finalization...');
 
@@ -684,9 +695,8 @@ export function TradeForm() {
                       const availableChains = SUPPORTED_CHAINS.filter(
                         chain => chain.id !== chainId
                       );
-                      const preferredChain =
-                        availableChains.find(chain => chain.id === 130) || availableChains[0];
-                      setSelectedOutputChain(preferredChain?.id || 1);
+                      const unichain = availableChains.find(chain => chain.id === 130);
+                      setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
                     }
                   }}
                   options={INPUT_CHAINS.map(chain => ({
