@@ -4,7 +4,7 @@ import { useToast } from '../hooks/useToast';
 import { Modal } from './Modal';
 import { SegmentedControl } from './SegmentedControl';
 import { TooltipIcon } from './TooltipIcon';
-import { useAccount, useChainId } from 'wagmi';
+import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { ConnectButton } from '../config/wallet';
 import { parseUnits, type Hex } from 'viem';
@@ -21,10 +21,15 @@ import { toId } from '../utils/lockId';
 
 // Supported chains for output token
 const SUPPORTED_CHAINS = [
-  { id: 1, name: 'Ethereum' },
   { id: 130, name: 'Unichain' },
   { id: 8453, name: 'Base' },
   { id: 10, name: 'Optimism' },
+];
+
+// Input chains include Ethereum
+const INPUT_CHAINS = [
+  { id: 1, name: 'Ethereum' },
+  ...SUPPORTED_CHAINS,
 ];
 
 // Default sponsor address when wallet is not connected
@@ -57,6 +62,7 @@ export function TradeForm() {
   const { isAuthenticated, signIn } = useAuth();
   const { signCompact } = useCompactSigner();
   const { broadcast } = useBroadcast();
+  const { switchChain } = useSwitchChain();
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
   const [selectedInputChain, setSelectedInputChain] = useState<number>(1); // Default to Ethereum
   const { inputTokens, outputTokens } = useTokens(selectedInputChain);
@@ -163,6 +169,7 @@ export function TradeForm() {
   const [isSigning, setIsSigning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [depositModalVisible, setDepositModalVisible] = useState(false);
+  const [ethereumOutputModalVisible, setEthereumOutputModalVisible] = useState(false);
 
   // Map reset period enum to seconds for calibrator
   const resetPeriodToSeconds = (resetPeriod: ResetPeriod): number => {
@@ -422,34 +429,26 @@ export function TradeForm() {
                 <Select
                   placeholder="Chain"
                   value={selectedInputChain}
-                  onChange={value => {
-                    const newChainId = Number(value);
-                    if (newChainId !== selectedInputChain) {
-                      setSelectedInputChain(newChainId);
-                      setSelectedInputToken(undefined);
-                      // Clear quote parameters when input chain changes
-                      setQuoteParams(undefined);
-                      setFormValues(prev => ({ ...prev, inputToken: '', inputAmount: '' }));
+                  onChange={(chainId) => {
+                    setSelectedInputChain(chainId);
+                    // Clear input token and quote when changing chains
+                    setSelectedInputToken(undefined);
+                    setQuoteParams(undefined);
+                    setFormValues(prev => ({ ...prev, inputToken: '', inputAmount: '' }));
 
-                      // Only reset output chain if it conflicts with new input chain
-                      if (selectedOutputChain === newChainId) {
-                        // Try to set to Unichain first, fallback to first available non-conflicting chain
-                        const availableChains = SUPPORTED_CHAINS.filter(chain => {
-                          if (isConnected) {
-                            return chain.id !== chainId && chain.id !== 1;
-                          }
-                          return chain.id !== selectedInputChain && chain.id !== 1;
-                        });
-
-                        // Sort to ensure Unichain appears first if available
-                        const unichain = availableChains.find(chain => chain.id === 130);
-                        setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
+                    // If the input chain would be the same as the output chain,
+                    // select the next available chain, preferring Unichain
+                    if (chainId === selectedOutputChain) {
+                      const availableChains = SUPPORTED_CHAINS.filter(chain => chain.id !== chainId);
+                      const preferredChain = availableChains.find(chain => chain.id === 130) || availableChains[0];
+                      if (preferredChain) {
+                        setSelectedOutputChain(preferredChain.id);
                         setSelectedOutputToken(undefined);
                         setFormValues(prev => ({ ...prev, outputToken: '' }));
                       }
                     }
                   }}
-                  options={SUPPORTED_CHAINS.map(chain => ({
+                  options={INPUT_CHAINS.map(chain => ({
                     label: chain.name,
                     value: chain.id,
                   }))}
@@ -483,20 +482,102 @@ export function TradeForm() {
           <button
             className="w-8 h-8 rounded-lg bg-[#1a1a1a] border border-gray-700 hover:bg-[#2a2a2a] flex items-center justify-center text-[#00ff00] transition-colors"
             onClick={() => {
-              // Swap token selections
-              const newValues = {
-                ...formValues,
-                inputToken: formValues.outputToken,
-                outputToken: formValues.inputToken,
-                inputAmount: '', // Clear amount since token decimals might be different
-              };
-              setFormValues(newValues);
-              setSelectedInputToken(selectedOutputToken);
-              setSelectedOutputToken(selectedInputToken);
-              setQuoteParams(undefined); // Clear quote when swapping tokens
+              // Check if trying to swap Ethereum to be the output chain
+              if ((isConnected ? chainId : selectedInputChain) === 1) {
+                setEthereumOutputModalVisible(true);
+                return;
+              }
+
+              if (isConnected) {
+                // If connected, we need to switch the actual network
+                const currentChainId = chainId;
+                const targetChainId = selectedOutputChain;
+
+                // Store current tokens and form values before the swap
+                const currentInputToken = selectedInputToken;
+                const currentOutputToken = selectedOutputToken;
+                const currentFormValues = {
+                  inputToken: formValues.inputToken,
+                  outputToken: formValues.outputToken,
+                };
+
+                // Clear tokens first to avoid any chain mismatch issues
+                setSelectedInputToken(undefined);
+                setSelectedOutputToken(undefined);
+                setFormValues(prev => ({
+                  ...prev,
+                  inputToken: '',
+                  outputToken: '',
+                }));
+
+                // Switch to the output chain
+                switchChain?.({ chainId: targetChainId });
+
+                // Update the form to swap the chains
+                setSelectedInputChain(targetChainId);
+                setSelectedOutputChain(currentChainId);
+
+                // Set the tokens after a small delay to ensure chain state is updated
+                setTimeout(() => {
+                  // Update form values with swapped tokens first
+                  setFormValues(prev => ({
+                    ...prev,
+                    inputToken: currentFormValues.outputToken,
+                    outputToken: currentFormValues.inputToken,
+                    inputAmount: quote ? prev.inputAmount : '',
+                  }));
+
+                  // Then set the tokens
+                  setSelectedInputToken(currentOutputToken);
+                  setSelectedOutputToken(currentInputToken);
+
+                  // Update quote params if we have a quote
+                  if (quote && currentInputToken && currentOutputToken) {
+                    setQuoteParams(prev => ({
+                      ...prev!,
+                      inputToken: currentOutputToken.address,
+                      outputToken: currentInputToken.address,
+                      inputAmount: formValues.inputAmount,
+                    }));
+                  } else {
+                    setQuoteParams(undefined);
+                  }
+                }, 50);
+              } else {
+                // Not connected, just swap the selected chains
+                const tempChain = selectedInputChain;
+                setSelectedInputChain(selectedOutputChain);
+                setSelectedOutputChain(tempChain);
+
+                // Swap tokens
+                const tempInputToken = selectedInputToken;
+                const tempOutputToken = selectedOutputToken;
+                setSelectedInputToken(tempOutputToken);
+                setSelectedOutputToken(tempInputToken);
+
+                // Update form values with swapped tokens
+                setFormValues(prev => ({
+                  ...prev,
+                  inputToken: prev.outputToken,
+                  outputToken: prev.inputToken,
+                  inputAmount: quote ? prev.inputAmount : '',
+                }));
+
+                // Update quote params if we have a quote
+                if (quote && selectedInputToken && selectedOutputToken) {
+                  setQuoteParams(prev => ({
+                    ...prev!,
+                    inputToken: selectedOutputToken.address,
+                    outputToken: selectedInputToken.address,
+                    inputAmount: formValues.inputAmount,
+                  }));
+                } else {
+                  setQuoteParams(undefined);
+                }
+              }
             }}
           >
-            ↓
+            ⇵
           </button>
         </div>
 
@@ -536,9 +617,9 @@ export function TradeForm() {
                   // Filter available chains
                   const filtered = SUPPORTED_CHAINS.filter(chain => {
                     if (isConnected) {
-                      return chain.id !== chainId && chain.id !== 1;
+                      return chain.id !== chainId;
                     }
-                    return chain.id !== selectedInputChain && chain.id !== 1;
+                    return chain.id !== selectedInputChain;
                   });
 
                   // Sort to ensure Unichain appears first if available
@@ -610,6 +691,24 @@ export function TradeForm() {
         )}
 
         {statusMessage && <div className="mt-4 text-center text-[#00ff00]">{statusMessage}</div>}
+
+        <Modal
+          title="Output Chain Unavailable"
+          open={ethereumOutputModalVisible}
+          onClose={() => setEthereumOutputModalVisible(false)}
+        >
+          <p className="text-white mb-4">
+            Ethereum is not available as the output chain for cross-chain swaps as it does not enforce transaction ordering by priority fee. Please select a different output chain.
+          </p>
+          <div className="flex justify-end">
+            <button
+              onClick={() => setEthereumOutputModalVisible(false)}
+              className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
+            >
+              Close
+            </button>
+          </div>
+        </Modal>
 
         <Modal
           title="Deposit Required"
