@@ -19,7 +19,11 @@ import { CompactRequestPayload, Mandate } from '../types/compact';
 import { BroadcastContext } from '../types/broadcast';
 import { toId } from '../utils/lockId';
 import { erc20Abi } from 'viem';
-import { useReadContract } from 'wagmi';
+import { useReadContract, useWriteContract, usePublicClient } from 'wagmi';
+
+// Max uint256 value for infinite approval
+const MAX_UINT256 =
+  '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const;
 
 // Supported chains for output token
 const SUPPORTED_CHAINS = [
@@ -62,6 +66,9 @@ export function TradeForm() {
   const { signCompact } = useCompactSigner();
   const { broadcast } = useBroadcast();
   const { switchChain } = useSwitchChain();
+  const { showToast } = useToast();
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
   const [selectedInputChain, setSelectedInputChain] = useState<number>(chainId || 1);
 
@@ -71,7 +78,7 @@ export function TradeForm() {
     if (isConnected && !wasConnectedRef.current) {
       // Only switch chains on initial connection if needed
       if (chainId !== selectedInputChain) {
-        switchChain({ chainId: selectedInputChain });
+        switchChain?.({ chainId: selectedInputChain });
       }
       wasConnectedRef.current = true;
     } else if (!isConnected) {
@@ -188,7 +195,6 @@ export function TradeForm() {
     );
   };
 
-  const { showToast } = useToast();
   const [settingsVisible, setSettingsVisible] = useState(false);
   // Initialize with Unichain as default output chain
   const [selectedOutputChain, setSelectedOutputChain] = useState<number>(130);
@@ -472,6 +478,48 @@ export function TradeForm() {
       });
     }
   }, [shortfall, allowance, selectedInputToken, lockedBalance, formValues.inputAmount]);
+
+  // State for tracking approval transaction
+  const [isApproving, setIsApproving] = useState(false);
+  const [approvalTxHash, setApprovalTxHash] = useState<Hex>();
+
+  // Function to handle token approval
+  const handleApprove = async () => {
+    if (!selectedInputToken || !address || !writeContractAsync || !publicClient) return;
+
+    setIsApproving(true);
+    try {
+      showToast('Please confirm the approval transaction in your wallet', 'info');
+
+      const hash = await writeContractAsync({
+        address: selectedInputToken.address as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: ['0x00000000000018DF021Ff2467dF97ff846E09f48' as `0x${string}`, MAX_UINT256 as `0x${string}`],
+      });
+
+      setApprovalTxHash(hash);
+      showToast('Approval transaction submitted', 'info');
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      
+      if (receipt.status === 'success') {
+        showToast(`Successfully approved ${selectedInputToken.symbol} for The Compact`, 'success');
+      } else {
+        showToast('Approval transaction failed', 'error');
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.toLowerCase().includes('user rejected')) {
+        showToast('Approval rejected by user', 'error');
+      } else {
+        showToast('Failed to approve token', 'error');
+        console.error('Approval error:', error);
+      }
+    } finally {
+      setIsApproving(false);
+      setApprovalTxHash(undefined);
+    }
+  };
 
   return (
     <div className="w-full max-w-2xl p-6 bg-[#0a0a0a] rounded-xl shadow-xl border border-gray-800">
@@ -850,7 +898,13 @@ export function TradeForm() {
         ) : (
           <button
             onClick={() => {
-              // If we need deposit first, show modal instead of executing swap
+              // If we need approval first, handle it regardless of other conditions
+              if (needsApproval && selectedInputToken) {
+                handleApprove();
+                return;
+              }
+
+              // For deposit and swap, we need the full conditions
               if (
                 selectedInputToken &&
                 formValues.inputAmount &&
@@ -870,12 +924,19 @@ export function TradeForm() {
               handleSwap();
             }}
             disabled={
-              !quote?.data ||
-              isLoading ||
-              isSigning ||
-              !selectedInputToken ||
-              !formValues.inputAmount ||
               (() => {
+                // If we're approving, always disable
+                if (isApproving) return true;
+
+                // If we need approval and have a selected input token, enable
+                if (needsApproval && selectedInputToken) return false;
+
+                // For swap functionality, require all conditions
+                if (!quote?.data || isLoading || isSigning || !selectedInputToken || !formValues.inputAmount) {
+                  return true;
+                }
+
+                // Check balance for swap
                 if (selectedInputToken && formValues.inputAmount) {
                   const inputAmount = parseUnits(
                     formValues.inputAmount,
@@ -884,50 +945,69 @@ export function TradeForm() {
                   const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
                   return totalBalance < inputAmount;
                 }
-                return false;
+                return true;
               })()
             }
             className={`w-full h-12 rounded-lg font-medium transition-colors ${
-              !quote?.data ||
-              isLoading ||
-              isSigning ||
-              !selectedInputToken ||
-              !formValues.inputAmount ||
               (() => {
-                if (selectedInputToken && formValues.inputAmount) {
-                  const inputAmount = parseUnits(
-                    formValues.inputAmount,
-                    selectedInputToken.decimals
-                  );
-                  const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
-                  return totalBalance < inputAmount;
+                // If we're approving, show disabled state
+                if (isApproving) return 'bg-gray-700 text-gray-400 cursor-not-allowed';
+
+                // If we need approval and have a selected input token, show enabled state
+                if (needsApproval && selectedInputToken) {
+                  return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
                 }
-                return false;
+
+                // For swap functionality, check all conditions
+                if (
+                  !quote?.data ||
+                  isLoading ||
+                  isSigning ||
+                  !selectedInputToken ||
+                  !formValues.inputAmount ||
+                  (() => {
+                    if (selectedInputToken && formValues.inputAmount) {
+                      const inputAmount = parseUnits(
+                        formValues.inputAmount,
+                        selectedInputToken.decimals
+                      );
+                      const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+                      return totalBalance < inputAmount;
+                    }
+                    return false;
+                  })()
+                ) {
+                  return 'bg-gray-700 text-gray-400 cursor-not-allowed';
+                }
+
+                return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
               })()
-                ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20'
             }`}
           >
-            {isSigning
-              ? 'Signing...'
-              : error
-                ? 'Try Again'
-                : (() => {
-                    if (!selectedInputToken || !formValues.inputAmount) return 'Swap';
-                    const inputAmount = parseUnits(
-                      formValues.inputAmount,
-                      selectedInputToken.decimals
-                    );
-                    const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+            {(() => {
+              // Show approval states first
+              if (isApproving) return 'Waiting for approval...';
+              if (needsApproval && selectedInputToken) return `Approve ${selectedInputToken.symbol}`;
 
-                    if (totalBalance < inputAmount) {
-                      return 'Insufficient Balance';
-                    } else if (lockedBalance !== undefined && lockedBalance < inputAmount) {
-                      return 'Deposit & Swap';
-                    }
-                    return 'Swap';
-                  })()}
-            {isSigning && (
+              // Then show other states
+              if (isSigning) return 'Signing...';
+              if (error) return 'Try Again';
+              if (!selectedInputToken || !formValues.inputAmount) return 'Swap';
+
+              const inputAmount = parseUnits(
+                formValues.inputAmount,
+                selectedInputToken.decimals
+              );
+              const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+
+              if (totalBalance < inputAmount) {
+                return 'Insufficient Balance';
+              } else if (lockedBalance !== undefined && lockedBalance < inputAmount) {
+                return 'Deposit & Swap';
+              }
+              return 'Swap';
+            })()}
+            {(isSigning || isApproving) && (
               <div className="inline-block ml-2 animate-spin h-4 w-4">
                 <svg className="text-current" viewBox="0 0 24 24" fill="currentColor">
                   <circle
