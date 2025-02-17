@@ -1,4 +1,4 @@
-import { toHex, hexToBigInt, getAddress } from 'viem';
+import { hexToBigInt, getAddress } from 'viem';
 
 /**
  * Converts lock parameters to a unique ID.

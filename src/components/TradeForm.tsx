@@ -156,27 +156,6 @@ export function TradeForm() {
     );
   };
 
-  // Log balances whenever they change
-  useEffect(() => {
-    console.log('Balance check effect triggered:', {
-      isConnected,
-      hasInputToken: !!selectedInputToken,
-      hasLockId: !!lockId,
-      hasLockedBalance: lockedBalance !== undefined,
-      hasUnlockedBalance: unlockedBalance !== undefined
-    });
-
-    if (isConnected && selectedInputToken && lockId !== undefined && lockedBalance !== undefined && unlockedBalance !== undefined) {
-      console.log('Lock ID:', lockId.toString());
-      console.log('Locked balance in The Compact:', lockedBalance.toString());
-      console.log('Unlocked balance in input token:', unlockedBalance.toString());
-      
-      const formattedLocked = formatTokenAmount(lockedBalance, selectedInputToken.decimals);
-      const formattedUnlocked = formatTokenAmount(unlockedBalance, selectedInputToken.decimals);
-      console.log('Formatted balances:', { formattedLocked, formattedUnlocked });
-    }
-  }, [isConnected, selectedInputToken, lockId, lockedBalance, unlockedBalance]);
-
   const { showToast } = useToast();
   const [settingsVisible, setSettingsVisible] = useState(false);
   // Initialize with Unichain as default output chain
@@ -186,7 +165,8 @@ export function TradeForm() {
 
   // Map reset period enum to seconds for calibrator
   const resetPeriodToSeconds = (resetPeriod: ResetPeriod): number => {
-    const mapping = {
+    const mapping: Record<ResetPeriod, number> = {
+      [ResetPeriod.OneSecond]: 1,
       [ResetPeriod.FifteenSeconds]: 15,
       [ResetPeriod.OneMinute]: 60,
       [ResetPeriod.TenMinutes]: 600,
@@ -204,23 +184,31 @@ export function TradeForm() {
       !isConnected ||
       !selectedInputToken?.address ||
       !selectedOutputToken?.address ||
-      !formValues.inputAmount ||
-      !formValues.resetPeriod
+      !formValues.inputAmount
     ) {
       setQuoteParams(undefined);
       return;
     }
 
+    // Ensure we have valid chain IDs
+    const inputChainId = selectedInputToken.chainId;
+    const outputChainId = selectedOutputToken.chainId;
+    
+    if (typeof inputChainId !== 'number' || typeof outputChainId !== 'number') {
+      console.error('Invalid chain IDs:', { inputChainId, outputChainId });
+      return;
+    }
+
     const newParams: GetQuoteParams = {
-      inputTokenChainId: selectedInputToken.chainId,
+      inputTokenChainId: inputChainId,
       inputTokenAddress: selectedInputToken.address,
       inputTokenAmount: formValues.inputAmount,
-      outputTokenChainId: selectedOutputToken.chainId,
+      outputTokenChainId: outputChainId,
       outputTokenAddress: selectedOutputToken.address,
-      slippageBips: Math.round(formValues.slippageTolerance * 100),
+      slippageBips: Math.round(Number(formValues.slippageTolerance || 0.5) * 100),
       allocatorId: '1223867955028248789127899354',
-      resetPeriod: resetPeriodToSeconds(formValues.resetPeriod),
-      isMultichain: formValues.isMultichain,
+      resetPeriod: resetPeriodToSeconds(formValues.resetPeriod || ResetPeriod.TenMinutes),
+      isMultichain: formValues.isMultichain ?? true,
       sponsor: address,
       baselinePriorityFee: formValues.baselinePriorityFee?.toString(),
     };
@@ -267,18 +255,27 @@ export function TradeForm() {
         // Convert decimal input to token units
         const tokenUnits = parseUnits(newValues.inputAmount, newInputToken.decimals).toString();
 
+        // Ensure we have valid chain IDs
+        const inputChainId = isConnected ? chainId : selectedInputChain;
+        const outputChainId = selectedOutputChain;
+
+        if (typeof inputChainId !== 'number' || typeof outputChainId !== 'number') {
+          console.error('Invalid chain IDs:', { inputChainId, outputChainId });
+          return;
+        }
+
         const params: GetQuoteParams = {
-          inputTokenChainId: isConnected ? chainId : selectedInputChain,
+          inputTokenChainId: inputChainId,
           inputTokenAddress: newValues.inputToken,
           inputTokenAmount: tokenUnits,
-          outputTokenChainId: selectedOutputChain,
+          outputTokenChainId: outputChainId,
           outputTokenAddress: newValues.outputToken,
-          slippageBips: Math.floor(Number(newValues.slippageTolerance) * 100),
+          slippageBips: Math.floor(Number(newValues.slippageTolerance || 0.5) * 100),
           baselinePriorityFee: newValues.baselinePriorityFee
             ? BigInt(Math.floor(newValues.baselinePriorityFee * 1e9)).toString()
             : undefined,
-          resetPeriod: resetPeriodToSeconds(newValues.resetPeriod),
-          isMultichain: newValues.isMultichain,
+          resetPeriod: resetPeriodToSeconds(newValues.resetPeriod || ResetPeriod.TenMinutes),
+          isMultichain: newValues.isMultichain ?? true,
           sponsor: isConnected ? address : DEFAULT_SPONSOR,
           allocatorId: '1223867955028248789127899354',
         };
