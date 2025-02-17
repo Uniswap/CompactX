@@ -8,7 +8,7 @@ import { useAccount, useChainId } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { ConnectButton } from '../config/wallet';
 import { formatUnits, parseUnits, type Hex } from 'viem';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
 import { useCompactSigner } from '../hooks/useCompactSigner';
@@ -17,6 +17,7 @@ import { useTokenBalanceCheck } from '../hooks/useTokenBalanceCheck';
 import type { GetQuoteParams } from '../types/index';
 import { CompactRequestPayload, Mandate } from '../types/compact';
 import { BroadcastContext } from '../types/broadcast';
+import { toId } from '../utils/lockId';
 
 // Supported chains for output token
 const SUPPORTED_CHAINS = [
@@ -30,12 +31,14 @@ const SUPPORTED_CHAINS = [
 const DEFAULT_SPONSOR = '0x0000000000000000000000000000000000000000';
 
 enum ResetPeriod {
-  FifteenSeconds = 15,
-  OneMinute = 60,
-  TenMinutes = 600,
-  OneHourAndFiveMinutes = 3900,
-  OneDay = 86400,
-  SevenDaysAndOneHour = 604800,
+  OneSecond = 0,
+  FifteenSeconds = 1,
+  OneMinute = 2,
+  TenMinutes = 3,
+  OneHourAndFiveMinutes = 4,
+  OneDay = 5,
+  SevenDaysAndOneHour = 6,
+  ThirtyDays = 7
 }
 
 interface TradeFormValues {
@@ -63,18 +66,6 @@ export function TradeForm() {
   const [selectedOutputToken, setSelectedOutputToken] = useState<
     (typeof outputTokens)[0] | undefined
   >();
-  const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams);
-  const { lockedBalance, unlockedBalance } = useTokenBalanceCheck(
-    selectedInputToken?.address as `0x${string}` | undefined,
-    quote?.data ? BigInt(quote.data.id) : undefined
-  );
-
-  useEffect(() => {
-    if (quote?.data && lockedBalance !== undefined && unlockedBalance !== undefined) {
-      console.log('Locked balance in The Compact:', lockedBalance.toString());
-      console.log('Unlocked balance in input token:', unlockedBalance.toString());
-    }
-  }, [quote, lockedBalance, unlockedBalance]);
 
   const [formValues, setFormValues] = useState<Partial<TradeFormValues>>(() => ({
     inputToken: '',
@@ -89,6 +80,70 @@ export function TradeForm() {
     resetPeriod: ResetPeriod.TenMinutes,
     isMultichain: true,
   }));
+
+  // Calculate the lock ID whenever relevant parameters change
+  const lockId = useMemo(() => {
+    console.log('Calculating lock ID with:', {
+      isConnected,
+      tokenAddress: selectedInputToken?.address,
+      resetPeriod: formValues.resetPeriod,
+      isMultichain: formValues.isMultichain
+    });
+
+    if (!isConnected || !selectedInputToken?.address || !formValues.resetPeriod) {
+      console.log('Missing required params for lock ID');
+      return undefined;
+    }
+    
+    try {
+      // Use enum value directly (0-7) for reset period
+      const resetPeriodIndex = formValues.resetPeriod;
+      
+      console.log('Reset period calculation:', {
+        resetPeriodEnum: formValues.resetPeriod,
+        resetPeriodIndex,
+      });
+
+      const id = toId(
+        formValues.isMultichain ?? true,
+        resetPeriodIndex,
+        '1223867955028248789127899354', // allocatorId
+        selectedInputToken.address
+      );
+      console.log('Calculated lock ID:', {
+        decimal: id.toString(),
+        hex: '0x' + id.toString(16)
+      });
+      return id;
+    } catch (error) {
+      console.error('Error calculating lock ID:', error);
+      return undefined;
+    }
+  }, [isConnected, selectedInputToken?.address, formValues.resetPeriod, formValues.isMultichain]);
+
+  const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams);
+  const { lockedBalance, unlockedBalance } = useTokenBalanceCheck(
+    selectedInputToken?.address as `0x${string}` | undefined,
+    lockId
+  );
+
+  // Log balances whenever they change
+  useEffect(() => {
+    console.log('Balance check effect triggered:', {
+      isConnected,
+      hasInputToken: !!selectedInputToken,
+      hasLockId: !!lockId,
+      hasLockedBalance: lockedBalance !== undefined,
+      hasUnlockedBalance: unlockedBalance !== undefined
+    });
+
+    if (isConnected && selectedInputToken && lockId !== undefined && lockedBalance !== undefined && unlockedBalance !== undefined) {
+      console.log('Lock ID:', lockId.toString());
+      console.log('Locked balance in The Compact:', lockedBalance.toString());
+      console.log('Unlocked balance in input token:', unlockedBalance.toString());
+    }
+  }, [isConnected, selectedInputToken, lockId, lockedBalance, unlockedBalance]);
+
   const { showToast } = useToast();
   const [settingsVisible, setSettingsVisible] = useState(false);
   // Initialize with Unichain as default output chain
@@ -599,12 +654,14 @@ export function TradeForm() {
               </div>
               <SegmentedControl<number>
                 options={[
+                  { label: '1s', value: ResetPeriod.OneSecond },
                   { label: '15s', value: ResetPeriod.FifteenSeconds },
                   { label: '1m', value: ResetPeriod.OneMinute },
                   { label: '10m', value: ResetPeriod.TenMinutes },
                   { label: '1h 5m', value: ResetPeriod.OneHourAndFiveMinutes },
                   { label: '1d', value: ResetPeriod.OneDay },
                   { label: '7d 1h', value: ResetPeriod.SevenDaysAndOneHour },
+                  { label: '30d', value: ResetPeriod.ThirtyDays },
                 ]}
                 value={formValues.resetPeriod || ResetPeriod.TenMinutes}
                 onChange={value => handleValuesChange('resetPeriod', value)}
