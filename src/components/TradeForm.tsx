@@ -745,7 +745,7 @@ export function TradeForm() {
               {quote.context.dispensationUSD && (
                 <div className="flex items-center gap-2">
                   <span>Settlement Cost: {quote.context.dispensationUSD}</span>
-                  <TooltipIcon title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold" />
+                  <TooltipIcon title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold. The filler will provide this payment in addition to any gas fees required to deliver the token you are buying." />
                 </div>
               )}
               {quote?.data?.mandate?.minimumAmount && selectedOutputToken && (
@@ -757,7 +757,7 @@ export function TradeForm() {
                       selectedOutputToken.decimals
                     )}
                   </span>
-                  <TooltipIcon title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides" />
+                  <TooltipIcon title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides." />
                 </div>
               )}
             </div>
