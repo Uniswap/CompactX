@@ -39,9 +39,13 @@ vi.mock('wagmi', () => ({
     isLoading: false,
     error: null,
   }),
-  useContractRead: vi.fn().mockReturnValue({
+  useReadContract: vi.fn().mockReturnValue({
     data: BigInt(0),
-    isError: false,
+    error: null,
+  }),
+  useBalance: vi.fn().mockReturnValue({
+    data: { value: BigInt(0) },
+    error: null,
   }),
 }));
 

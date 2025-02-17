@@ -38,7 +38,7 @@ enum ResetPeriod {
   OneHourAndFiveMinutes = 4,
   OneDay = 5,
   SevenDaysAndOneHour = 6,
-  ThirtyDays = 7
+  ThirtyDays = 7,
 }
 
 interface TradeFormValues {
@@ -83,38 +83,17 @@ export function TradeForm() {
 
   // Calculate the lock ID whenever relevant parameters change
   const lockId = useMemo(() => {
-    console.log('Calculating lock ID with:', {
-      isConnected,
-      tokenAddress: selectedInputToken?.address,
-      resetPeriod: formValues.resetPeriod,
-      isMultichain: formValues.isMultichain
-    });
-
     if (!isConnected || !selectedInputToken?.address || !formValues.resetPeriod) {
-      console.log('Missing required params for lock ID');
       return undefined;
     }
-    
-    try {
-      // Use enum value directly (0-7) for reset period
-      const resetPeriodIndex = formValues.resetPeriod;
-      
-      console.log('Reset period calculation:', {
-        resetPeriodEnum: formValues.resetPeriod,
-        resetPeriodIndex,
-      });
 
-      const id = toId(
+    try {
+      return toId(
         formValues.isMultichain ?? true,
-        resetPeriodIndex,
+        formValues.resetPeriod,
         '1223867955028248789127899354', // allocatorId
         selectedInputToken.address
       );
-      console.log('Calculated lock ID:', {
-        decimal: id.toString(),
-        hex: '0x' + id.toString(16)
-      });
-      return id;
     } catch (error) {
       console.error('Error calculating lock ID:', error);
       return undefined;
@@ -132,26 +111,32 @@ export function TradeForm() {
     if (!balance) return '0';
     return (Number(balance) / 10 ** decimals).toLocaleString(undefined, {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 4
+      maximumFractionDigits: 4,
     });
   };
 
   // Format balance display as "unlocked / total symbol"
-  const formatBalanceDisplay = (unlockedBalance: bigint | undefined, lockedBalance: bigint | undefined, token: (typeof inputTokens)[0] | undefined) => {
+  const formatBalanceDisplay = (
+    unlockedBalance: bigint | undefined,
+    lockedBalance: bigint | undefined,
+    token: (typeof inputTokens)[0] | undefined
+  ) => {
     if (!token) return '';
-    
+
     const unlocked = unlockedBalance || 0n;
     const locked = lockedBalance || 0n;
     const total = unlocked + locked;
-    
+
     const unlockedFormatted = formatTokenAmount(unlocked, token.decimals);
     const totalFormatted = formatTokenAmount(total, token.decimals);
-    
+
     return (
       <div className="mt-2 text-sm">
         <span className="text-gray-400">{unlockedFormatted}</span>
         <span className="text-gray-400"> / </span>
-        <span className="text-green-400">{totalFormatted} {token.symbol}</span>
+        <span className="text-green-400">
+          {totalFormatted} {token.symbol}
+        </span>
       </div>
     );
   };
@@ -173,7 +158,7 @@ export function TradeForm() {
       [ResetPeriod.OneHourAndFiveMinutes]: 3900,
       [ResetPeriod.OneDay]: 86400,
       [ResetPeriod.SevenDaysAndOneHour]: 604800,
-      [ResetPeriod.ThirtyDays]: 2592000
+      [ResetPeriod.ThirtyDays]: 2592000,
     };
     return mapping[resetPeriod];
   };
@@ -193,9 +178,9 @@ export function TradeForm() {
     // Ensure we have valid chain IDs
     const inputChainId = selectedInputToken.chainId;
     const outputChainId = selectedOutputToken.chainId;
-    
+
     if (typeof inputChainId !== 'number' || typeof outputChainId !== 'number') {
-      console.error('Invalid chain IDs:', { inputChainId, outputChainId });
+      // Return undefined if chain IDs are invalid
       return;
     }
 
@@ -260,7 +245,7 @@ export function TradeForm() {
         const outputChainId = selectedOutputChain;
 
         if (typeof inputChainId !== 'number' || typeof outputChainId !== 'number') {
-          console.error('Invalid chain IDs:', { inputChainId, outputChainId });
+          // Return if chain IDs are invalid
           return;
         }
 
@@ -517,7 +502,8 @@ export function TradeForm() {
               />
             </div>
           </div>
-          {selectedInputToken && formatBalanceDisplay(unlockedBalance, lockedBalance, selectedInputToken)}
+          {selectedInputToken &&
+            formatBalanceDisplay(unlockedBalance, lockedBalance, selectedInputToken)}
         </div>
 
         <div className="flex justify-center -my-2 relative z-10">

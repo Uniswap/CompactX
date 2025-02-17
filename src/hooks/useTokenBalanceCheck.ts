@@ -33,27 +33,23 @@ export function useTokenBalanceCheck(
   }, [isConnected, address, compactId]);
 
   const erc20BalanceArgs = useMemo(() => {
-    if (!isConnected || !address || !tokenAddress || tokenAddress === NULL_ADDRESS) return undefined;
+    if (!isConnected || !address || !tokenAddress || tokenAddress === NULL_ADDRESS)
+      return undefined;
     return [address] as const;
   }, [isConnected, address, tokenAddress]);
 
-  // Get locked balance from The Compact with caching
+  // Get locked balance from The Compact
   const { data: lockedBalance, error: lockedError } = useReadContract({
     address: COMPACT_ADDRESS,
     abi: compactAbi,
     functionName: 'balanceOf',
     args: lockedBalanceArgs,
-    query: {
-      enabled: Boolean(lockedBalanceArgs),
-    },
+    scopeKey: 'locked-balance',
   });
 
   // Get ETH balance if token is null address, otherwise get ERC20 balance
   const { data: ethBalance } = useBalance({
     address: isConnected && address && tokenAddress === NULL_ADDRESS ? address : undefined,
-    query: {
-      enabled: isConnected && tokenAddress === NULL_ADDRESS,
-    },
   });
 
   const { data: erc20Balance, error: erc20Error } = useReadContract({
@@ -61,15 +57,14 @@ export function useTokenBalanceCheck(
     abi: erc20Abi,
     functionName: 'balanceOf',
     args: erc20BalanceArgs,
-    query: {
-      enabled: Boolean(erc20BalanceArgs),
-    },
+    scopeKey: 'erc20-balance',
   });
 
   // Use ETH balance for null address, ERC20 balance otherwise
-  const unlockedBalance = useMemo(() => 
-    tokenAddress === NULL_ADDRESS ? ethBalance?.value : erc20Balance,
-  [tokenAddress, ethBalance?.value, erc20Balance]);
+  const unlockedBalance = useMemo(
+    () => (tokenAddress === NULL_ADDRESS ? ethBalance?.value : erc20Balance),
+    [tokenAddress, ethBalance?.value, erc20Balance]
+  );
 
   return {
     lockedBalance: isConnected ? lockedBalance : undefined,
