@@ -22,8 +22,7 @@ import { erc20Abi } from 'viem';
 import { useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 
 // Max uint256 value for infinite approval
-const MAX_UINT256 =
-  '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const;
+const MAX_UINT256 = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const;
 
 // Supported chains for output token
 const SUPPORTED_CHAINS = [
@@ -481,7 +480,6 @@ export function TradeForm() {
 
   // State for tracking approval transaction
   const [isApproving, setIsApproving] = useState(false);
-  const [approvalTxHash, setApprovalTxHash] = useState<Hex>();
 
   // Function to handle token approval
   const handleApprove = async () => {
@@ -489,20 +487,19 @@ export function TradeForm() {
 
     setIsApproving(true);
     try {
-      showToast('Please confirm the approval transaction in your wallet', 'info');
+      showToast('Please confirm the approval transaction in your wallet', 'success');
 
       const hash = await writeContractAsync({
         address: selectedInputToken.address as `0x${string}`,
         abi: erc20Abi,
         functionName: 'approve',
-        args: ['0x00000000000018DF021Ff2467dF97ff846E09f48' as `0x${string}`, MAX_UINT256 as `0x${string}`],
+        args: ['0x00000000000018DF021Ff2467dF97ff846E09f48' as `0x${string}`, BigInt(MAX_UINT256)],
       });
 
-      setApprovalTxHash(hash);
-      showToast('Approval transaction submitted', 'info');
+      showToast('Approval transaction submitted', 'success');
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
+
       if (receipt.status === 'success') {
         showToast(`Successfully approved ${selectedInputToken.symbol} for The Compact`, 'success');
       } else {
@@ -517,7 +514,6 @@ export function TradeForm() {
       }
     } finally {
       setIsApproving(false);
-      setApprovalTxHash(undefined);
     }
   };
 
@@ -923,81 +919,78 @@ export function TradeForm() {
               }
               handleSwap();
             }}
-            disabled={
-              (() => {
-                // If we're approving, always disable
-                if (isApproving) return true;
+            disabled={(() => {
+              // If we're approving, always disable
+              if (isApproving) return true;
 
-                // If we need approval and have a selected input token, enable
-                if (needsApproval && selectedInputToken) return false;
+              // If we need approval and have a selected input token, enable
+              if (needsApproval && selectedInputToken) return false;
 
-                // For swap functionality, require all conditions
-                if (!quote?.data || isLoading || isSigning || !selectedInputToken || !formValues.inputAmount) {
-                  return true;
-                }
-
-                // Check balance for swap
-                if (selectedInputToken && formValues.inputAmount) {
-                  const inputAmount = parseUnits(
-                    formValues.inputAmount,
-                    selectedInputToken.decimals
-                  );
-                  const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
-                  return totalBalance < inputAmount;
-                }
+              // For swap functionality, require all conditions
+              if (
+                !quote?.data ||
+                isLoading ||
+                isSigning ||
+                !selectedInputToken ||
+                !formValues.inputAmount
+              ) {
                 return true;
-              })()
-            }
-            className={`w-full h-12 rounded-lg font-medium transition-colors ${
-              (() => {
-                // If we're approving, show disabled state
-                if (isApproving) return 'bg-gray-700 text-gray-400 cursor-not-allowed';
+              }
 
-                // If we need approval and have a selected input token, show enabled state
-                if (needsApproval && selectedInputToken) {
-                  return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
-                }
+              // Check balance for swap
+              if (selectedInputToken && formValues.inputAmount) {
+                const inputAmount = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
+                const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+                return totalBalance < inputAmount;
+              }
+              return true;
+            })()}
+            className={`w-full h-12 rounded-lg font-medium transition-colors ${(() => {
+              // If we're approving, show disabled state
+              if (isApproving) return 'bg-gray-700 text-gray-400 cursor-not-allowed';
 
-                // For swap functionality, check all conditions
-                if (
-                  !quote?.data ||
-                  isLoading ||
-                  isSigning ||
-                  !selectedInputToken ||
-                  !formValues.inputAmount ||
-                  (() => {
-                    if (selectedInputToken && formValues.inputAmount) {
-                      const inputAmount = parseUnits(
-                        formValues.inputAmount,
-                        selectedInputToken.decimals
-                      );
-                      const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
-                      return totalBalance < inputAmount;
-                    }
-                    return false;
-                  })()
-                ) {
-                  return 'bg-gray-700 text-gray-400 cursor-not-allowed';
-                }
-
+              // If we need approval and have a selected input token, show enabled state
+              if (needsApproval && selectedInputToken) {
                 return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
-              })()
-            }`}
+              }
+
+              // For swap functionality, check all conditions
+              if (
+                !quote?.data ||
+                isLoading ||
+                isSigning ||
+                !selectedInputToken ||
+                !formValues.inputAmount ||
+                (() => {
+                  if (selectedInputToken && formValues.inputAmount) {
+                    const inputAmount = parseUnits(
+                      formValues.inputAmount,
+                      selectedInputToken.decimals
+                    );
+                    const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+                    return totalBalance < inputAmount;
+                  }
+                  return false;
+                })()
+              ) {
+                return 'bg-gray-700 text-gray-400 cursor-not-allowed';
+              }
+
+              return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
+            })()}`}
           >
             {(() => {
               // Show approval states first
               if (isApproving) return 'Waiting for approval...';
-              if (needsApproval && selectedInputToken) return `Approve ${selectedInputToken.symbol}`;
+              if (needsApproval && selectedInputToken)
+                return `Approve ${selectedInputToken.symbol}`;
 
               // Then show other states
               if (isSigning) return 'Signing...';
               if (error) return 'Try Again';
               if (!selectedInputToken || !formValues.inputAmount) return 'Swap';
 
-              const inputAmount = parseUnits(
-                formValues.inputAmount,
-                selectedInputToken.decimals
-              );
+              const inputAmount = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
               const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
 
               if (totalBalance < inputAmount) {

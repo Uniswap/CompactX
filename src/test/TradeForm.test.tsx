@@ -52,6 +52,12 @@ vi.mock('wagmi', () => ({
     isLoading: false,
     error: null,
   }),
+  usePublicClient: vi.fn().mockReturnValue({
+    waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: 'success' }),
+  }),
+  useWriteContract: vi.fn().mockReturnValue({
+    writeContractAsync: vi.fn().mockResolvedValue('0xmocktxhash'),
+  }),
 }));
 
 // Create a simple wrapper component
