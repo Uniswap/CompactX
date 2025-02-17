@@ -4,6 +4,7 @@ import { config, RainbowKitProvider, darkTheme } from './config/wallet';
 import { Layout } from './components/Layout';
 import { TradeForm } from './components/TradeForm';
 import { AuthProvider } from './contexts/AuthContext';
+import { HealthProvider } from './contexts/HealthContext';
 
 // Create a client for React Query
 const queryClient = new QueryClient();
@@ -24,7 +25,9 @@ function App() {
       <WagmiConfig config={config}>
         <RainbowKitProvider modalSize="compact" theme={darkTheme()}>
           <AuthProvider>
-            <AppContent />
+            <HealthProvider>
+              <AppContent />
+            </HealthProvider>
           </AuthProvider>
         </RainbowKitProvider>
       </WagmiConfig>
