@@ -25,21 +25,23 @@ export const Layout = ({ children }: PropsWithChildren) => {
               <span className="ml-4">🤝</span>
             </h1>
             <div className="flex flex-wrap items-center gap-1 md:gap-2 pl-0">
-              <div className="flex items-center gap-1 md:gap-2">
-                <div
-                  className={`h-2 w-2 rounded-full ${isHealthy ? 'bg-[#00ff00]' : 'bg-red-500'}`}
-                />
-                {!isHealthy && (
-                  <>
-                    <span className="text-sm text-red-500">System Unhealthy</span>
-                    {lastChecked && (
-                      <span className="text-xs text-gray-500">
-                        Last checked: {lastChecked.toLocaleTimeString()}
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
+              {isConnected && (
+                <div className="flex items-center gap-1 md:gap-2">
+                  <div
+                    className={`h-2 w-2 rounded-full ${isHealthy ? 'bg-[#00ff00]' : 'bg-red-500'}`}
+                  />
+                  {!isHealthy && (
+                    <>
+                      <span className="text-sm text-red-500">System Unhealthy</span>
+                      {lastChecked && (
+                        <span className="text-xs text-gray-500">
+                          Last checked: {lastChecked.toLocaleTimeString()}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
               {isConnected && !isLoading && (
                 <button
                   onClick={isAuthenticated ? signOut : signIn}

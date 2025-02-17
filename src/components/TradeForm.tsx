@@ -878,7 +878,7 @@ export function TradeForm() {
                   <label className="text-sm font-medium text-gray-400">
                     Slippage Tolerance (%)
                   </label>
-                  <TooltipIcon title="Maximum allowed price movement before trade reverts" />
+                  <TooltipIcon title="Maximum allowed price movement before trade reverts. Higher values result in lowering the minimum amount received. Lower values increase the risk of the swap failing." />
                 </div>
                 <NumberInput
                   value={formValues.slippageTolerance}
@@ -894,7 +894,7 @@ export function TradeForm() {
                   <label className="text-sm font-medium text-gray-400">
                     Baseline Priority Fee (GWEI)
                   </label>
-                  <TooltipIcon title="Minimum gas priority fee for transaction" />
+                  <TooltipIcon title="Threshold transaction gas priority fee above which the filler must provide additional output tokens. Should generally only be necessary during periods of high congestion." />
                 </div>
                 <NumberInput
                   value={formValues.baselinePriorityFee}
@@ -909,7 +909,7 @@ export function TradeForm() {
                   <label className="text-sm font-medium text-gray-400">
                     Resource Lock Reset Period
                   </label>
-                  <TooltipIcon title="The reset period on the resource lock" />
+                  <TooltipIcon title="Time needed to wait before you can forcibly exit a resource lock. Only relevant in cases where the allocator does not sign for an instant withdrawal. Lower values can result in higher likelihood of fillers not being able to claim the locked tokens in time. Ten minutes is the default recommended value." />
                 </div>
                 <SegmentedControl<number>
                   options={[
@@ -931,7 +931,7 @@ export function TradeForm() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <label className="text-sm font-medium text-gray-400">Resource Lock Scope</label>
-                  <TooltipIcon title="The scope of the resource lock" />
+                  <TooltipIcon title="A parameter that specifies whether or not the resource lock can be used as part of a cross-chain swap involving resource locks on other chains. Chain-specific resource locks can still be used for cross-chain swaps, but cannot be combined with other chain-specific resource locks (i.e. selling tokens across multiple chains at once)." />
                 </div>
                 <SegmentedControl<boolean>
                   options={scopeOptions}
