@@ -18,6 +18,8 @@ import type { GetQuoteParams } from '../types/index';
 import { CompactRequestPayload, Mandate } from '../types/compact';
 import { BroadcastContext } from '../types/broadcast';
 import { toId } from '../utils/lockId';
+import { erc20Abi } from 'viem';
+import { useReadContract } from 'wagmi';
 
 // Supported chains for output token
 const SUPPORTED_CHAINS = [
@@ -410,6 +412,67 @@ export function TradeForm() {
     { label: 'Chain-specific', value: false },
   ];
 
+  const [needsApproval, setNeedsApproval] = useState(false);
+
+  // Calculate shortfall when needed
+  const shortfall = useMemo(() => {
+    if (!selectedInputToken || !formValues.inputAmount) return 0n;
+    const inputAmountBigInt = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
+    return inputAmountBigInt - (lockedBalance || 0n);
+  }, [selectedInputToken, formValues.inputAmount, lockedBalance]);
+
+  // Check allowance for deposit
+  const { data: allowance } = useReadContract({
+    address: selectedInputToken?.address as `0x${string}`,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: [address as `0x${string}`, '0x00000000000018DF021Ff2467dF97ff846E09f48' as `0x${string}`],
+    scopeKey: 'deposit-allowance',
+    query: {
+      enabled: Boolean(
+        selectedInputToken?.address &&
+          address &&
+          selectedInputToken.address !== '0x0000000000000000000000000000000000000000'
+      ),
+    },
+  });
+
+  // Update needsApproval state when relevant values change
+  useEffect(() => {
+    if (
+      !selectedInputToken ||
+      selectedInputToken.address === '0x0000000000000000000000000000000000000000'
+    ) {
+      setNeedsApproval(false);
+      return;
+    }
+
+    if (shortfall > 0n && allowance !== undefined) {
+      setNeedsApproval(shortfall > allowance);
+
+      // Log the relevant values
+      console.log({
+        lockedBalance: {
+          raw: lockedBalance?.toString(),
+          formatted: formatTokenAmount(lockedBalance, selectedInputToken.decimals),
+        },
+        inputAmount: {
+          raw: parseUnits(formValues.inputAmount || '0', selectedInputToken.decimals).toString(),
+          formatted: formValues.inputAmount,
+        },
+        shortfall: {
+          raw: shortfall.toString(),
+          formatted: formatTokenAmount(shortfall, selectedInputToken.decimals),
+        },
+        allowance: {
+          raw: allowance.toString(),
+          formatted: formatTokenAmount(allowance, selectedInputToken.decimals),
+        },
+        needsApproval: shortfall > allowance,
+      });
+    }
+  }, [shortfall, allowance, selectedInputToken, lockedBalance, formValues.inputAmount]);
+
   return (
     <div className="w-full max-w-2xl p-6 bg-[#0a0a0a] rounded-xl shadow-xl border border-gray-800">
       <div className="flex flex-col gap-4" data-testid="trade-form">
@@ -735,16 +798,33 @@ export function TradeForm() {
           onClose={() => setDepositModalVisible(false)}
         >
           <p className="text-white mb-4">
-            Coming soon... for now, visit{' '}
-            <a
-              href="https://smallocator.xyz"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#00ff00] hover:underline"
-            >
-              https://smallocator.xyz
-            </a>{' '}
-            to perform a deposit before making a swap.
+            {needsApproval ? (
+              <>
+                Token approval required. Please visit{' '}
+                <a
+                  href="https://smallocator.xyz"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#00ff00] hover:underline"
+                >
+                  https://smallocator.xyz
+                </a>{' '}
+                to approve and deposit before making a swap.
+              </>
+            ) : (
+              <>
+                Coming soon... for now, visit{' '}
+                <a
+                  href="https://smallocator.xyz"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#00ff00] hover:underline"
+                >
+                  https://smallocator.xyz
+                </a>{' '}
+                to perform a deposit before making a swap.
+              </>
+            )}
           </p>
           <div className="flex justify-end">
             <button
