@@ -40,9 +40,9 @@ export function useCalibrator() {
       throw new Error('Input token not found');
     }
 
-    // Validate sponsor is present since it's required
-    if (!params.sponsor) {
-      throw new Error('Sponsor address is required');
+    // Validate sponsor is a valid address (including zero address)
+    if (typeof params.sponsor !== 'string' || !params.sponsor.match(/^0x[a-fA-F0-9]{40}$/)) {
+      throw new Error('Invalid sponsor address format');
     }
 
     const quoteRequest: CalibratorQuoteRequest = {

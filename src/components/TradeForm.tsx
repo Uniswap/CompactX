@@ -216,7 +216,6 @@ export function TradeForm() {
   // Update quote parameters when inputs change
   useEffect(() => {
     if (
-      !isConnected ||
       !selectedInputToken?.address ||
       !selectedOutputToken?.address ||
       !formValues.inputAmount
@@ -244,7 +243,7 @@ export function TradeForm() {
       allocatorId: '1223867955028248789127899354',
       resetPeriod: resetPeriodToSeconds(formValues.resetPeriod || ResetPeriod.TenMinutes),
       isMultichain: formValues.isMultichain ?? true,
-      sponsor: address,
+      sponsor: isConnected ? address : DEFAULT_SPONSOR,
       baselinePriorityFee: formValues.baselinePriorityFee
         ? parseUnits(formValues.baselinePriorityFee.toString(), 9).toString()
         : '0',
