@@ -7,7 +7,7 @@ import { TooltipIcon } from './TooltipIcon';
 import { useAccount, useChainId } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { ConnectButton } from '../config/wallet';
-import { formatUnits, parseUnits, type Hex } from 'viem';
+import { parseUnits, type Hex } from 'viem';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
@@ -109,9 +109,24 @@ export function TradeForm() {
   // Format balance with proper decimals
   const formatTokenAmount = (balance: bigint | undefined, decimals: number) => {
     if (!balance) return '0';
-    return (Number(balance) / 10 ** decimals).toLocaleString(undefined, {
+
+    // Convert to string with full precision using BigInt division
+    const divisor = BigInt(10 ** decimals);
+    const integerPart = balance / divisor;
+    const fractionalPart = balance % divisor;
+
+    // Pad the fractional part with leading zeros if needed
+    const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
+
+    // Combine integer and fractional parts
+    const fullStr = `${integerPart}${fractionalStr === '0'.repeat(decimals) ? '' : '.' + fractionalStr}`;
+
+    // Parse to number for formatting, but limit to 8 decimal places
+    const num = Number(fullStr);
+    return num.toLocaleString(undefined, {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 4,
+      maximumFractionDigits: 8,
+      useGrouping: true,
     });
   };
 
@@ -127,12 +142,12 @@ export function TradeForm() {
     const locked = lockedBalance || 0n;
     const total = unlocked + locked;
 
-    const unlockedFormatted = formatTokenAmount(unlocked, token.decimals);
+    const lockedFormatted = formatTokenAmount(locked, token.decimals);
     const totalFormatted = formatTokenAmount(total, token.decimals);
 
     return (
       <div className="mt-2 text-sm">
-        <span className="text-gray-400">{unlockedFormatted}</span>
+        <span className="text-gray-400">{lockedFormatted}</span>
         <span className="text-gray-400"> / </span>
         <span className="text-green-400">
           {totalFormatted} {token.symbol}
@@ -187,7 +202,7 @@ export function TradeForm() {
     const newParams: GetQuoteParams = {
       inputTokenChainId: inputChainId,
       inputTokenAddress: selectedInputToken.address,
-      inputTokenAmount: formValues.inputAmount,
+      inputTokenAmount: parseUnits(formValues.inputAmount, selectedInputToken.decimals).toString(),
       outputTokenChainId: outputChainId,
       outputTokenAddress: selectedOutputToken.address,
       slippageBips: Math.round(Number(formValues.slippageTolerance || 0.5) * 100),
@@ -195,7 +210,9 @@ export function TradeForm() {
       resetPeriod: resetPeriodToSeconds(formValues.resetPeriod || ResetPeriod.TenMinutes),
       isMultichain: formValues.isMultichain ?? true,
       sponsor: address,
-      baselinePriorityFee: formValues.baselinePriorityFee?.toString(),
+      baselinePriorityFee: formValues.baselinePriorityFee
+        ? parseUnits(formValues.baselinePriorityFee.toString(), 9).toString()
+        : '0',
     };
 
     setQuoteParams(newParams);
@@ -214,71 +231,26 @@ export function TradeForm() {
   // Handle form value changes
   const handleValuesChange = useCallback(
     (field: keyof TradeFormValues, value: string | number | boolean) => {
-      const newValues = { ...formValues, [field]: value };
-      setFormValues(newValues);
+      setFormValues(prev => {
+        const newValues = { ...prev, [field]: value };
 
-      // Update selected tokens
-      const newInputToken = inputTokens.find(token => token.address === newValues.inputToken);
-      const newOutputToken = outputTokens.find(token => token.address === newValues.outputToken);
-
-      if (newInputToken !== selectedInputToken) {
-        setSelectedInputToken(newInputToken);
-      }
-
-      if (newOutputToken !== selectedOutputToken) {
-        setSelectedOutputToken(newOutputToken);
-      }
-
-      // Update quote params if we have all required values
-      if (
-        newValues.inputToken &&
-        newValues.inputAmount &&
-        newValues.outputToken &&
-        selectedOutputChain &&
-        newInputToken
-      ) {
-        // Convert decimal input to token units
-        const tokenUnits = parseUnits(newValues.inputAmount, newInputToken.decimals).toString();
-
-        // Ensure we have valid chain IDs
-        const inputChainId = isConnected ? chainId : selectedInputChain;
-        const outputChainId = selectedOutputChain;
-
-        if (typeof inputChainId !== 'number' || typeof outputChainId !== 'number') {
-          // Return if chain IDs are invalid
-          return;
+        // Update selected tokens if token fields change
+        if (field === 'inputToken') {
+          const newInputToken = inputTokens.find(token => token.address === value);
+          if (newInputToken !== selectedInputToken) {
+            setSelectedInputToken(newInputToken);
+          }
+        } else if (field === 'outputToken') {
+          const newOutputToken = outputTokens.find(token => token.address === value);
+          if (newOutputToken !== selectedOutputToken) {
+            setSelectedOutputToken(newOutputToken);
+          }
         }
 
-        const params: GetQuoteParams = {
-          inputTokenChainId: inputChainId,
-          inputTokenAddress: newValues.inputToken,
-          inputTokenAmount: tokenUnits,
-          outputTokenChainId: outputChainId,
-          outputTokenAddress: newValues.outputToken,
-          slippageBips: Math.floor(Number(newValues.slippageTolerance || 0.5) * 100),
-          baselinePriorityFee: newValues.baselinePriorityFee
-            ? BigInt(Math.floor(newValues.baselinePriorityFee * 1e9)).toString()
-            : undefined,
-          resetPeriod: resetPeriodToSeconds(newValues.resetPeriod || ResetPeriod.TenMinutes),
-          isMultichain: newValues.isMultichain ?? true,
-          sponsor: isConnected ? address : DEFAULT_SPONSOR,
-          allocatorId: '1223867955028248789127899354',
-        };
-        setQuoteParams(params);
-      }
+        return newValues;
+      });
     },
-    [
-      formValues,
-      inputTokens,
-      outputTokens,
-      selectedOutputChain,
-      isConnected,
-      chainId,
-      selectedInputToken,
-      selectedOutputToken,
-      address,
-      selectedInputChain,
-    ]
+    [inputTokens, outputTokens, selectedInputToken, selectedOutputToken]
   );
 
   // Handle chain changes and conflicts
@@ -295,13 +267,13 @@ export function TradeForm() {
     }
   }, [chainId, isConnected, selectedOutputChain]);
 
-  // Refresh quote when wallet connects if form is filled out
+  // Refresh quote when wallet connects
   useEffect(() => {
-    if (isConnected && quoteParams && formValues.inputAmount) {
-      // Re-trigger quote fetch with current form values
-      handleValuesChange('inputAmount', formValues.inputAmount);
+    if (isConnected && formValues.inputAmount) {
+      // Force quote params update when wallet connects
+      setQuoteParams(undefined);
     }
-  }, [isConnected, quoteParams, formValues.inputAmount, handleValuesChange]);
+  }, [isConnected]);
 
   // Handle the actual swap after quote is received
   const handleSwap = async () => {
@@ -532,7 +504,7 @@ export function TradeForm() {
           <div className="flex items-center w-full">
             <div className="flex-1 pr-2 text-2xl text-white" data-testid="quote-amount">
               {quote?.context?.quoteOutputAmountNet && selectedOutputToken
-                ? formatUnits(
+                ? formatTokenAmount(
                     BigInt(quote.context.quoteOutputAmountNet),
                     selectedOutputToken.decimals
                   )
@@ -578,11 +550,7 @@ export function TradeForm() {
               />
               <Select
                 value={formValues.outputToken}
-                onChange={value => {
-                  handleValuesChange('outputToken', value.toString());
-                  const token = outputTokens.find(t => t.address === value.toString());
-                  setSelectedOutputToken(token);
-                }}
+                onChange={value => handleValuesChange('outputToken', value.toString())}
                 placeholder="Token"
                 disabled={!selectedOutputChain}
                 options={outputTokens
@@ -614,12 +582,10 @@ export function TradeForm() {
                 <div className="flex items-center gap-2">
                   <span>
                     Minimum received:{' '}
-                    {Number(
-                      formatUnits(
-                        BigInt(quote.data.mandate.minimumAmount),
-                        selectedOutputToken.decimals
-                      )
-                    ).toString()}
+                    {formatTokenAmount(
+                      BigInt(quote.data.mandate.minimumAmount),
+                      selectedOutputToken.decimals
+                    )}
                   </span>
                   <TooltipIcon title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides" />
                 </div>
