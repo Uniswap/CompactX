@@ -162,6 +162,7 @@ export function TradeForm() {
   const [selectedOutputChain, setSelectedOutputChain] = useState<number>(130);
   const [isSigning, setIsSigning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [depositModalVisible, setDepositModalVisible] = useState(false);
 
   // Map reset period enum to seconds for calibrator
   const resetPeriodToSeconds = (resetPeriod: ResetPeriod): number => {
@@ -603,6 +604,33 @@ export function TradeForm() {
 
         {statusMessage && <div className="mt-4 text-center text-[#00ff00]">{statusMessage}</div>}
 
+        <Modal
+          title="Deposit Required"
+          open={depositModalVisible}
+          onClose={() => setDepositModalVisible(false)}
+        >
+          <p className="text-white mb-4">
+            Coming soon... for now, visit{' '}
+            <a
+              href="https://smallocator.xyz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#00ff00] hover:underline"
+            >
+              https://smallocator.xyz
+            </a>{' '}
+            to perform a deposit before making a swap.
+          </p>
+          <div className="flex justify-end">
+            <button
+              onClick={() => setDepositModalVisible(false)}
+              className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
+            >
+              Close
+            </button>
+          </div>
+        </Modal>
+
         {!isConnected ? (
           <div className="w-full h-12 [&>div]:h-full [&>div]:w-full [&>div>button]:h-full [&>div>button]:w-full [&>div>button]:rounded-lg [&>div>button]:flex [&>div>button]:items-center [&>div>button]:justify-center [&>div>button]:p-0 [&>div>button>div]:p-0 [&>div>button]:py-4">
             <ConnectButton />
@@ -616,15 +644,84 @@ export function TradeForm() {
           </button>
         ) : (
           <button
-            onClick={handleSwap}
-            disabled={!quote?.data || isLoading || isSigning}
+            onClick={() => {
+              // If we need deposit first, show modal instead of executing swap
+              if (
+                selectedInputToken &&
+                formValues.inputAmount &&
+                lockedBalance !== undefined &&
+                unlockedBalance !== undefined
+              ) {
+                const inputAmount = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
+                const totalBalance = lockedBalance + unlockedBalance;
+
+                if (totalBalance < inputAmount) {
+                  return; // Do nothing, button will be disabled
+                } else if (lockedBalance < inputAmount) {
+                  setDepositModalVisible(true);
+                  return;
+                }
+              }
+              handleSwap();
+            }}
+            disabled={
+              !quote?.data ||
+              isLoading ||
+              isSigning ||
+              !selectedInputToken ||
+              !formValues.inputAmount ||
+              (() => {
+                if (selectedInputToken && formValues.inputAmount) {
+                  const inputAmount = parseUnits(
+                    formValues.inputAmount,
+                    selectedInputToken.decimals
+                  );
+                  const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+                  return totalBalance < inputAmount;
+                }
+                return false;
+              })()
+            }
             className={`w-full h-12 rounded-lg font-medium transition-colors ${
-              !quote?.data || isLoading || isSigning
+              !quote?.data ||
+              isLoading ||
+              isSigning ||
+              !selectedInputToken ||
+              !formValues.inputAmount ||
+              (() => {
+                if (selectedInputToken && formValues.inputAmount) {
+                  const inputAmount = parseUnits(
+                    formValues.inputAmount,
+                    selectedInputToken.decimals
+                  );
+                  const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+                  return totalBalance < inputAmount;
+                }
+                return false;
+              })()
                 ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                 : 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20'
             }`}
           >
-            {isSigning ? 'Signing...' : error ? 'Try Again' : 'Swap'}
+            {isSigning
+              ? 'Signing...'
+              : error
+                ? 'Try Again'
+                : (() => {
+                    if (!selectedInputToken || !formValues.inputAmount) return 'Swap';
+                    const inputAmount = parseUnits(
+                      formValues.inputAmount,
+                      selectedInputToken.decimals
+                    );
+                    const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+
+                    if (totalBalance < inputAmount) {
+                      return 'Insufficient Balance';
+                    } else if (lockedBalance !== undefined && lockedBalance < inputAmount) {
+                      return 'Deposit & Swap';
+                    }
+                    return 'Swap';
+                  })()}
             {isSigning && (
               <div className="inline-block ml-2 animate-spin h-4 w-4">
                 <svg className="text-current" viewBox="0 0 24 24" fill="currentColor">
@@ -647,118 +744,120 @@ export function TradeForm() {
             )}
           </button>
         )}
+
+        {settingsVisible && (
+          <Modal title="Settings" open={settingsVisible} onClose={() => setSettingsVisible(false)}>
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-400">
+                    Slippage Tolerance (%)
+                  </label>
+                  <TooltipIcon title="Maximum allowed price movement before trade reverts" />
+                </div>
+                <NumberInput
+                  value={formValues.slippageTolerance}
+                  onChange={value => handleValuesChange('slippageTolerance', value)}
+                  min={0.01}
+                  max={100}
+                  precision={2}
+                  aria-label="Slippage tolerance percentage"
+                />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-400">
+                    Baseline Priority Fee (GWEI)
+                  </label>
+                  <TooltipIcon title="Minimum gas priority fee for transaction" />
+                </div>
+                <NumberInput
+                  value={formValues.baselinePriorityFee}
+                  onChange={value => handleValuesChange('baselinePriorityFee', value)}
+                  min={0}
+                  precision={2}
+                  aria-label="Baseline priority fee in GWEI"
+                />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-400">
+                    Resource Lock Reset Period
+                  </label>
+                  <TooltipIcon title="The reset period on the resource lock" />
+                </div>
+                <SegmentedControl<number>
+                  options={[
+                    { label: '1s', value: ResetPeriod.OneSecond },
+                    { label: '15s', value: ResetPeriod.FifteenSeconds },
+                    { label: '1m', value: ResetPeriod.OneMinute },
+                    { label: '10m', value: ResetPeriod.TenMinutes },
+                    { label: '1h 5m', value: ResetPeriod.OneHourAndFiveMinutes },
+                    { label: '1d', value: ResetPeriod.OneDay },
+                    { label: '7d 1h', value: ResetPeriod.SevenDaysAndOneHour },
+                    { label: '30d', value: ResetPeriod.ThirtyDays },
+                  ]}
+                  value={formValues.resetPeriod || ResetPeriod.TenMinutes}
+                  onChange={value => handleValuesChange('resetPeriod', value)}
+                  aria-label="Reset Period"
+                  columns={3}
+                />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-400">Resource Lock Scope</label>
+                  <TooltipIcon title="The scope of the resource lock" />
+                </div>
+                <SegmentedControl<boolean>
+                  options={scopeOptions}
+                  value={formValues.isMultichain ?? true}
+                  onChange={value => handleValuesChange('isMultichain', value)}
+                  aria-label="Resource Lock Scope"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setSettingsVisible(false)}
+                className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // Format numbers before saving
+                  const formatNumber = (num: number | undefined, defaultValue: string) => {
+                    if (num === undefined) return defaultValue;
+                    // Convert to number to remove unnecessary zeros, then back to string
+                    return Number(num).toString();
+                  };
+
+                  localStorage.setItem(
+                    'slippageTolerance',
+                    formatNumber(formValues.slippageTolerance, '0.5')
+                  );
+                  localStorage.setItem(
+                    'baselinePriorityFee',
+                    formatNumber(formValues.baselinePriorityFee, '0')
+                  );
+
+                  // Update form values with formatted numbers
+                  setFormValues(prev => ({
+                    ...prev,
+                    slippageTolerance: Number(formatNumber(formValues.slippageTolerance, '0.5')),
+                    baselinePriorityFee: Number(formatNumber(formValues.baselinePriorityFee, '0')),
+                  }));
+
+                  setSettingsVisible(false);
+                }}
+                className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
+              >
+                Save
+              </button>
+            </div>
+          </Modal>
+        )}
       </div>
-
-      {settingsVisible && (
-        <Modal title="Settings" open={settingsVisible} onClose={() => setSettingsVisible(false)}>
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <label className="text-sm font-medium text-gray-400">Slippage Tolerance (%)</label>
-                <TooltipIcon title="Maximum allowed price movement before trade reverts" />
-              </div>
-              <NumberInput
-                value={formValues.slippageTolerance}
-                onChange={value => handleValuesChange('slippageTolerance', value)}
-                min={0.01}
-                max={100}
-                precision={2}
-                aria-label="Slippage tolerance percentage"
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <label className="text-sm font-medium text-gray-400">
-                  Baseline Priority Fee (GWEI)
-                </label>
-                <TooltipIcon title="Minimum gas priority fee for transaction" />
-              </div>
-              <NumberInput
-                value={formValues.baselinePriorityFee}
-                onChange={value => handleValuesChange('baselinePriorityFee', value)}
-                min={0}
-                precision={2}
-                aria-label="Baseline priority fee in GWEI"
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <label className="text-sm font-medium text-gray-400">
-                  Resource Lock Reset Period
-                </label>
-                <TooltipIcon title="The reset period on the resource lock" />
-              </div>
-              <SegmentedControl<number>
-                options={[
-                  { label: '1s', value: ResetPeriod.OneSecond },
-                  { label: '15s', value: ResetPeriod.FifteenSeconds },
-                  { label: '1m', value: ResetPeriod.OneMinute },
-                  { label: '10m', value: ResetPeriod.TenMinutes },
-                  { label: '1h 5m', value: ResetPeriod.OneHourAndFiveMinutes },
-                  { label: '1d', value: ResetPeriod.OneDay },
-                  { label: '7d 1h', value: ResetPeriod.SevenDaysAndOneHour },
-                  { label: '30d', value: ResetPeriod.ThirtyDays },
-                ]}
-                value={formValues.resetPeriod || ResetPeriod.TenMinutes}
-                onChange={value => handleValuesChange('resetPeriod', value)}
-                aria-label="Reset Period"
-                columns={3}
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <label className="text-sm font-medium text-gray-400">Resource Lock Scope</label>
-                <TooltipIcon title="The scope of the resource lock" />
-              </div>
-              <SegmentedControl<boolean>
-                options={scopeOptions}
-                value={formValues.isMultichain ?? true}
-                onChange={value => handleValuesChange('isMultichain', value)}
-                aria-label="Resource Lock Scope"
-              />
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              onClick={() => setSettingsVisible(false)}
-              className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                // Format numbers before saving
-                const formatNumber = (num: number | undefined, defaultValue: string) => {
-                  if (num === undefined) return defaultValue;
-                  // Convert to number to remove unnecessary zeros, then back to string
-                  return Number(num).toString();
-                };
-
-                localStorage.setItem(
-                  'slippageTolerance',
-                  formatNumber(formValues.slippageTolerance, '0.5')
-                );
-                localStorage.setItem(
-                  'baselinePriorityFee',
-                  formatNumber(formValues.baselinePriorityFee, '0')
-                );
-
-                // Update form values with formatted numbers
-                setFormValues(prev => ({
-                  ...prev,
-                  slippageTolerance: Number(formatNumber(formValues.slippageTolerance, '0.5')),
-                  baselinePriorityFee: Number(formatNumber(formValues.baselinePriorityFee, '0')),
-                }));
-
-                setSettingsVisible(false);
-              }}
-              className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
-            >
-              Save
-            </button>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
