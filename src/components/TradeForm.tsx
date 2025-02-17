@@ -8,7 +8,7 @@ import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { ConnectButton } from '../config/wallet';
 import { parseUnits, type Hex } from 'viem';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
 import { useCompactSigner } from '../hooks/useCompactSigner';
@@ -64,7 +64,34 @@ export function TradeForm() {
   const { broadcast } = useBroadcast();
   const { switchChain } = useSwitchChain();
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
-  const [selectedInputChain, setSelectedInputChain] = useState<number>(1); // Default to Ethereum
+  const [selectedInputChain, setSelectedInputChain] = useState<number>(chainId || 1);
+
+  // Track connection state to handle initial connection
+  const wasConnectedRef = useRef(false);
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      // Only switch chains on initial connection if needed
+      if (chainId !== selectedInputChain) {
+        switchChain({ chainId: selectedInputChain });
+      }
+      wasConnectedRef.current = true;
+    } else if (!isConnected) {
+      wasConnectedRef.current = false;
+    }
+  }, [isConnected, chainId, selectedInputChain, switchChain]);
+
+  // Keep track of last connected chain to restore it when disconnecting
+  const lastConnectedChainRef = useRef(chainId);
+  useEffect(() => {
+    if (isConnected && chainId) {
+      lastConnectedChainRef.current = chainId;
+      setSelectedInputChain(chainId);
+    } else if (!isConnected && lastConnectedChainRef.current) {
+      // When disconnecting, set the input chain to the last connected chain
+      setSelectedInputChain(lastConnectedChainRef.current);
+    }
+  }, [isConnected, chainId]);
+
   const { inputTokens, outputTokens } = useTokens(selectedInputChain);
   const [selectedInputToken, setSelectedInputToken] = useState<
     (typeof inputTokens)[0] | undefined
