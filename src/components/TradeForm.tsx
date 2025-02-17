@@ -127,6 +127,35 @@ export function TradeForm() {
     lockId
   );
 
+  // Format balance with proper decimals
+  const formatTokenAmount = (balance: bigint | undefined, decimals: number) => {
+    if (!balance) return '0';
+    return (Number(balance) / 10 ** decimals).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 4
+    });
+  };
+
+  // Format balance display as "unlocked / total symbol"
+  const formatBalanceDisplay = (unlockedBalance: bigint | undefined, lockedBalance: bigint | undefined, token: (typeof inputTokens)[0] | undefined) => {
+    if (!token) return '';
+    
+    const unlocked = unlockedBalance || 0n;
+    const locked = lockedBalance || 0n;
+    const total = unlocked + locked;
+    
+    const unlockedFormatted = formatTokenAmount(unlocked, token.decimals);
+    const totalFormatted = formatTokenAmount(total, token.decimals);
+    
+    return (
+      <div className="mt-2 text-sm">
+        <span className="text-gray-400">{unlockedFormatted}</span>
+        <span className="text-gray-400"> / </span>
+        <span className="text-green-400">{totalFormatted} {token.symbol}</span>
+      </div>
+    );
+  };
+
   // Log balances whenever they change
   useEffect(() => {
     console.log('Balance check effect triggered:', {
@@ -141,6 +170,10 @@ export function TradeForm() {
       console.log('Lock ID:', lockId.toString());
       console.log('Locked balance in The Compact:', lockedBalance.toString());
       console.log('Unlocked balance in input token:', unlockedBalance.toString());
+      
+      const formattedLocked = formatTokenAmount(lockedBalance, selectedInputToken.decimals);
+      const formattedUnlocked = formatTokenAmount(unlockedBalance, selectedInputToken.decimals);
+      console.log('Formatted balances:', { formattedLocked, formattedUnlocked });
     }
   }, [isConnected, selectedInputToken, lockId, lockedBalance, unlockedBalance]);
 
@@ -150,6 +183,60 @@ export function TradeForm() {
   const [selectedOutputChain, setSelectedOutputChain] = useState<number>(130);
   const [isSigning, setIsSigning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
+
+  // Map reset period enum to seconds for calibrator
+  const resetPeriodToSeconds = (resetPeriod: ResetPeriod): number => {
+    const mapping = {
+      [ResetPeriod.FifteenSeconds]: 15,
+      [ResetPeriod.OneMinute]: 60,
+      [ResetPeriod.TenMinutes]: 600,
+      [ResetPeriod.OneHourAndFiveMinutes]: 3900,
+      [ResetPeriod.OneDay]: 86400,
+      [ResetPeriod.SevenDaysAndOneHour]: 604800,
+      [ResetPeriod.ThirtyDays]: 2592000
+    };
+    return mapping[resetPeriod];
+  };
+
+  // Update quote parameters when inputs change
+  useEffect(() => {
+    if (
+      !isConnected ||
+      !selectedInputToken?.address ||
+      !selectedOutputToken?.address ||
+      !formValues.inputAmount ||
+      !formValues.resetPeriod
+    ) {
+      setQuoteParams(undefined);
+      return;
+    }
+
+    const newParams: GetQuoteParams = {
+      inputTokenChainId: selectedInputToken.chainId,
+      inputTokenAddress: selectedInputToken.address,
+      inputTokenAmount: formValues.inputAmount,
+      outputTokenChainId: selectedOutputToken.chainId,
+      outputTokenAddress: selectedOutputToken.address,
+      slippageBips: Math.round(formValues.slippageTolerance * 100),
+      allocatorId: '1223867955028248789127899354',
+      resetPeriod: resetPeriodToSeconds(formValues.resetPeriod),
+      isMultichain: formValues.isMultichain,
+      sponsor: address,
+      baselinePriorityFee: formValues.baselinePriorityFee?.toString(),
+    };
+
+    setQuoteParams(newParams);
+  }, [
+    isConnected,
+    selectedInputToken,
+    selectedOutputToken,
+    formValues.inputAmount,
+    formValues.slippageTolerance,
+    formValues.resetPeriod,
+    formValues.isMultichain,
+    formValues.baselinePriorityFee,
+    address,
+  ]);
 
   // Handle form value changes
   const handleValuesChange = useCallback(
@@ -190,7 +277,7 @@ export function TradeForm() {
           baselinePriorityFee: newValues.baselinePriorityFee
             ? BigInt(Math.floor(newValues.baselinePriorityFee * 1e9)).toString()
             : undefined,
-          resetPeriod: newValues.resetPeriod,
+          resetPeriod: resetPeriodToSeconds(newValues.resetPeriod),
           isMultichain: newValues.isMultichain,
           sponsor: isConnected ? address : DEFAULT_SPONSOR,
           allocatorId: '1223867955028248789127899354',
@@ -370,8 +457,7 @@ export function TradeForm() {
                 value={formValues.inputAmount}
                 onChange={value => handleValuesChange('inputAmount', value)}
                 placeholder="0.0"
-                min={0}
-                precision={selectedInputToken?.decimals ?? 18}
+                className="w-full"
                 variant="borderless"
                 aria-label="Input Amount"
               />
@@ -434,6 +520,7 @@ export function TradeForm() {
               />
             </div>
           </div>
+          {selectedInputToken && formatBalanceDisplay(unlockedBalance, lockedBalance, selectedInputToken)}
         </div>
 
         <div className="flex justify-center -my-2 relative z-10">
@@ -591,7 +678,7 @@ export function TradeForm() {
             {isSigning ? 'Signing...' : error ? 'Try Again' : 'Swap'}
             {isSigning && (
               <div className="inline-block ml-2 animate-spin h-4 w-4">
-                <svg className="text-current" viewBox="0 0 24 24">
+                <svg className="text-current" viewBox="0 0 24 24" fill="currentColor">
                   <circle
                     className="opacity-25"
                     cx="12"
