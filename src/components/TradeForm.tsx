@@ -136,7 +136,7 @@ export function TradeForm() {
     lockedBalance: bigint | undefined,
     token: (typeof inputTokens)[0] | undefined
   ) => {
-    if (!token) return '';
+    if (!token || !isConnected) return '';
 
     const unlocked = unlockedBalance || 0n;
     const locked = lockedBalance || 0n;
@@ -502,14 +502,21 @@ export function TradeForm() {
 
         <div className="rounded-lg bg-[#0a0a0a] border border-gray-800 p-4">
           <div className="mb-2 text-sm text-white">Buy</div>
-          <div className="flex items-center w-full">
-            <div className="flex-1 pr-2 text-2xl text-white" data-testid="quote-amount">
-              {quote?.context?.quoteOutputAmountNet && selectedOutputToken
-                ? formatTokenAmount(
+          <div className="flex items-start w-full">
+            <div className="flex-1 pr-2" data-testid="quote-amount">
+              <div className="text-2xl text-white">
+                {quote?.context?.quoteOutputAmountNet &&
+                  selectedOutputToken &&
+                  formatTokenAmount(
                     BigInt(quote.context.quoteOutputAmountNet),
                     selectedOutputToken.decimals
-                  )
-                : '0.00'}
+                  )}
+              </div>
+              {isLoading && (
+                <div className="text-sm text-gray-500 quote-loading mt-1">
+                  Getting latest quote...
+                </div>
+              )}
             </div>
             <div className="flex space-x-2">
               <Select

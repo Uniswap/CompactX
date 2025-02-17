@@ -53,3 +53,16 @@ body {
 [data-rk] button:not([disabled]):hover {
   background-color: rgba(0, 255, 0, 0.2) !important;
 }
+
+@keyframes pulse-opacity {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.quote-loading {
+  animation: pulse-opacity 1s ease-in-out infinite;
+}
