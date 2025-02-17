@@ -27,10 +27,7 @@ const SUPPORTED_CHAINS = [
 ];
 
 // Input chains include Ethereum
-const INPUT_CHAINS = [
-  { id: 1, name: 'Ethereum' },
-  ...SUPPORTED_CHAINS,
-];
+const INPUT_CHAINS = [{ id: 1, name: 'Ethereum' }, ...SUPPORTED_CHAINS];
 
 // Default sponsor address when wallet is not connected
 const DEFAULT_SPONSOR = '0x0000000000000000000000000000000000000000';
@@ -215,11 +212,7 @@ export function TradeForm() {
 
   // Update quote parameters when inputs change
   useEffect(() => {
-    if (
-      !selectedInputToken?.address ||
-      !selectedOutputToken?.address ||
-      !formValues.inputAmount
-    ) {
+    if (!selectedInputToken?.address || !selectedOutputToken?.address || !formValues.inputAmount) {
       setQuoteParams(undefined);
       return;
     }
@@ -455,8 +448,8 @@ export function TradeForm() {
                 <Select
                   placeholder="Chain"
                   value={selectedInputChain}
-                  onChange={(chainId) => {
-                    setSelectedInputChain(chainId);
+                  onChange={chainId => {
+                    setSelectedInputChain(Number(chainId));
                     // Clear input token and quote when changing chains
                     setSelectedInputToken(undefined);
                     setQuoteParams(undefined);
@@ -465,13 +458,12 @@ export function TradeForm() {
                     // If the input chain would be the same as the output chain,
                     // select the next available chain, preferring Unichain
                     if (chainId === selectedOutputChain) {
-                      const availableChains = SUPPORTED_CHAINS.filter(chain => chain.id !== chainId);
-                      const preferredChain = availableChains.find(chain => chain.id === 130) || availableChains[0];
-                      if (preferredChain) {
-                        setSelectedOutputChain(preferredChain.id);
-                        setSelectedOutputToken(undefined);
-                        setFormValues(prev => ({ ...prev, outputToken: '' }));
-                      }
+                      const availableChains = SUPPORTED_CHAINS.filter(
+                        chain => chain.id !== chainId
+                      );
+                      const preferredChain =
+                        availableChains.find(chain => chain.id === 130) || availableChains[0];
+                      setSelectedOutputChain(preferredChain?.id || 1);
                     }
                   }}
                   options={INPUT_CHAINS.map(chain => ({
@@ -724,7 +716,8 @@ export function TradeForm() {
           onClose={() => setEthereumOutputModalVisible(false)}
         >
           <p className="text-white mb-4">
-            Ethereum is not available as the output chain for cross-chain swaps as it does not enforce transaction ordering by priority fee. Please select a different output chain.
+            Ethereum is not available as the output chain for cross-chain swaps as it does not
+            enforce transaction ordering by priority fee. Please select a different output chain.
           </p>
           <div className="flex justify-end">
             <button

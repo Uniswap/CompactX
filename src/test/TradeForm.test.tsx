@@ -47,6 +47,11 @@ vi.mock('wagmi', () => ({
     data: { value: BigInt(0) },
     error: null,
   }),
+  useSwitchChain: vi.fn().mockReturnValue({
+    switchChain: vi.fn(),
+    isLoading: false,
+    error: null,
+  }),
 }));
 
 // Create a simple wrapper component
