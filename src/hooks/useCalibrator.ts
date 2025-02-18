@@ -93,7 +93,7 @@ export function useCalibrator() {
     return data;
   };
 
-  const useQuote = (params: GetQuoteParams | undefined) => {
+  const useQuote = (params: GetQuoteParams | undefined, version: number = 0) => {
     return useQuery({
       queryKey: [
         'quote',
@@ -108,6 +108,7 @@ export function useCalibrator() {
         params?.isMultichain,
         params?.sponsor,
         params?.baselinePriorityFee,
+        version,
         // Round down to nearest 10 seconds to refresh quote periodically
         Math.floor(Date.now() / 10000) * 10000,
       ],

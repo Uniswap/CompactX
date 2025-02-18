@@ -150,7 +150,9 @@ export function TradeForm() {
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
+  const [quoteVersion, setQuoteVersion] = useState(0);
   const [selectedInputChain, setSelectedInputChain] = useState<number>(chainId || 1);
+  const [selectedInputAmount, setSelectedInputAmount] = useState<string>('');
 
   // Track connection state to handle initial connection
   const wasConnectedRef = useRef(false);
@@ -219,7 +221,7 @@ export function TradeForm() {
     }
   }, [isConnected, selectedInputToken?.address, formValues.resetPeriod, formValues.isMultichain]);
 
-  const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams);
+  const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams, quoteVersion);
   const { lockedBalance, lockedIncludingAllocated, unlockedBalance } = useTokenBalanceCheck(
     selectedInputToken?.address as `0x${string}` | undefined,
     lockId
@@ -317,14 +319,21 @@ export function TradeForm() {
     console.log('Quote params check:', {
       selectedInputToken,
       selectedOutputToken,
-      inputAmount: formValues.inputAmount,
+      inputAmount: selectedInputAmount,
       selectedOutputChain,
       currentQuoteParams: quoteParams
     });
 
-    if (!selectedInputToken?.address || !selectedOutputToken?.address || !formValues.inputAmount) {
-      console.log('Missing required params, clearing quote');
+    // Always clear quote params when input amount or input token changes
+    if (!selectedInputToken?.address || !selectedInputAmount) {
+      console.log('Missing input params, clearing quote');
       setQuoteParams(undefined);
+      return;
+    }
+
+    // Only proceed with setting new quote params if we have output token
+    if (!selectedOutputToken?.address) {
+      console.log('Missing output token, keeping quote cleared');
       return;
     }
 
@@ -347,7 +356,7 @@ export function TradeForm() {
     const newParams: GetQuoteParams = {
       inputTokenChainId: inputChainId,
       inputTokenAddress: selectedInputToken.address,
-      inputTokenAmount: parseUnits(formValues.inputAmount, selectedInputToken.decimals).toString(),
+      inputTokenAmount: parseUnits(selectedInputAmount, selectedInputToken.decimals).toString(),
       outputTokenChainId: selectedOutputChain,
       outputTokenAddress: selectedOutputToken.address,
       slippageBips: Math.round(Number(formValues.slippageTolerance || 0.5) * 100),
@@ -362,11 +371,12 @@ export function TradeForm() {
 
     setQuoteParams(newParams);
   }, [
+    isExecutingSwap,
     isConnected,
-    selectedInputToken,
-    selectedOutputToken,
+    selectedInputToken?.address,
+    selectedInputAmount,
+    selectedOutputToken?.address,
     selectedOutputChain,
-    formValues.inputAmount,
     formValues.slippageTolerance,
     formValues.resetPeriod,
     formValues.isMultichain,
@@ -380,30 +390,27 @@ export function TradeForm() {
       setFormValues(prev => {
         const newValues = { ...prev, [field]: value };
 
-      // Update selected tokens if token fields change
-      if (field === 'inputToken') {
-        const newInputToken = inputTokens.find(token => token.address === value);
-        if (newInputToken !== selectedInputToken) {
-          setSelectedInputToken(newInputToken);
-          // Force quote params update when input token changes
-          setQuoteParams(undefined);
+        // Update selected tokens if token fields change
+        if (field === 'inputToken') {
+          const newInputToken = inputTokens.find(token => token.address === value);
+          if (newInputToken !== selectedInputToken) {
+            setSelectedInputToken(newInputToken);
+          }
+        } else if (field === 'outputToken') {
+          const newOutputToken = outputTokens.find(token => 
+            token.address === value && token.chainId === selectedOutputChain
+          );
+          if (newOutputToken !== selectedOutputToken) {
+            setSelectedOutputToken(newOutputToken);
+          }
+        } else if (field === 'inputAmount') {
+          setSelectedInputAmount(value as string);
         }
-      } else if (field === 'outputToken') {
-        const newOutputToken = outputTokens.find(token => 
-          token.address === value && token.chainId === selectedOutputChain
-        );
-        if (newOutputToken !== selectedOutputToken) {
-          setSelectedOutputToken(newOutputToken);
-        }
-      } else if (field === 'inputAmount') {
-        // Force quote params update when input amount changes
-        setQuoteParams(undefined);
-      }
 
-      return newValues;
+        return newValues;
       });
     },
-    [inputTokens, outputTokens, selectedInputToken, selectedOutputToken, selectedOutputChain, formValues.inputAmount]
+    [inputTokens, outputTokens, selectedInputToken, selectedOutputToken, selectedOutputChain]
   );
 
   // Handle chain changes and conflicts
@@ -422,11 +429,11 @@ export function TradeForm() {
 
   // Refresh quote when wallet connects or amount changes
   useEffect(() => {
-    if (formValues.inputAmount && (isConnected || selectedInputToken)) {
+    if (selectedInputAmount && (isConnected || selectedInputToken)) {
       // Force quote params update when amount changes or wallet connects
       setQuoteParams(undefined);
     }
-  }, [isConnected, formValues.inputAmount, selectedInputToken]);
+  }, [isConnected, selectedInputAmount, selectedInputToken]);
 
   // Handle the actual swap after quote is received
   const handleSwap = async (options: { skipSignature?: boolean; isDepositAndSwap?: boolean } = {}) => {
@@ -458,8 +465,8 @@ export function TradeForm() {
         baselinePriorityFee: quote.data.mandate.baselinePriorityFee,
         scalingFactor: quote.data.mandate.scalingFactor,
         salt: quote.data.mandate.salt.startsWith('0x')
-          ? (quote.data.mandate.salt as Hex)
-          : (`0x${quote.data.mandate.salt}` as Hex),
+          ? (quote.data.mandate.salt as `0x${string}`)
+          : (`0x${quote.data.mandate.salt}` as `0x${string}`),
       } satisfies Mandate;
 
       const compactMessage = {
@@ -594,10 +601,10 @@ export function TradeForm() {
 
   // Calculate shortfall when needed
   const shortfall = useMemo(() => {
-    if (!selectedInputToken || !formValues.inputAmount) return 0n;
-    const inputAmountBigInt = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
+    if (!selectedInputToken || !selectedInputAmount) return 0n;
+    const inputAmountBigInt = parseUnits(selectedInputAmount, selectedInputToken.decimals);
     return inputAmountBigInt - (lockedBalance || 0n);
-  }, [selectedInputToken, formValues.inputAmount, lockedBalance]);
+  }, [selectedInputToken, selectedInputAmount, lockedBalance]);
 
   // Check allowance for deposit
   const { data: allowance } = useReadContract({
@@ -635,8 +642,8 @@ export function TradeForm() {
           formatted: formatTokenAmount(lockedBalance, selectedInputToken.decimals),
         },
         inputAmount: {
-          raw: parseUnits(formValues.inputAmount || '0', selectedInputToken.decimals).toString(),
-          formatted: formValues.inputAmount,
+          raw: parseUnits(selectedInputAmount || '0', selectedInputToken.decimals).toString(),
+          formatted: selectedInputAmount,
         },
         shortfall: {
           raw: shortfall.toString(),
@@ -649,7 +656,7 @@ export function TradeForm() {
         needsApproval: shortfall > allowance,
       });
     }
-  }, [shortfall, allowance, selectedInputToken, lockedBalance, formValues.inputAmount]);
+  }, [shortfall, allowance, selectedInputToken, lockedBalance, selectedInputAmount]);
 
   // State for tracking approval transaction
   const [isApproving, setIsApproving] = useState(false);
@@ -709,7 +716,7 @@ export function TradeForm() {
       !quote?.data ||
       !quote.context ||
       !selectedInputToken ||
-      !formValues.inputAmount ||
+      !selectedInputAmount ||
       !writeContractAsync ||
       !publicClient
     ) {
@@ -726,7 +733,7 @@ export function TradeForm() {
       console.log('Got suggested nonce:', suggestedNonce);
 
       // Calculate deposit parameters
-      const inputAmount = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
+      const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
       const duration = Math.min(
         540,
         resetPeriodToSeconds(formValues.resetPeriod || ResetPeriod.TenMinutes)
@@ -1000,7 +1007,7 @@ export function TradeForm() {
           <div className="flex items-center w-full">
             <div className="flex-1 pr-2">
               <NumberInput
-                value={formValues.inputAmount}
+                value={selectedInputAmount}
                 onChange={value => handleValuesChange('inputAmount', value)}
                 placeholder="0.0"
                 className="w-full"
@@ -1119,7 +1126,7 @@ export function TradeForm() {
                       ...prev!,
                       inputToken: currentOutputToken.address,
                       outputToken: currentInputToken.address,
-                      inputAmount: formValues.inputAmount,
+                      inputAmount: selectedInputAmount,
                     }));
                   } else {
                     setQuoteParams(undefined);
@@ -1151,7 +1158,7 @@ export function TradeForm() {
                     ...prev!,
                     inputToken: selectedOutputToken.address,
                     outputToken: selectedInputToken.address,
-                    inputAmount: formValues.inputAmount,
+                    inputAmount: selectedInputAmount,
                   }));
                 } else {
                   setQuoteParams(undefined);
@@ -1369,11 +1376,11 @@ export function TradeForm() {
               // For deposit and swap, we need the full conditions
               if (
                 selectedInputToken &&
-                formValues.inputAmount &&
+                selectedInputAmount &&
                 lockedBalance !== undefined &&
                 unlockedBalance !== undefined
               ) {
-                const inputAmount = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
+                const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
                 const totalBalance = lockedBalance + unlockedBalance;
 
                 if (totalBalance < inputAmount) {
@@ -1399,14 +1406,14 @@ export function TradeForm() {
                 isLoading ||
                 isSigning ||
                 !selectedInputToken ||
-                !formValues.inputAmount
+                !selectedInputAmount
               ) {
                 return true;
               }
 
               // Check balance for swap
-              if (selectedInputToken && formValues.inputAmount) {
-                const inputAmount = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
+              if (selectedInputToken && selectedInputAmount) {
+                const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
                 const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
                 return totalBalance < inputAmount;
               }
@@ -1427,11 +1434,11 @@ export function TradeForm() {
                 isLoading ||
                 isSigning ||
                 !selectedInputToken ||
-                !formValues.inputAmount ||
+                !selectedInputAmount ||
                 (() => {
-                  if (selectedInputToken && formValues.inputAmount) {
+                  if (selectedInputToken && selectedInputAmount) {
                     const inputAmount = parseUnits(
-                      formValues.inputAmount,
+                      selectedInputAmount,
                       selectedInputToken.decimals
                     );
                     const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
@@ -1459,9 +1466,9 @@ export function TradeForm() {
               // Then show other states
               if (isSigning) return 'Signing...';
               if (error) return 'Try Again';
-              if (!selectedInputToken || !formValues.inputAmount) return 'Swap';
+              if (!selectedInputToken || !selectedInputAmount) return 'Swap';
 
-              const inputAmount = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
+              const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
               const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
 
               if (totalBalance < inputAmount) {
