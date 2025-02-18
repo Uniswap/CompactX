@@ -219,15 +219,17 @@ export class BroadcastApiClient {
     }
 
     try {
-      // Verify sponsor signature
-      const isSponsorValid = await this.verifySignature(
-        claimHash,
-        request.sponsorSignature,
-        request.compact.sponsor,
-        chainPrefix
-      );
-      if (!isSponsorValid) {
-        throw new Error('Invalid sponsor signature');
+      // Skip sponsor signature verification for deposit & swap transactions
+      if (request.sponsorSignature !== '0x') {
+        const isSponsorValid = await this.verifySignature(
+          claimHash,
+          request.sponsorSignature,
+          request.compact.sponsor,
+          chainPrefix
+        );
+        if (!isSponsorValid) {
+          throw new Error('Invalid sponsor signature');
+        }
       }
 
       // Verify allocator signature
@@ -250,15 +252,20 @@ export class BroadcastApiClient {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to broadcast message');
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to broadcast message: ${response.statusText}`);
       }
 
       return response.json();
     } catch (error) {
       if (error instanceof Error) {
-        throw error;
+        // Enhance error message with more context
+        const context = error.message.includes('signature') ? 
+          ' Please try again or check your wallet connection.' :
+          ' This may be due to network issues or the broadcast service being unavailable.';
+        throw new Error(error.message + context);
       }
-      throw new Error('Failed to broadcast message');
+      throw new Error('Failed to broadcast message. Please try again later.');
     }
   }
 }

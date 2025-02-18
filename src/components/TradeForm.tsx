@@ -201,6 +201,7 @@ export function TradeForm() {
   const [selectedOutputChain, setSelectedOutputChain] = useState<number>(130);
   const [isSigning, setIsSigning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [depositModalVisible, setDepositModalVisible] = useState(false);
   const [ethereumOutputModalVisible, setEthereumOutputModalVisible] = useState(false);
 
@@ -441,7 +442,13 @@ export function TradeForm() {
     } catch (error) {
       console.error('Error executing swap:', error);
       setStatusMessage('');
-      showToast('Failed to execute trade', 'error');
+      if (error instanceof Error && error.message.toLowerCase().includes('user rejected')) {
+        setErrorMessage('Swap confirmation rejected.');
+        showToast('Swap confirmation rejected.', 'error');
+      } else {
+        setErrorMessage(error instanceof Error ? error.message : 'Failed to execute trade');
+        showToast(error instanceof Error ? error.message : 'Failed to execute trade', 'error');
+      }
     } finally {
       setIsSigning(false);
     }
@@ -542,7 +549,7 @@ export function TradeForm() {
       }
     } catch (error) {
       if (error instanceof Error && error.message.toLowerCase().includes('user rejected')) {
-        showToast('Approval rejected by user', 'error');
+        showToast('Approval transaction rejected.', 'error');
       } else {
         showToast('Failed to approve token', 'error');
         console.error('Approval error:', error);
@@ -672,7 +679,14 @@ export function TradeForm() {
     } catch (error) {
       console.error('Error in deposit and swap:', error);
       setStatusMessage('');
-      showToast('Failed to deposit tokens', 'error');
+      if (error instanceof Error && error.message.toLowerCase().includes('user rejected')) {
+        setErrorMessage('Deposit & swap confirmation rejected.');
+        showToast('Deposit & swap confirmation rejected.', 'error');
+      } else {
+        const errorMsg = error instanceof Error ? error.message : 'Failed to deposit tokens';
+        setErrorMessage(errorMsg);
+        showToast(errorMsg, 'error');
+      }
       setIsDepositing(false);
       setIsWaitingForFinalization(false);
     }
@@ -968,14 +982,16 @@ export function TradeForm() {
           )}
         </div>
 
-        {error && (
+        {(error || errorMessage) && (
           <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-red-500">
             <div className="font-bold">Error</div>
-            <div>{error.message}</div>
+            <div>{error?.message || errorMessage}</div>
           </div>
         )}
 
-        {statusMessage && <div className="mt-4 text-center text-[#00ff00]">{statusMessage}</div>}
+        {statusMessage && !errorMessage && (
+          <div className="mt-4 text-center text-[#00ff00]">{statusMessage}</div>
+        )}
 
         <Modal
           title="Output Chain Unavailable"

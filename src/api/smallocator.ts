@@ -176,7 +176,7 @@ export class SmallocatorClient {
       // Handle network errors
       const message = error instanceof Error ? error.message : 'Network error';
       console.error('Request failed:', message);
-      throw new Error(message);
+      throw new Error(`Network error: ${message}. Please check your internet connection and try again.`);
     }
 
     // Now we know we have a response
@@ -186,14 +186,14 @@ export class SmallocatorClient {
     } catch (error) {
       // Response is not JSON
       if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+        throw new Error(`Request failed (${response.status}): The server returned an invalid response. Please try again later.`);
       }
       // For DELETE requests, empty response is OK
       if (method === 'DELETE' && response.ok) {
         return {} as T;
       }
       const message = error instanceof Error ? error.message : 'Invalid Response Format';
-      throw new Error(message);
+      throw new Error(`Invalid response format: ${message}. Please try again later.`);
     }
 
     console.log('Got response:', {
@@ -241,13 +241,13 @@ export class SmallocatorClient {
    */
   async submitCompact(request: CompactRequest): Promise<CompactResponse> {
     if (!isCompactRequest(request)) {
-      throw new Error('Invalid compact request format');
+      throw new Error('Invalid compact request format. This may be due to a version mismatch. Please ensure you are using the latest version.');
     }
 
     const response = await this.request<CompactResponse>('POST', '/compact', request);
 
     if (!isCompactResponse(response)) {
-      throw new Error('Invalid compact response format');
+      throw new Error('Invalid compact response format. The server response was not in the expected format. Please try again later.');
     }
 
     // Compact the signature if it's 65 bytes long
@@ -277,7 +277,7 @@ export class SmallocatorClient {
     }
 
     if (!this.sessionId) {
-      return { valid: false, error: 'No session found' };
+      return { valid: false, error: 'No active session found. Please sign in again to continue.' };
     }
 
     try {
