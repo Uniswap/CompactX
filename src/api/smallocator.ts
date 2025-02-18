@@ -68,6 +68,13 @@ export interface ErrorResponse {
   error: string;
 }
 
+export interface ResourceLockBalance {
+  allocatableBalance: string;
+  allocatedBalance: string;
+  balanceAvailableToAllocate: string;
+  withdrawalStatus: number;
+}
+
 // Type guard for CompactResponse
 export const isCompactResponse = (data: unknown): data is CompactResponse => {
   if (!data || typeof data !== 'object') return false;
@@ -272,17 +279,50 @@ export class SmallocatorClient {
     throw lastError || new Error('Unknown error occurred');
   }
 
-  async submitCompact(request: CompactRequest): Promise<CompactResponse> {
+  /**
+   * Get the balance for a specific resource lock
+   * @param chainId - The chain ID
+   * @param lockId - The resource lock ID
+   */
+  async getResourceLockBalance(chainId: string | number, lockId: string): Promise<ResourceLockBalance> {
+    return this.request<ResourceLockBalance>('GET', `/balance/${chainId}/${lockId}`);
+  }
+
+  async submitCompact(
+    request: CompactRequest,
+    options: { isDepositAndSwap?: boolean } = {}
+  ): Promise<CompactResponse> {
     if (!isCompactRequest(request)) {
       throw new Error(
         'Invalid compact request format. This may be due to a version mismatch. Please ensure you are using the latest version.'
       );
     }
 
-    // Check if this is a Deposit & Swap operation
-    const isDepositAndSwap = request.compact.witnessTypeString.includes('DepositAndSwap');
+    // Use the compact.id as the resource lock ID
+    const lockId = request.compact.id;
+    
+    // Get current balance
+    const balance = await this.getResourceLockBalance(request.chainId, lockId);
+    
+    // Check if there's enough available balance
+    const requiredAmount = BigInt(request.compact.amount);
+    const availableBalance = BigInt(balance.balanceAvailableToAllocate);
+    
+    // Always log the balance check results
+    console.log('Balance check:', {
+      required: requiredAmount.toString(),
+      available: availableBalance.toString(),
+      isDepositAndSwap: options.isDepositAndSwap,
+      witnessTypeString: request.compact.witnessTypeString
+    });
+    
+    if (availableBalance < requiredAmount) {
+      const error = `Insufficient balance available to allocate. Required: ${requiredAmount.toString()}, Available: ${availableBalance.toString()}`;
+      console.error(error);
+      throw new Error(error);
+    }
 
-    if (isDepositAndSwap) {
+    if (options.isDepositAndSwap) {
       // Use retry logic for Deposit & Swap operations
       return this.submitCompactWithRetry(request);
     } else {

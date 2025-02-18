@@ -100,18 +100,57 @@ describe('SmallocatorClient', () => {
     );
   });
 
-  it('should submit compact without retries for non-Deposit & Swap operations', async () => {
+  it('should get resource lock balance', async () => {
+    const mockBalance = {
+      allocatableBalance: '2000000000000000000',
+      allocatedBalance: '500000000000000000',
+      balanceAvailableToAllocate: '1500000000000000000',
+      withdrawalStatus: 0,
+    };
+
+    // Mock successful response
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockBalance,
+    });
+
+    const response = await client.getResourceLockBalance('1', '0x1234');
+    expect(response).toEqual(mockBalance);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://smallocator.xyz/balance/1/0x1234',
+      expect.objectContaining({
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    );
+  });
+
+  it('should submit compact without retries for non-Deposit & Swap operations when balance is sufficient', async () => {
+    const mockBalance = {
+      allocatableBalance: '2000000000000000000',
+      allocatedBalance: '500000000000000000',
+      balanceAvailableToAllocate: '1500000000000000000',
+      withdrawalStatus: 0,
+    };
+
     const mockResponse = {
       hash: ('0x' + '00'.repeat(32)) as `0x${string}`,
       signature: ('0x' + '00'.repeat(65)) as `0x${string}`,
       nonce: ('0x' + '00'.repeat(32)) as `0x${string}`,
     };
 
-    // Mock successful response
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockResponse,
-    });
+    // Mock successful balance check then successful compact submission
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockBalance,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
 
     // Set session ID to test header inclusion
     const mockAddress = '0x1234567890123456789012345678901234567890';
@@ -122,7 +161,26 @@ describe('SmallocatorClient', () => {
 
     const response = await client.submitCompact(mockCompactRequest);
     expect(response).toEqual(mockResponse);
-    expect(global.fetch).toHaveBeenCalledWith(
+    
+    // Verify both API calls were made correctly
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    
+    // Verify balance check
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      `https://smallocator.xyz/balance/1/${mockCompactRequest.compact.id}`,
+      expect.objectContaining({
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': 'unique_session_id',
+        },
+      })
+    );
+    
+    // Verify compact submission
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
       'https://smallocator.xyz/compact',
       expect.objectContaining({
         method: 'POST',
@@ -131,6 +189,48 @@ describe('SmallocatorClient', () => {
           'x-session-id': 'unique_session_id',
         },
         body: JSON.stringify(mockCompactRequest),
+      })
+    );
+  });
+
+  it('should fail to submit compact when balance is insufficient', async () => {
+    const mockBalance = {
+      allocatableBalance: '1000000000000000000',
+      allocatedBalance: '500000000000000000',
+      balanceAvailableToAllocate: '500000000000000000',
+      withdrawalStatus: 0,
+    };
+
+    // Create a request with amount higher than available balance
+    const highAmountRequest: CompactRequest = {
+      ...mockCompactRequest,
+      compact: {
+        ...mockCompactRequest.compact,
+        amount: '900000000000000000', // Higher than balanceAvailableToAllocate
+      },
+    };
+
+    // Mock successful balance check
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockBalance,
+    });
+
+    // Expect the operation to fail due to insufficient balance
+    await expect(client.submitCompact(highAmountRequest)).rejects.toThrow(
+      'Insufficient balance available to allocate. Required: 900000000000000000, Available: 500000000000000000'
+    );
+
+    // Verify only the balance check was made
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      `https://smallocator.xyz/balance/1/${highAmountRequest.compact.id}`,
+      expect.objectContaining({
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': null,
+        },
       })
     );
   });
@@ -155,9 +255,20 @@ describe('SmallocatorClient', () => {
       },
     };
 
-    // Mock fetch to fail 4 times then succeed
+    const mockBalance = {
+      allocatableBalance: '200000000000000000000',
+      allocatedBalance: '50000000000000000000',
+      balanceAvailableToAllocate: '150000000000000000000',
+      withdrawalStatus: 0,
+    };
+
+    // Mock fetch to return balance first, then fail 4 times, then succeed with compact
     const mockFetch = vi
       .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockBalance,
+      })
       .mockRejectedValueOnce(new Error('Network error'))
       .mockRejectedValueOnce(new Error('Network error'))
       .mockRejectedValueOnce(new Error('Network error'))
@@ -200,13 +311,33 @@ describe('SmallocatorClient', () => {
       },
     };
 
-    // Mock fetch to always fail with network error
-    const mockFetch = vi.fn().mockRejectedValue(new Error('Network error'));
+    const mockBalance = {
+      allocatableBalance: '200000000000000000000',
+      allocatedBalance: '50000000000000000000',
+      balanceAvailableToAllocate: '150000000000000000000',
+      withdrawalStatus: 0,
+    };
+
+    // Mock fetch to return balance first, then always fail with network error
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockBalance,
+      })
+      .mockRejectedValue(new Error('Network error'));
     global.fetch = mockFetch;
 
     // Start the operation and handle all rejections
     const promise = client.submitCompact(depositSwapRequest).catch(error => {
       expect(error.message).toBe('Network error');
+      // Verify that the balance check was logged
+      expect(console.log).toHaveBeenCalledWith('Balance check:', {
+        required: depositSwapRequest.compact.amount,
+        available: mockBalance.balanceAvailableToAllocate,
+        isDepositAndSwap: true,
+        witnessTypeString: depositSwapRequest.compact.witnessTypeString
+      });
     });
 
     // Advance time and run all pending promises for each retry

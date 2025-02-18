@@ -1,6 +1,7 @@
-import { useAccount, useBalance, useReadContract } from 'wagmi';
+import { useAccount, useBalance, useReadContract, useChainId } from 'wagmi';
 import { Address, erc20Abi } from 'viem';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
+import { smallocator } from '../api/smallocator';
 
 // The Compact contract address
 const COMPACT_ADDRESS = '0x00000000000018DF021Ff2467dF97ff846E09f48';
@@ -25,6 +26,7 @@ export function useTokenBalanceCheck(
   compactId: bigint | undefined
 ) {
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
 
   // Memoize contract read arguments to prevent unnecessary updates
   const lockedBalanceArgs = useMemo(() => {
@@ -66,8 +68,26 @@ export function useTokenBalanceCheck(
     [tokenAddress, ethBalance?.value, erc20Balance]
   );
 
+  const [smallocatorBalance, setSmalllocatorBalance] = useState<bigint>();
+
+  useEffect(() => {
+    async function fetchSmalllocatorBalance() {
+      if (!isConnected || !compactId || !chainId) return;
+      
+      try {
+        const balance = await smallocator.getResourceLockBalance(chainId.toString(), compactId.toString());
+        setSmalllocatorBalance(BigInt(balance.balanceAvailableToAllocate));
+      } catch (error) {
+        console.error('Error fetching smallocator balance:', error);
+      }
+    }
+
+    fetchSmalllocatorBalance();
+  }, [isConnected, compactId, chainId]);
+
   return {
-    lockedBalance: isConnected ? lockedBalance : undefined,
+    lockedBalance: isConnected ? smallocatorBalance : undefined,
+    lockedIncludingAllocated: isConnected ? lockedBalance : undefined,
     unlockedBalance: isConnected ? unlockedBalance : undefined,
     error: Boolean(lockedError || erc20Error),
   };

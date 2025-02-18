@@ -220,7 +220,7 @@ export function TradeForm() {
   }, [isConnected, selectedInputToken?.address, formValues.resetPeriod, formValues.isMultichain]);
 
   const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams);
-  const { lockedBalance, unlockedBalance } = useTokenBalanceCheck(
+  const { lockedBalance, lockedIncludingAllocated, unlockedBalance } = useTokenBalanceCheck(
     selectedInputToken?.address as `0x${string}` | undefined,
     lockId
   );
@@ -261,12 +261,19 @@ export function TradeForm() {
     const locked = lockedBalance || 0n;
     const total = unlocked + locked;
 
-    const lockedFormatted = formatTokenAmount(locked, token.decimals);
+    const lockedFormatted = formatTokenAmount(lockedBalance || 0n, token.decimals);
     const totalFormatted = formatTokenAmount(total, token.decimals);
+    const lockedIncludingAllocatedFormatted = formatTokenAmount(lockedIncludingAllocated || 0n, token.decimals);
 
     return (
       <div className="mt-2 text-sm">
         <span className="text-gray-400">{lockedFormatted}</span>
+        {lockedBalance !== lockedIncludingAllocated && (
+          <>
+            <span className="text-gray-400">/</span>
+            <span className="text-yellow-500">{lockedIncludingAllocatedFormatted}</span>
+          </>
+        )}
         <span className="text-gray-400"> / </span>
         <span className="text-green-400">
           {totalFormatted} {token.symbol}
@@ -472,7 +479,7 @@ export function TradeForm() {
         };
 
         console.log('Making request to smallocator...');
-        const { signature, nonce: newNonce } = await smallocator.submitCompact(smallocatorRequest);
+        const { signature, nonce: newNonce } = await smallocator.submitCompact(smallocatorRequest, { isDepositAndSwap: false });
         smallocatorSignature = signature;
         nonce = newNonce;
       }
@@ -662,7 +669,7 @@ export function TradeForm() {
   }, [chainInfo, chainId]);
 
   // Handle deposit and swap
-  const handleDepositAndSwap = async () => {
+  const handleDepositAndSwap = async (options: { isDepositAndSwap?: boolean } = {}) => {
     if (
       !quote?.data ||
       !quote.context ||
@@ -838,7 +845,7 @@ export function TradeForm() {
                   };
 
                   console.log('Making request to smallocator with stored nonce:', smallocatorRequest);
-                  const { signature } = await smallocator.submitCompact(smallocatorRequest);
+                  const { signature } = await smallocator.submitCompact(smallocatorRequest, { isDepositAndSwap: true });
 
                   // Proceed with broadcast using the signature and stored nonce
                   const broadcastPayload: CompactRequestPayload = {
@@ -898,7 +905,7 @@ export function TradeForm() {
             };
 
             // Start the retry process
-            await retryWithBackoff();
+            await handleSwap({ skipSignature: true, isDepositAndSwap: true });
           }
         } catch (error) {
           console.error('Error polling for finalization:', error);
@@ -1330,7 +1337,7 @@ export function TradeForm() {
                   return; // Do nothing, button will be disabled
                 } else if (lockedBalance < inputAmount) {
                   // Instead of showing the deposit modal, initiate deposit and swap
-                  handleDepositAndSwap();
+                  handleDepositAndSwap({ isDepositAndSwap: true });
                   return;
                 }
               }
