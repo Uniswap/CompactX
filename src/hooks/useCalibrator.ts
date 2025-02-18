@@ -95,9 +95,28 @@ export function useCalibrator() {
 
   const useQuote = (params: GetQuoteParams | undefined) => {
     return useQuery({
-      queryKey: ['quote', params],
+      queryKey: [
+        'quote',
+        params?.inputTokenChainId,
+        params?.inputTokenAddress,
+        params?.inputTokenAmount,
+        params?.outputTokenChainId,
+        params?.outputTokenAddress,
+        params?.slippageBips,
+        params?.allocatorId,
+        params?.resetPeriod,
+        params?.isMultichain,
+        params?.sponsor,
+        params?.baselinePriorityFee,
+        // Round down to nearest 10 seconds to refresh quote periodically
+        Math.floor(Date.now() / 10000) * 10000,
+      ],
       queryFn: () => getQuote(params!),
       enabled: !!params,
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+      staleTime: 10000, // Consider data stale after 10 seconds
+      refetchInterval: 10000, // Refetch every 10 seconds
+      retry: 3, // Retry failed requests 3 times
     });
   };
 

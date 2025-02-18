@@ -286,6 +286,7 @@ export function TradeForm() {
   // Initialize with Unichain as default output chain
   const [selectedOutputChain, setSelectedOutputChain] = useState<number>(130);
   const [isSigning, setIsSigning] = useState(false);
+  const [isExecutingSwap, setIsExecutingSwap] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [depositModalVisible, setDepositModalVisible] = useState(false);
@@ -306,27 +307,48 @@ export function TradeForm() {
     return mapping[resetPeriod];
   };
 
-  // Update quote parameters when inputs change
+  // Update quote parameters when inputs change, but not during swap execution
   useEffect(() => {
+    if (isExecutingSwap) {
+      console.log('Skipping quote update during swap execution');
+      return;
+    }
+
+    console.log('Quote params check:', {
+      selectedInputToken,
+      selectedOutputToken,
+      inputAmount: formValues.inputAmount,
+      selectedOutputChain,
+      currentQuoteParams: quoteParams
+    });
+
     if (!selectedInputToken?.address || !selectedOutputToken?.address || !formValues.inputAmount) {
+      console.log('Missing required params, clearing quote');
       setQuoteParams(undefined);
       return;
     }
 
     // Ensure we have valid chain IDs
     const inputChainId = selectedInputToken.chainId;
-    const outputChainId = selectedOutputToken.chainId;
 
-    if (typeof inputChainId !== 'number' || typeof outputChainId !== 'number') {
-      // Return undefined if chain IDs are invalid
+    if (typeof inputChainId !== 'number' || typeof selectedOutputChain !== 'number') {
+      console.log('Invalid chain IDs, clearing quote');
+      setQuoteParams(undefined);
       return;
     }
+
+    console.log('Creating quote params with chains:', {
+      inputChainId,
+      selectedOutputChain,
+      selectedInputToken,
+      selectedOutputToken
+    });
 
     const newParams: GetQuoteParams = {
       inputTokenChainId: inputChainId,
       inputTokenAddress: selectedInputToken.address,
       inputTokenAmount: parseUnits(formValues.inputAmount, selectedInputToken.decimals).toString(),
-      outputTokenChainId: outputChainId,
+      outputTokenChainId: selectedOutputChain,
       outputTokenAddress: selectedOutputToken.address,
       slippageBips: Math.round(Number(formValues.slippageTolerance || 0.5) * 100),
       allocatorId: '1223867955028248789127899354',
@@ -343,6 +365,7 @@ export function TradeForm() {
     isConnected,
     selectedInputToken,
     selectedOutputToken,
+    selectedOutputChain,
     formValues.inputAmount,
     formValues.slippageTolerance,
     formValues.resetPeriod,
@@ -357,23 +380,30 @@ export function TradeForm() {
       setFormValues(prev => {
         const newValues = { ...prev, [field]: value };
 
-        // Update selected tokens if token fields change
-        if (field === 'inputToken') {
-          const newInputToken = inputTokens.find(token => token.address === value);
-          if (newInputToken !== selectedInputToken) {
-            setSelectedInputToken(newInputToken);
-          }
-        } else if (field === 'outputToken') {
-          const newOutputToken = outputTokens.find(token => token.address === value);
-          if (newOutputToken !== selectedOutputToken) {
-            setSelectedOutputToken(newOutputToken);
-          }
+      // Update selected tokens if token fields change
+      if (field === 'inputToken') {
+        const newInputToken = inputTokens.find(token => token.address === value);
+        if (newInputToken !== selectedInputToken) {
+          setSelectedInputToken(newInputToken);
+          // Force quote params update when input token changes
+          setQuoteParams(undefined);
         }
+      } else if (field === 'outputToken') {
+        const newOutputToken = outputTokens.find(token => 
+          token.address === value && token.chainId === selectedOutputChain
+        );
+        if (newOutputToken !== selectedOutputToken) {
+          setSelectedOutputToken(newOutputToken);
+        }
+      } else if (field === 'inputAmount') {
+        // Force quote params update when input amount changes
+        setQuoteParams(undefined);
+      }
 
-        return newValues;
+      return newValues;
       });
     },
-    [inputTokens, outputTokens, selectedInputToken, selectedOutputToken]
+    [inputTokens, outputTokens, selectedInputToken, selectedOutputToken, selectedOutputChain, formValues.inputAmount]
   );
 
   // Handle chain changes and conflicts
@@ -390,19 +420,20 @@ export function TradeForm() {
     }
   }, [chainId, isConnected, selectedOutputChain]);
 
-  // Refresh quote when wallet connects
+  // Refresh quote when wallet connects or amount changes
   useEffect(() => {
-    if (isConnected && formValues.inputAmount) {
-      // Force quote params update when wallet connects
+    if (formValues.inputAmount && (isConnected || selectedInputToken)) {
+      // Force quote params update when amount changes or wallet connects
       setQuoteParams(undefined);
     }
-  }, [isConnected, formValues.inputAmount]);
+  }, [isConnected, formValues.inputAmount, selectedInputToken]);
 
   // Handle the actual swap after quote is received
   const handleSwap = async (options: { skipSignature?: boolean; isDepositAndSwap?: boolean } = {}) => {
     const { skipSignature = false, isDepositAndSwap = false } = options;
     try {
       setIsSigning(true);
+      setIsExecutingSwap(true);
       console.log(isDepositAndSwap ? 'Executing Deposit & Swap...' : 'Executing standard swap...');
       setStatusMessage('Requesting allocation...');
 
@@ -548,6 +579,9 @@ export function TradeForm() {
       }
     } finally {
       setIsSigning(false);
+      if (!isDepositAndSwap) {
+        setIsExecutingSwap(false);
+      }
     }
   };
 
@@ -670,6 +704,7 @@ export function TradeForm() {
 
   // Handle deposit and swap
   const handleDepositAndSwap = async (options: { isDepositAndSwap?: boolean } = {}) => {
+    setIsExecutingSwap(true);
     if (
       !quote?.data ||
       !quote.context ||
@@ -687,7 +722,7 @@ export function TradeForm() {
 
       // Get suggested nonce first
       setStatusMessage('Getting suggested nonce...');
-      const suggestedNonce = await smallocator.getSuggestedNonce(chainId);
+      const suggestedNonce = await smallocator.getSuggestedNonce(chainId.toString());
       console.log('Got suggested nonce:', suggestedNonce);
 
       // Calculate deposit parameters
@@ -830,8 +865,8 @@ export function TradeForm() {
 
                   // Use the stored nonce when making the smallocator request
                   const smallocatorRequest = {
-                    chainId: chainId.toString(),
-                    compact: {
+          chainId: quote.data.mandate.chainId.toString(),
+          compact: {
                       arbiter: quote.data.arbiter,
                       sponsor: quote.data.sponsor,
                       nonce: finalNonce,
@@ -936,6 +971,7 @@ export function TradeForm() {
       }
       setIsDepositing(false);
       setIsWaitingForFinalization(false);
+      setIsExecutingSwap(false);
     }
   };
 
@@ -1152,6 +1188,7 @@ export function TradeForm() {
                 onChange={value => {
                   const newChainId = Number(value);
                   if (newChainId !== selectedOutputChain) {
+                    console.log('Output chain changing to:', newChainId);
                     setSelectedOutputChain(newChainId);
                     setSelectedOutputToken(undefined);
                     // Clear quote parameters when output chain changes
@@ -1185,7 +1222,13 @@ export function TradeForm() {
               />
               <Select
                 value={formValues.outputToken}
-                onChange={value => handleValuesChange('outputToken', value.toString())}
+                onChange={value => {
+                  console.log('Output token changing to:', {
+                    value,
+                    token: outputTokens.find(t => t.address === value)
+                  });
+                  handleValuesChange('outputToken', value.toString());
+                }}
                 placeholder="Token"
                 disabled={!selectedOutputChain}
                 options={outputTokens
