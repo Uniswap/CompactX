@@ -178,7 +178,9 @@ export class SmallocatorClient {
     } catch (error) {
       // Response is not JSON
       if (!response.ok) {
-        throw new Error(`Request failed (${response.status}): The server returned an invalid response. Please try again later.`);
+        throw new Error(
+          `Request failed (${response.status}): The server returned an invalid response. Please try again later.`
+        );
       }
       // For DELETE requests, empty response is OK
       if (method === 'DELETE' && response.ok) {
@@ -234,27 +236,75 @@ export class SmallocatorClient {
    * Submit a compact message for signing by Smallocator
    * @param request - The compact message request
    */
+  private async submitCompactWithRetry(
+    request: CompactRequest,
+    maxRetries: number = 5
+  ): Promise<CompactResponse> {
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await this.request<CompactResponse>('POST', '/compact', request);
+        if (!isCompactResponse(response)) {
+          throw new Error(
+            'Invalid compact response format. The server response was not in the expected format. Please try again later.'
+          );
+        }
+
+        // Compact the signature if it's 65 bytes long
+        if (response.signature.length === 132) {
+          const r = response.signature.slice(0, 66);
+          const s = '0x' + response.signature.slice(66, 130);
+          const v = parseInt(response.signature.slice(130, 132), 16);
+          const compact = signatureToCompactSignature({ r, s, yParity: v - 27 });
+          response.signature = compact.r + compact.yParityAndS.slice(2);
+        }
+
+        return response;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error occurred');
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+        // Wait for 1 second before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    throw lastError || new Error('Unknown error occurred');
+  }
+
   async submitCompact(request: CompactRequest): Promise<CompactResponse> {
     if (!isCompactRequest(request)) {
-      throw new Error('Invalid compact request format. This may be due to a version mismatch. Please ensure you are using the latest version.');
+      throw new Error(
+        'Invalid compact request format. This may be due to a version mismatch. Please ensure you are using the latest version.'
+      );
     }
 
-    const response = await this.request<CompactResponse>('POST', '/compact', request);
+    // Check if this is a Deposit & Swap operation
+    const isDepositAndSwap = request.compact.witnessTypeString.includes('DepositAndSwap');
 
-    if (!isCompactResponse(response)) {
-      throw new Error('Invalid compact response format. The server response was not in the expected format. Please try again later.');
+    if (isDepositAndSwap) {
+      // Use retry logic for Deposit & Swap operations
+      return this.submitCompactWithRetry(request);
+    } else {
+      // For other operations, just make a single attempt
+      const response = await this.request<CompactResponse>('POST', '/compact', request);
+      if (!isCompactResponse(response)) {
+        throw new Error(
+          'Invalid compact response format. The server response was not in the expected format. Please try again later.'
+        );
+      }
+
+      // Compact the signature if it's 65 bytes long
+      if (response.signature.length === 132) {
+        const r = response.signature.slice(0, 66);
+        const s = '0x' + response.signature.slice(66, 130);
+        const v = parseInt(response.signature.slice(130, 132), 16);
+        const compact = signatureToCompactSignature({ r, s, yParity: v - 27 });
+        response.signature = compact.r + compact.yParityAndS.slice(2);
+      }
+
+      return response;
     }
-
-    // Compact the signature if it's 65 bytes long
-    if (response.signature.length === 132) {
-      const r = response.signature.slice(0, 66);
-      const s = '0x' + response.signature.slice(66, 130);
-      const v = parseInt(response.signature.slice(130, 132), 16);
-      const compact = signatureToCompactSignature({ r, s, yParity: v - 27 });
-      response.signature = compact.r + compact.yParityAndS.slice(2);
-    }
-
-    return response;
   }
 
   /**
@@ -289,9 +339,9 @@ export class SmallocatorClient {
       // Clear session if it's invalid or expired
       if (
         error instanceof Error &&
-        (error.message.includes('Invalid session') || 
-         error.message.includes('expired') ||
-         error.message.includes('Session address mismatch'))
+        (error.message.includes('Invalid session') ||
+          error.message.includes('expired') ||
+          error.message.includes('Session address mismatch'))
       ) {
         if (address) {
           this.removeSessionForAddress(address);

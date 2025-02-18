@@ -213,7 +213,10 @@ describe('Authentication Flow', () => {
     it('should return invalid for missing session', async () => {
       client.setTestSessionId(null);
       const response = await client.verifySession();
-      expect(response).toEqual({ valid: false, error: 'No session found' });
+      expect(response).toEqual({
+        valid: false,
+        error: 'No active session found. Please sign in again to continue.',
+      });
       expect(global.fetch).not.toHaveBeenCalled();
     });
   });

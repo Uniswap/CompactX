@@ -219,6 +219,8 @@ describe('BroadcastApiClient', () => {
       json: async () => ({ error: 'Failed to broadcast' }),
     });
 
-    await expect(client.broadcast(mockRequest)).rejects.toThrow('Failed to broadcast message');
+    await expect(client.broadcast(mockRequest)).rejects.toThrow(
+      'Failed to broadcast This may be due to network issues or the broadcast service being unavailable.'
+    );
   });
 });
