@@ -309,6 +309,20 @@ export function TradeForm() {
     return mapping[resetPeriod];
   };
 
+  // Update timestamp in quote params every 5 seconds unless executing swap
+  useEffect(() => {
+    if (isExecutingSwap || !quoteParams) return;
+    
+    const interval = setInterval(() => {
+      setQuoteParams(prev => ({
+        ...prev!,
+        timestamp: Math.floor(Date.now() / 15000) * 15000,
+      }));
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [isExecutingSwap, quoteParams]);
+
   // Update quote parameters when inputs change, but not during swap execution
   useEffect(() => {
     console.log('\n=== Quote Parameters Effect Triggered ===');
@@ -366,6 +380,7 @@ export function TradeForm() {
       baselinePriorityFee: formValues.baselinePriorityFee
         ? parseUnits(formValues.baselinePriorityFee.toString(), 9).toString()
         : '0',
+      timestamp: Math.floor(Date.now() / 5000) * 5000,
     };
     console.log('Setting new quote params:', newParams);
     setQuoteParams(newParams);

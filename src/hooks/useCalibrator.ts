@@ -98,6 +98,10 @@ export function useCalibrator() {
     console.log('Received params:', params);
     console.log('Is executing swap:', isExecutingSwap);
     
+    // Use timestamp from params if executing swap, otherwise calculate new one
+    const timestamp = isExecutingSwap ? (params?.timestamp || Math.floor(Date.now() / 5000) * 5000) : Math.floor(Date.now() / 5000) * 5000;
+    console.log('Using timestamp:', timestamp);
+    
     const queryKey = [
       'quote',
       params?.inputTokenChainId,
@@ -112,7 +116,7 @@ export function useCalibrator() {
       params?.sponsor,
       params?.baselinePriorityFee,
       quoteVersion,
-      Math.floor(Date.now() / 5000) * 5000,
+      timestamp,
     ];
     
     console.log('Query key:', queryKey);
@@ -125,10 +129,10 @@ export function useCalibrator() {
         console.log('Getting quote with params:', params);
         return getQuote(params!);
       },
-      enabled: !!params && !isExecutingSwap,
+      enabled: !!params,
       refetchOnWindowFocus: false,
       staleTime: 10000,
-      refetchInterval: 10000,
+      refetchInterval: isExecutingSwap ? false : 10000,
       retry: 3,
     });
 

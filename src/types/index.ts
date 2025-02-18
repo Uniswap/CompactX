@@ -87,4 +87,5 @@ export interface GetQuoteParams {
   sponsor: string;
   recipient?: string;
   baselinePriorityFee?: string;
+  timestamp?: number;
 }
