@@ -221,7 +221,8 @@ export function TradeForm() {
     }
   }, [isConnected, selectedInputToken?.address, formValues.resetPeriod, formValues.isMultichain]);
 
-  const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams, quoteVersion);
+  const [isExecutingSwap, setIsExecutingSwap] = useState(false);
+  const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams, quoteVersion, isExecutingSwap);
   const { lockedBalance, lockedIncludingAllocated, unlockedBalance } = useTokenBalanceCheck(
     selectedInputToken?.address as `0x${string}` | undefined,
     lockId
@@ -288,7 +289,6 @@ export function TradeForm() {
   // Initialize with Unichain as default output chain
   const [selectedOutputChain, setSelectedOutputChain] = useState<number>(130);
   const [isSigning, setIsSigning] = useState(false);
-  const [isExecutingSwap, setIsExecutingSwap] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [depositModalVisible, setDepositModalVisible] = useState(false);

@@ -93,9 +93,10 @@ export function useCalibrator() {
     return data;
   };
 
-  const useQuote = (params: GetQuoteParams | undefined, quoteVersion: number) => {
+  const useQuote = (params: GetQuoteParams | undefined, quoteVersion: number, isExecutingSwap: boolean = false) => {
     console.log('\n=== useQuote Hook Called ===');
     console.log('Received params:', params);
+    console.log('Is executing swap:', isExecutingSwap);
     
     const queryKey = [
       'quote',
@@ -111,7 +112,7 @@ export function useCalibrator() {
       params?.sponsor,
       params?.baselinePriorityFee,
       quoteVersion,
-      Math.floor(Date.now() / 10000) * 10000,
+      Math.floor(Date.now() / 5000) * 5000,
     ];
     
     console.log('Query key:', queryKey);
@@ -124,7 +125,7 @@ export function useCalibrator() {
         console.log('Getting quote with params:', params);
         return getQuote(params!);
       },
-      enabled: !!params,
+      enabled: !!params && !isExecutingSwap,
       refetchOnWindowFocus: false,
       staleTime: 10000,
       refetchInterval: 10000,
