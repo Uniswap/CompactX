@@ -150,7 +150,7 @@ export function TradeForm() {
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const [quoteParams, setQuoteParams] = useState<GetQuoteParams>();
-  const [quoteVersion, setQuoteVersion] = useState(0);
+  const [quoteVersion] = useState(0);
   const [selectedInputChain, setSelectedInputChain] = useState<number>(chainId || 1);
   const [selectedInputAmount, setSelectedInputAmount] = useState<string>('');
 
@@ -746,7 +746,7 @@ export function TradeForm() {
   }, [chainInfo, chainId]);
 
   // Handle deposit and swap
-  const handleDepositAndSwap = async (options: { isDepositAndSwap?: boolean } = {}) => {
+  const handleDepositAndSwap = async () => {
     setIsExecutingSwap(true);
     if (
       !quote?.data ||
@@ -866,7 +866,7 @@ export function TradeForm() {
             setIsWaitingForFinalization(false);
             console.log('Deposit finalized, starting Deposit & Swap with exponential backoff...');
             // Helper function for exponential backoff retries
-            const retryWithBackoff = async () => {
+            async () => {
               const delays = [0, 1000, 2000, 4000, 8000]; // Initial + 4 retries with exponential backoff
 
               for (let attempt = 0; attempt < delays.length; attempt++) {
@@ -1423,7 +1423,7 @@ export function TradeForm() {
                   return; // Do nothing, button will be disabled
                 } else if (lockedBalance < inputAmount) {
                   // Instead of showing the deposit modal, initiate deposit and swap
-                  handleDepositAndSwap({ isDepositAndSwap: true });
+                  handleDepositAndSwap();
                   return;
                 }
               }

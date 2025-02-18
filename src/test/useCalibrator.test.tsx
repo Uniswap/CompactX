@@ -143,7 +143,7 @@ describe('useCalibrator', () => {
       sponsor: '0x1234567890123456789012345678901234567890',
     };
 
-    const { result } = renderHook(() => useCalibrator().useQuote(quoteParams), {
+    const { result } = renderHook(() => useCalibrator().useQuote(quoteParams, 0), {
       wrapper: createWrapper(),
     });
 
@@ -254,7 +254,7 @@ describe('useCalibrator', () => {
       sponsor: '0x1234567890123456789012345678901234567890',
     };
 
-    const { result } = renderHook(() => useCalibrator().useQuote(quoteParams), {
+    const { result } = renderHook(() => useCalibrator().useQuote(quoteParams, 0), {
       wrapper: createWrapper(),
     });
 
@@ -284,7 +284,7 @@ describe('useCalibrator', () => {
       sponsor: '0x1234567890123456789012345678901234567890',
     };
 
-    const { result } = renderHook(() => useCalibrator().useQuote(quoteParams), {
+    const { result } = renderHook(() => useCalibrator().useQuote(quoteParams, 0), {
       wrapper: createWrapper(),
     });
 
