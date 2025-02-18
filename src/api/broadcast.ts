@@ -211,7 +211,7 @@ export class BroadcastApiClient {
       case '8453':
         chainPrefix = CHAIN_PREFIXES.base;
         break;
-      case '1337':
+      case '130':
         chainPrefix = CHAIN_PREFIXES.unichain;
         break;
       default:
