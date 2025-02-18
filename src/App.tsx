@@ -4,7 +4,7 @@ import { config, RainbowKitProvider, darkTheme } from './config/wallet';
 import { Layout } from './components/Layout';
 import { TradeForm } from './components/TradeForm';
 import { AuthProvider } from './contexts/AuthContext';
-import { HealthProvider } from './contexts/HealthContext';
+import { HealthProvider } from './contexts/HealthContext.tsx';
 
 // Create a client for React Query
 const queryClient = new QueryClient();

@@ -7,7 +7,7 @@ import { TooltipIcon } from './TooltipIcon';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { ConnectButton } from '../config/wallet';
-import { parseUnits, type Hex } from 'viem';
+import { parseUnits, type Hex, encodeAbiParameters, keccak256, toBytes } from 'viem';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
@@ -22,6 +22,85 @@ import { erc20Abi } from 'viem';
 import { usePublicClient, useReadContract, useWriteContract } from 'wagmi';
 import { useHealthCheck } from '../hooks/useHealthCheck';
 import { smallocator } from '../api/smallocator';
+
+// Helper functions for deriving claim hash
+const deriveMandateHash = (mandate: Mandate): `0x${string}` => {
+  const MANDATE_TYPE_STRING =
+    'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
+  const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING));
+  const encodedParameters = encodeAbiParameters(
+    [
+      'bytes32',
+      'uint256',
+      'address',
+      'address',
+      'uint256',
+      'address',
+      'uint256',
+      'uint256',
+      'uint256',
+      'bytes32',
+    ].map(type => ({ type })),
+    [
+      MANDATE_TYPEHASH,
+      BigInt(mandate.chainId),
+      mandate.tribunal as `0x${string}`,
+      mandate.recipient as `0x${string}`,
+      BigInt(parseInt(mandate.expires)),
+      mandate.token as `0x${string}`,
+      BigInt(mandate.minimumAmount),
+      BigInt(mandate.baselinePriorityFee),
+      BigInt(mandate.scalingFactor),
+      mandate.salt as `0x${string}`,
+    ]
+  );
+
+  return keccak256(encodedParameters);
+};
+
+const deriveClaimHash = (
+  arbiter: string,
+  sponsor: string,
+  nonce: string,
+  expiration: string,
+  id: string,
+  amount: string,
+  mandate: Mandate
+): `0x${string}` => {
+  // First derive the mandate hash
+  const mandateHash = deriveMandateHash(mandate);
+
+  // Calculate the COMPACT_TYPEHASH
+  const COMPACT_TYPE_STRING =
+    'Compact(address arbiter,address sponsor,uint256 nonce,uint256 expires,uint256 id,uint256 amount,Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
+  const COMPACT_TYPEHASH = keccak256(toBytes(COMPACT_TYPE_STRING));
+
+  // Encode all parameters including the derived mandate hash
+  const encodedParameters = encodeAbiParameters(
+    [
+      { type: 'bytes32' }, // COMPACT_TYPEHASH
+      { type: 'address' }, // arbiter
+      { type: 'address' }, // sponsor
+      { type: 'uint256' }, // nonce
+      { type: 'uint256' }, // expires
+      { type: 'uint256' }, // id
+      { type: 'uint256' }, // amount
+      { type: 'bytes32' }, // mandateHash
+    ],
+    [
+      COMPACT_TYPEHASH,
+      arbiter as `0x${string}`,
+      sponsor as `0x${string}`,
+      BigInt(nonce),
+      BigInt(expiration),
+      BigInt(id),
+      BigInt(amount),
+      mandateHash,
+    ]
+  );
+
+  return keccak256(encodedParameters);
+};
 
 // Max uint256 value for infinite approval
 const MAX_UINT256 = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const;
@@ -310,7 +389,7 @@ export function TradeForm() {
       // Force quote params update when wallet connects
       setQuoteParams(undefined);
     }
-  }, [isConnected]);
+  }, [isConnected, formValues.inputAmount]);
 
   // Handle the actual swap after quote is received
   const handleSwap = async (options: { skipSignature?: boolean; isDepositAndSwap?: boolean } = {}) => {
@@ -614,10 +693,26 @@ export function TradeForm() {
       // Calculate the shortfall - this is what we need to deposit
       const shortfallAmount = inputAmount - (lockedBalance || 0n);
 
+      // Calculate the proper claim hash
+      const claimHash = deriveClaimHash(
+        quote.data.arbiter,
+        quote.data.sponsor,
+        suggestedNonce,
+        quote.data.expires,
+        quote.data.id,
+        quote.data.amount,
+        {
+          ...quote.data.mandate,
+          salt: quote.data.mandate.salt.startsWith('0x')
+            ? (quote.data.mandate.salt as `0x${string}`)
+            : (`0x${quote.data.mandate.salt}` as `0x${string}`),
+        }
+      );
+
       const idsAndAmounts = [[BigInt(quote.data.id), shortfallAmount]] as [bigint, bigint][];
       const claimHashesAndTypehashes = [
         [
-          quote.context.witnessHash as `0x${string}`,
+          claimHash,
           '0x27f09e0bb8ce2ae63380578af7af85055d3ada248c502e2378b85bc3d05ee0b0' as `0x${string}`,
         ],
       ] as [`0x${string}`, `0x${string}`][];

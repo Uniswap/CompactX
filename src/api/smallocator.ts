@@ -165,42 +165,38 @@ export class SmallocatorClient {
       body: data,
     });
 
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method,
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+    });
+
+    // Now we know we have a response
+    let result;
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        method,
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-      });
-
-      // Now we know we have a response
-      let result;
-      try {
-        result = await response.json();
-      } catch (error) {
-        // Response is not JSON
-        if (!response.ok) {
-          throw new Error(`Request failed (${response.status}): The server returned an invalid response. Please try again later.`);
-        }
-        // For DELETE requests, empty response is OK
-        if (method === 'DELETE' && response.ok) {
-          return {} as T;
-        }
-        const message = error instanceof Error ? error.message : 'Invalid Response Format';
-        throw new Error(`Invalid response format: ${message}. Please try again later.`);
-      }
-
-      if (!response.ok) {
-        const error = result.error || `Request failed with status ${response.status}`;
-        if (error.includes('Invalid session') || error.includes('expired')) {
-          this.clearSession();
-        }
-        throw new Error(error);
-      }
-
-      return result;
+      result = await response.json();
     } catch (error) {
-      throw error;
+      // Response is not JSON
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status}): The server returned an invalid response. Please try again later.`);
+      }
+      // For DELETE requests, empty response is OK
+      if (method === 'DELETE' && response.ok) {
+        return {} as T;
+      }
+      const message = error instanceof Error ? error.message : 'Invalid Response Format';
+      throw new Error(`Invalid response format: ${message}. Please try again later.`);
     }
+
+    if (!response.ok) {
+      const error = result.error || `Request failed with status ${response.status}`;
+      if (error.includes('Invalid session') || error.includes('expired')) {
+        this.clearSession();
+      }
+      throw new Error(error);
+    }
+
+    return result;
   }
 
   /**
