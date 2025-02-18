@@ -99,7 +99,7 @@ describe('SmallocatorClient', () => {
     );
   });
 
-  it('should submit compact', async () => {
+  it('should submit compact without retries for non-Deposit & Swap operations', async () => {
     const mockResponse = {
       hash: ('0x' + '00'.repeat(32)) as `0x${string}`,
       signature: ('0x' + '00'.repeat(65)) as `0x${string}`,
@@ -132,6 +132,79 @@ describe('SmallocatorClient', () => {
         body: JSON.stringify(mockCompactRequest),
       })
     );
+  });
+
+  it('should retry 5 times on Deposit & Swap operations', async () => {
+    const mockResponse = {
+      hash: ('0x' + '00'.repeat(32)) as `0x${string}`,
+      signature: ('0x' + '00'.repeat(65)) as `0x${string}`,
+      nonce: ('0x' + '00'.repeat(32)) as `0x${string}`,
+    };
+
+    // Create a request with Deposit & Swap witnessTypeString
+    const depositSwapRequest: CompactRequest = {
+      ...mockCompactRequest,
+      compact: {
+        ...mockCompactRequest.compact,
+        witnessTypeString: 'DepositAndSwap(uint256,address,uint256)'
+      }
+    };
+
+    // Mock fetch to fail 4 times then succeed
+    const mockFetch = vi.fn()
+      .mockRejectedValueOnce(new Error('Failed attempt 1'))
+      .mockRejectedValueOnce(new Error('Failed attempt 2'))
+      .mockRejectedValueOnce(new Error('Failed attempt 3'))
+      .mockRejectedValueOnce(new Error('Failed attempt 4'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+    
+    global.fetch = mockFetch;
+
+    // Start the operation
+    const promise = client.submitCompact(depositSwapRequest);
+    
+    // Advance time by 1 second for each retry
+    for (let i = 0; i < 4; i++) {
+      await vi.advanceTimersByTimeAsync(1000);
+    }
+
+    const response = await promise;
+    expect(response).toEqual(mockResponse);
+    expect(mockFetch).toHaveBeenCalledTimes(5); // Initial attempt + 4 retries
+
+    vi.useRealTimers();
+  });
+
+  it('should fail after 5 attempts for Deposit & Swap operations', async () => {
+    
+    // Create a request with Deposit & Swap witnessTypeString
+    const depositSwapRequest: CompactRequest = {
+      ...mockCompactRequest,
+      compact: {
+        ...mockCompactRequest.compact,
+        witnessTypeString: 'DepositAndSwap(uint256,address,uint256)'
+      }
+    };
+
+    // Mock fetch to always fail
+    const mockFetch = vi.fn().mockRejectedValue(new Error('Operation failed'));
+    global.fetch = mockFetch;
+
+    // Start the operation
+    const promise = client.submitCompact(depositSwapRequest);
+    
+    // Advance time for each retry attempt
+    for (let i = 0; i < 4; i++) {
+      await vi.advanceTimersByTimeAsync(1000);
+    }
+
+    await expect(promise).rejects.toThrow('Operation failed after all retry attempts');
+    expect(mockFetch).toHaveBeenCalledTimes(5); // Initial attempt + 4 retries
+
+    vi.useRealTimers();
   });
 
   it('should handle API errors', async () => {

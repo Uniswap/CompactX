@@ -219,8 +219,8 @@ export class BroadcastApiClient {
     }
 
     try {
-      // Skip sponsor signature verification for deposit & swap transactions
-      if (request.sponsorSignature !== '0x') {
+      // Skip sponsor signature verification for deposit & swap transactions (handles both '0x' and empty string)
+      if (request.sponsorSignature !== '0x' && request.sponsorSignature !== '') {
         const isSponsorValid = await this.verifySignature(
           claimHash,
           request.sponsorSignature,

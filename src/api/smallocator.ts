@@ -165,52 +165,51 @@ export class SmallocatorClient {
       body: data,
     });
 
-    let response;
     try {
-      response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method,
         headers,
         body: data ? JSON.stringify(data) : undefined,
       });
-    } catch (error) {
-      // Handle network errors
-      const message = error instanceof Error ? error.message : 'Network error';
-      console.error('Request failed:', message);
-      throw new Error(`Network error: ${message}. Please check your internet connection and try again.`);
-    }
 
-    // Now we know we have a response
-    let result;
-    try {
-      result = await response.json();
-    } catch (error) {
-      // Response is not JSON
+      // Now we know we have a response
+      let result;
+      try {
+        result = await response.json();
+      } catch (error) {
+        // Response is not JSON
+        if (!response.ok) {
+          throw new Error(`Request failed (${response.status}): The server returned an invalid response. Please try again later.`);
+        }
+        // For DELETE requests, empty response is OK
+        if (method === 'DELETE' && response.ok) {
+          return {} as T;
+        }
+        const message = error instanceof Error ? error.message : 'Invalid Response Format';
+        throw new Error(`Invalid response format: ${message}. Please try again later.`);
+      }
+
       if (!response.ok) {
-        throw new Error(`Request failed (${response.status}): The server returned an invalid response. Please try again later.`);
+        const error = result.error || `Request failed with status ${response.status}`;
+        if (error.includes('Invalid session') || error.includes('expired')) {
+          this.clearSession();
+        }
+        throw new Error(error);
       }
-      // For DELETE requests, empty response is OK
-      if (method === 'DELETE' && response.ok) {
-        return {} as T;
-      }
-      const message = error instanceof Error ? error.message : 'Invalid Response Format';
-      throw new Error(`Invalid response format: ${message}. Please try again later.`);
+
+      return result;
+    } catch (error) {
+      throw error;
     }
+  }
 
-    console.log('Got response:', {
-      ok: response.ok,
-      status: response.status,
-      result,
-    });
-
-    if (!response.ok) {
-      const error = result.error || `Request failed with status ${response.status}`;
-      if (error.includes('Invalid session') || error.includes('expired')) {
-        this.clearSession();
-      }
-      throw new Error(error);
-    }
-
-    return result;
+  /**
+   * Get a suggested nonce for a specific chain
+   * @param chainId - The chain ID to get a nonce for
+   */
+  async getSuggestedNonce(chainId: string | number): Promise<string> {
+    const response = await this.request<{ nonce: string }>('GET', `/suggested-nonce/${chainId}`);
+    return response.nonce;
   }
 
   /**

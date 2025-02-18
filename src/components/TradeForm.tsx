@@ -313,9 +313,11 @@ export function TradeForm() {
   }, [isConnected]);
 
   // Handle the actual swap after quote is received
-  const handleSwap = async (skipSignature = false) => {
+  const handleSwap = async (options: { skipSignature?: boolean; isDepositAndSwap?: boolean } = {}) => {
+    const { skipSignature = false, isDepositAndSwap = false } = options;
     try {
       setIsSigning(true);
+      console.log(isDepositAndSwap ? 'Executing Deposit & Swap...' : 'Executing standard swap...');
       setStatusMessage('Requesting allocation...');
 
       // Ensure we have a quote
@@ -390,6 +392,7 @@ export function TradeForm() {
           },
         };
 
+        console.log('Making request to smallocator...');
         const { signature, nonce: newNonce } = await smallocator.submitCompact(smallocatorRequest);
         smallocatorSignature = signature;
         nonce = newNonce;
@@ -441,13 +444,21 @@ export function TradeForm() {
       showToast('Trade broadcast successfully', 'success');
     } catch (error) {
       console.error('Error executing swap:', error);
-      setStatusMessage('');
-      if (error instanceof Error && error.message.toLowerCase().includes('user rejected')) {
-        setErrorMessage('Swap confirmation rejected.');
-        showToast('Swap confirmation rejected.', 'error');
-      } else {
-        setErrorMessage(error instanceof Error ? error.message : 'Failed to execute trade');
-        showToast(error instanceof Error ? error.message : 'Failed to execute trade', 'error');
+      // For standard swaps, show error immediately
+      // For deposit & swap, error handling is managed by the retry logic in handleDepositAndSwap
+      if (!isDepositAndSwap) {
+        setStatusMessage('');
+        if (error instanceof Error && error.message.toLowerCase().includes('user rejected')) {
+          setErrorMessage('Swap confirmation rejected.');
+          showToast('Swap confirmation rejected.', 'error');
+        } else {
+          setErrorMessage(error instanceof Error ? error.message : 'Failed to execute trade');
+          showToast(error instanceof Error ? error.message : 'Failed to execute trade', 'error');
+        }
+      }
+      // Re-throw error for deposit & swap so it can be handled by the retry logic
+      if (isDepositAndSwap) {
+        throw error;
       }
     } finally {
       setIsSigning(false);
@@ -588,6 +599,11 @@ export function TradeForm() {
       setIsDepositing(true);
       setStatusMessage('Initiating deposit...');
 
+      // Get suggested nonce first
+      setStatusMessage('Getting suggested nonce...');
+      const suggestedNonce = await smallocator.getSuggestedNonce(chainId);
+      console.log('Got suggested nonce:', suggestedNonce);
+
       // Calculate deposit parameters
       const inputAmount = parseUnits(formValues.inputAmount, selectedInputToken.decimals);
       const duration = Math.min(
@@ -605,6 +621,9 @@ export function TradeForm() {
           '0x27f09e0bb8ce2ae63380578af7af85055d3ada248c502e2378b85bc3d05ee0b0' as `0x${string}`,
         ],
       ] as [`0x${string}`, `0x${string}`][];
+
+      // Store the nonce to use in the final smallocator call
+      const finalNonce = suggestedNonce;
 
       // Submit deposit transaction
       const hash = await writeContractAsync({
@@ -665,8 +684,126 @@ export function TradeForm() {
           if (Number(latestBlock.timestamp) >= targetTimestamp) {
             clearInterval(pollInterval);
             setIsWaitingForFinalization(false);
-            // Proceed with swap, skipping signature since we already registered on-chain
-            await handleSwap(true);
+            console.log('Deposit finalized, starting Deposit & Swap with exponential backoff...');
+            // Helper function for exponential backoff retries
+            const retryWithBackoff = async () => {
+              const delays = [0, 1000, 2000, 4000, 8000]; // Initial + 4 retries with exponential backoff
+
+              for (let attempt = 0; attempt < delays.length; attempt++) {
+                try {
+                  // Wait for the delay (except for first attempt)
+                  if (attempt > 0) {
+                    console.log(`Waiting ${delays[attempt] / 1000} seconds before attempt ${attempt + 1}...`);
+                    setStatusMessage(`Retrying in ${delays[attempt] / 1000} seconds...`);
+                    await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+                  }
+                  
+                  console.log(`Making attempt ${attempt + 1} of ${delays.length}...`);
+                  setStatusMessage(attempt === 0 ? 'Attempting swap...' : `Attempt ${attempt + 1}...`);
+                  
+                  // Create mandate with required properties
+                  const mandate: Mandate = {
+                    chainId: quote.data.mandate.chainId,
+                    tribunal: quote.data.mandate.tribunal,
+                    recipient: quote.data.mandate.recipient,
+                    expires: quote.data.mandate.expires,
+                    token: quote.data.mandate.token,
+                    minimumAmount: quote.data.mandate.minimumAmount,
+                    baselinePriorityFee: quote.data.mandate.baselinePriorityFee,
+                    scalingFactor: quote.data.mandate.scalingFactor,
+                    salt: quote.data.mandate.salt.startsWith('0x')
+                      ? (quote.data.mandate.salt as Hex)
+                      : (`0x${quote.data.mandate.salt}` as Hex),
+                  } satisfies Mandate;
+
+                  const compactMessage = {
+                    arbiter: quote.data.arbiter,
+                    sponsor: quote.data.sponsor,
+                    nonce: null,
+                    expires: quote.data.expires,
+                    id: quote.data.id,
+                    amount: quote.data.amount,
+                    mandate,
+                  };
+
+                  // Use the stored nonce when making the smallocator request
+                  const smallocatorRequest = {
+                    chainId: chainId.toString(),
+                    compact: {
+                      arbiter: quote.data.arbiter,
+                      sponsor: quote.data.sponsor,
+                      nonce: finalNonce,
+                      expires: quote.data.expires,
+                      id: quote.data.id,
+                      amount: quote.data.amount,
+                      witnessHash: quote.context.witnessHash,
+                      witnessTypeString:
+                        'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+                    },
+                  };
+
+                  console.log('Making request to smallocator with stored nonce:', smallocatorRequest);
+                  const { signature } = await smallocator.submitCompact(smallocatorRequest);
+
+                  // Proceed with broadcast using the signature and stored nonce
+                  const broadcastPayload: CompactRequestPayload = {
+                    chainId: chainId.toString(),
+                    compact: {
+                      ...compactMessage,
+                      nonce: finalNonce,
+                      mandate: {
+                        ...mandate,
+                        chainId: quote.data.mandate.chainId,
+                        tribunal: quote.data.mandate.tribunal,
+                      },
+                    },
+                  };
+
+                  const broadcastContext: BroadcastContext = {
+                    ...quote.context,
+                    witnessHash: quote.context.witnessHash,
+                    witnessTypeString:
+                      'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+                  };
+
+                  const broadcastResponse = await broadcast(
+                    broadcastPayload,
+                    '0x', // Empty user signature since we're using deposit
+                    signature,
+                    broadcastContext
+                  );
+
+                  if (!broadcastResponse.success) {
+                    throw new Error('Failed to broadcast trade');
+                  }
+
+                  setFormValues({
+                    inputToken: '',
+                    outputToken: '',
+                    inputAmount: '',
+                    slippageTolerance: 0.5,
+                    baselinePriorityFee: 0,
+                    resetPeriod: ResetPeriod.TenMinutes,
+                    isMultichain: true,
+                  });
+                  setStatusMessage('');
+                  showToast('Trade broadcast successfully', 'success');
+                  console.log('Attempt successful!');
+                  return; // Success, exit the retry loop
+                } catch (error) {
+                  console.log(`Attempt ${attempt + 1} failed:`, error);
+                  
+                  // Only show error and update UI state on final attempt
+                  if (attempt === delays.length - 1) {
+                    console.log('All retry attempts exhausted');
+                    throw error;
+                  }
+                }
+              }
+            };
+
+            // Start the retry process
+            await retryWithBackoff();
           }
         } catch (error) {
           console.error('Error polling for finalization:', error);
@@ -677,15 +814,23 @@ export function TradeForm() {
       // Set up cleanup in case component unmounts
       return () => clearInterval(pollInterval);
     } catch (error) {
-      console.error('Error in deposit and swap:', error);
+      // Handle errors from either deposit or retry process
+      console.error('Error:', error);
       setStatusMessage('');
-      if (error instanceof Error && error.message.toLowerCase().includes('user rejected')) {
-        setErrorMessage('Deposit & swap confirmation rejected.');
-        showToast('Deposit & swap confirmation rejected.', 'error');
+      if (isWaitingForFinalization) {
+        // Error from retry process
+        setErrorMessage(error instanceof Error ? error.message : 'Failed to execute trade');
+        showToast(error instanceof Error ? error.message : 'Failed to execute trade', 'error');
       } else {
-        const errorMsg = error instanceof Error ? error.message : 'Failed to deposit tokens';
-        setErrorMessage(errorMsg);
-        showToast(errorMsg, 'error');
+        // Error from deposit process
+        if (error instanceof Error && error.message.toLowerCase().includes('user rejected')) {
+          setErrorMessage('Deposit confirmation rejected.');
+          showToast('Deposit confirmation rejected.', 'error');
+        } else {
+          const errorMsg = error instanceof Error ? error.message : 'Failed to deposit tokens';
+          setErrorMessage(errorMsg);
+          showToast(errorMsg, 'error');
+        }
       }
       setIsDepositing(false);
       setIsWaitingForFinalization(false);
@@ -1094,7 +1239,7 @@ export function TradeForm() {
                   return;
                 }
               }
-              handleSwap();
+              handleSwap({ isDepositAndSwap: false });
             }}
             disabled={(() => {
               // If we're approving, always disable
