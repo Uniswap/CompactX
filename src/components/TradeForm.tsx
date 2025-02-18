@@ -311,23 +311,27 @@ export function TradeForm() {
 
   // Update quote parameters when inputs change, but not during swap execution
   useEffect(() => {
+    console.log('\n=== Quote Parameters Effect Triggered ===');
+    console.log('Current state:', {
+      isExecutingSwap,
+      selectedInputToken,
+      selectedInputAmount,
+      selectedOutputToken,
+      selectedOutputChain,
+      quoteParams
+    });
+
     if (isExecutingSwap) {
       console.log('Skipping quote update during swap execution');
       return;
     }
 
-    console.log('Quote params check:', {
-      selectedInputToken,
-      selectedOutputToken,
-      inputAmount: selectedInputAmount,
-      selectedOutputChain,
-      currentQuoteParams: quoteParams
-    });
-
     // Always clear quote params when input amount or input token changes
     if (!selectedInputToken?.address || !selectedInputAmount) {
-      console.log('Missing input params, clearing quote');
-      setQuoteParams(undefined);
+      console.log('Missing input params:', {
+        hasInputToken: !!selectedInputToken?.address,
+        hasInputAmount: !!selectedInputAmount
+      });
       return;
     }
 
@@ -338,23 +342,18 @@ export function TradeForm() {
     }
 
     // Ensure we have valid chain IDs
-    const inputChainId = selectedInputToken.chainId;
 
-    if (typeof inputChainId !== 'number' || typeof selectedOutputChain !== 'number') {
-      console.log('Invalid chain IDs, clearing quote');
+
+    if (typeof selectedInputChain !== 'number' || typeof selectedOutputChain !== 'number') {
+      console.log('Invalid chain IDs:', { selectedInputChain, selectedOutputChain });
+      console.log('Clearing quote params');
       setQuoteParams(undefined);
       return;
     }
 
-    console.log('Creating quote params with chains:', {
-      inputChainId,
-      selectedOutputChain,
-      selectedInputToken,
-      selectedOutputToken
-    });
-
+    console.log('All parameters valid, creating new quote params');
     const newParams: GetQuoteParams = {
-      inputTokenChainId: inputChainId,
+      inputTokenChainId: selectedInputChain,
       inputTokenAddress: selectedInputToken.address,
       inputTokenAmount: parseUnits(selectedInputAmount, selectedInputToken.decimals).toString(),
       outputTokenChainId: selectedOutputChain,
@@ -368,8 +367,9 @@ export function TradeForm() {
         ? parseUnits(formValues.baselinePriorityFee.toString(), 9).toString()
         : '0',
     };
-
+    console.log('Setting new quote params:', newParams);
     setQuoteParams(newParams);
+    console.log('=== End Quote Parameters Effect ===\n');
   }, [
     isExecutingSwap,
     isConnected,
@@ -387,30 +387,51 @@ export function TradeForm() {
   // Handle form value changes
   const handleValuesChange = useCallback(
     (field: keyof TradeFormValues, value: string | number | boolean) => {
-      setFormValues(prev => {
-        const newValues = { ...prev, [field]: value };
-
-        // Update selected tokens if token fields change
-        if (field === 'inputToken') {
-          const newInputToken = inputTokens.find(token => token.address === value);
-          if (newInputToken !== selectedInputToken) {
-            setSelectedInputToken(newInputToken);
-          }
-        } else if (field === 'outputToken') {
-          const newOutputToken = outputTokens.find(token => 
-            token.address === value && token.chainId === selectedOutputChain
-          );
-          if (newOutputToken !== selectedOutputToken) {
-            setSelectedOutputToken(newOutputToken);
-          }
-        } else if (field === 'inputAmount') {
-          setSelectedInputAmount(value as string);
+      console.log('\n=== handleValuesChange Called ===');
+      console.log('Field:', field);
+      console.log('Value:', value);
+      console.log('Current state:', {
+        selectedInputToken,
+        selectedInputAmount,
+        selectedOutputToken,
+        selectedOutputChain,
+        formValues
+      });
+      
+      // Update selected tokens if token fields change
+      if (field === 'inputToken') {
+        console.log('Input token change detected');
+        const newInputToken = inputTokens.find(token => token.address === value);
+        console.log('Found new input token:', newInputToken);
+        if (newInputToken !== selectedInputToken) {
+          console.log('Setting new input token');
+          setSelectedInputToken(newInputToken);
         }
+      } else if (field === 'outputToken') {
+        console.log('Output token change detected');
+        const newOutputToken = outputTokens.find(token => 
+          token.address === value && token.chainId === selectedOutputChain
+        );
+        console.log('Found new output token:', newOutputToken);
+        if (newOutputToken !== selectedOutputToken) {
+          console.log('Setting new output token');
+          setSelectedOutputToken(newOutputToken);
+        }
+      } else if (field === 'inputAmount') {
+        console.log('Input amount change detected, setting to:', value);
+        setSelectedInputAmount(value as string);
+      }
 
+      setFormValues(prev => {
+        console.log('Updating form values from:', prev);
+        const newValues = { ...prev, [field]: value };
+        console.log('Updating form values to:', newValues);
         return newValues;
       });
+      
+      console.log('=== End handleValuesChange ===\n');
     },
-    [inputTokens, outputTokens, selectedInputToken, selectedOutputToken, selectedOutputChain]
+    [inputTokens, outputTokens, selectedInputToken, selectedOutputToken, selectedOutputChain, formValues]
   );
 
   // Handle chain changes and conflicts
@@ -428,12 +449,12 @@ export function TradeForm() {
   }, [chainId, isConnected, selectedOutputChain]);
 
   // Refresh quote when wallet connects or amount changes
-  useEffect(() => {
-    if (selectedInputAmount && (isConnected || selectedInputToken)) {
-      // Force quote params update when amount changes or wallet connects
-      setQuoteParams(undefined);
-    }
-  }, [isConnected, selectedInputAmount, selectedInputToken]);
+  // useEffect(() => {
+  //   if (selectedInputAmount && (isConnected || selectedInputToken)) {
+  //     // Force quote params update when amount changes or wallet connects
+  //     setQuoteParams(undefined);
+  //   }
+  // }, [isConnected, selectedInputAmount, selectedInputToken]);
 
   // Handle the actual swap after quote is received
   const handleSwap = async (options: { skipSignature?: boolean; isDepositAndSwap?: boolean } = {}) => {
