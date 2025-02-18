@@ -646,7 +646,7 @@ export function TradeForm() {
       }
 
       // Get block info and calculate finalization time
-      const depositBlock = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
+      const depositBlock = await publicClient.getBlock({ blockTag: 'latest' });
       const targetTimestamp = Number(depositBlock.timestamp) + (finalizationThreshold || 0);
       setIsWaitingForFinalization(true);
       setStatusMessage('Waiting for finalization...');
@@ -654,7 +654,7 @@ export function TradeForm() {
       // Start polling for finalization by checking latest block
       const pollInterval = setInterval(async () => {
         try {
-          const latestBlock = await publicClient.getBlock();
+          const latestBlock = await publicClient.getBlock({ blockTag: 'latest' });
           if (Number(latestBlock.timestamp) >= targetTimestamp) {
             clearInterval(pollInterval);
             setIsWaitingForFinalization(false);
