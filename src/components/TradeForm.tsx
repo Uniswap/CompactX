@@ -680,7 +680,7 @@ export function TradeForm() {
 
                   // Use the stored nonce when making the smallocator request
                   const smallocatorRequest = {
-                      chainId: quote.data.mandate.chainId.toString(),
+                      chainId: chainId.toString(),
                       compact: {
                       arbiter: quote.data.arbiter,
                       sponsor: quote.data.sponsor,
