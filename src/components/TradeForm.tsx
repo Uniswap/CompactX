@@ -1,5 +1,6 @@
 import { useToast } from '../hooks/useToast';
 import { TradeFormUI } from './TradeFormUI';
+import { TooltipIcon } from './TooltipIcon';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { parseUnits, type Hex } from 'viem';
@@ -131,18 +132,21 @@ export function TradeForm() {
     const lockedIncludingAllocatedFormatted = formatTokenAmount(lockedIncludingAllocated || 0n, token.decimals);
 
     return (
-      <div className="mt-2 text-sm">
-        <span className="text-gray-400">{lockedFormatted}</span>
-        {lockedBalance !== lockedIncludingAllocated && (
-          <>
-            <span className="text-gray-400">/</span>
-            <span className="text-yellow-500">{lockedIncludingAllocatedFormatted}</span>
-          </>
-        )}
-        <span className="text-gray-400"> / </span>
-        <span className="text-green-400">
-          {totalFormatted} {token.symbol}
-        </span>
+      <div className="mt-2 text-sm flex items-center gap-2">
+        <div>
+          <span className="text-gray-400">{lockedFormatted}</span>
+          {lockedBalance !== lockedIncludingAllocated && (
+            <>
+              <span className="text-gray-400"> / </span>
+              <span className="text-yellow-500">{lockedIncludingAllocatedFormatted}</span>
+            </>
+          )}
+          <span className="text-gray-400"> / </span>
+          <span className="text-green-400">
+            {totalFormatted} {token.symbol}
+          </span>
+        </div>
+        <TooltipIcon title='The first value (in grey) represents your "activated" balance. This is your balance currently held in a resource lock that is not already allocated to a cross-chain swap. A middle value (in yellow) will appear if you have pending allocations and represents the full balance in your resource lock. The last value (in green) is your total balance, including any direct, unactivated tokens. Note that a deposit & swap requires a transaction (as well as an approval transaction on your first ERC20 token deposit) while a swap using your activated balance only requires a signature.' width={500} offset={150} />
       </div>
     );
   };
@@ -395,7 +399,7 @@ export function TradeForm() {
         isMultichain: true,
       });
       setStatusMessage('');
-      showToast('Trade broadcast successfully', 'success');
+      showToast('Swap broadcast successfully', 'success');
     } catch (error) {
       console.error('Error executing swap:', error);
       // For standard swaps, show error immediately
@@ -421,11 +425,6 @@ export function TradeForm() {
       }
     }
   };
-
-  const scopeOptions = [
-    { label: 'Multichain', value: true },
-    { label: 'Chain-specific', value: false },
-  ];
 
   const [needsApproval, setNeedsApproval] = useState(false);
 
@@ -578,6 +577,7 @@ export function TradeForm() {
       const finalNonce = suggestedNonce;
 
       // Submit deposit transaction
+      setStatusMessage('Submitting transaction request...');
       const hash = await writeContractAsync({
         address: '0x00000000000018DF021Ff2467dF97ff846E09f48',
         abi: [
@@ -651,7 +651,7 @@ export function TradeForm() {
                   }
                   
                   console.log(`Making attempt ${attempt + 1} of ${delays.length}...`);
-                  setStatusMessage(attempt === 0 ? 'Attempting swap...' : `Attempt ${attempt + 1}...`);
+                  setStatusMessage('Requesting allocation...');
                   
                   // Create mandate with required properties
                   const mandate: Mandate = {
@@ -718,6 +718,8 @@ export function TradeForm() {
                       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
                   };
 
+                  setStatusMessage('Broadcasting intent...');
+
                   const broadcastResponse = await broadcast(
                     broadcastPayload,
                     '0x', // Empty user signature since we're using deposit
@@ -729,6 +731,8 @@ export function TradeForm() {
                     throw new Error('Failed to broadcast trade');
                   }
 
+                  setIsDepositing(false);
+                  setIsExecutingSwap(false);
                   setFormValues({
                     inputToken: '',
                     outputToken: '',
@@ -739,7 +743,7 @@ export function TradeForm() {
                     isMultichain: true,
                   });
                   setStatusMessage('');
-                  showToast('Trade broadcast successfully', 'success');
+                  showToast('Swap broadcast successfully', 'success');
                   console.log('Attempt successful!');
                   return; // Success, exit the retry loop
                 } catch (error) {
