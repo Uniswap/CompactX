@@ -104,15 +104,10 @@ export function useCalibrator() {
     quoteVersion: number,
     isExecutingSwap: boolean = false
   ) => {
-    console.log('\n=== useQuote Hook Called ===');
-    console.log('Received params:', params);
-    console.log('Is executing swap:', isExecutingSwap);
-
     // Use timestamp from params if executing swap, otherwise calculate new one
     const timestamp = isExecutingSwap
       ? params?.timestamp || Math.floor(Date.now() / 5000) * 5000
       : Math.floor(Date.now() / 5000) * 5000;
-    console.log('Using timestamp:', timestamp);
 
     const queryKey = [
       'quote',
@@ -131,14 +126,9 @@ export function useCalibrator() {
       timestamp,
     ];
 
-    console.log('Query key:', queryKey);
-    console.log('Query enabled:', !!params);
-
     const result = useQuery({
       queryKey,
       queryFn: async () => {
-        console.log('=== Query Function Executing ===');
-        console.log('Getting quote with params:', params);
         try {
           return await getQuote(params!);
         } catch (error) {
@@ -152,15 +142,6 @@ export function useCalibrator() {
       refetchInterval: isExecutingSwap ? false : 10000,
       retry: false,
     });
-
-    console.log('Query result:', {
-      isLoading: result.isLoading,
-      isFetching: result.isFetching,
-      isError: result.isError,
-      error: result.error,
-      dataUpdatedAt: result.dataUpdatedAt,
-    });
-    console.log('=== End useQuote Hook ===\n');
 
     return result;
   };

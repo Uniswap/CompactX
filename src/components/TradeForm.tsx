@@ -7,7 +7,18 @@ import { TooltipIcon } from './TooltipIcon';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { ConnectButton } from '../config/wallet';
-import { parseUnits, type Hex, encodeAbiParameters, keccak256, toBytes } from 'viem';
+import { parseUnits, type Hex } from 'viem';
+import {
+  formatTokenAmount,
+  MAX_UINT256,
+  SUPPORTED_CHAINS,
+  INPUT_CHAINS,
+  DEFAULT_SPONSOR,
+  ResetPeriod,
+  deriveClaimHash,
+  resetPeriodToSeconds,
+  type TradeFormValues
+} from '../utils/tradeUtils';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
@@ -22,122 +33,6 @@ import { erc20Abi } from 'viem';
 import { usePublicClient, useReadContract, useWriteContract } from 'wagmi';
 import { useHealthCheck } from '../hooks/useHealthCheck';
 import { smallocator } from '../api/smallocator';
-
-// Helper functions for deriving claim hash
-const deriveMandateHash = (mandate: Mandate): `0x${string}` => {
-  const MANDATE_TYPE_STRING =
-    'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
-  const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING));
-  const encodedParameters = encodeAbiParameters(
-    [
-      'bytes32',
-      'uint256',
-      'address',
-      'address',
-      'uint256',
-      'address',
-      'uint256',
-      'uint256',
-      'uint256',
-      'bytes32',
-    ].map(type => ({ type })),
-    [
-      MANDATE_TYPEHASH,
-      BigInt(mandate.chainId),
-      mandate.tribunal as `0x${string}`,
-      mandate.recipient as `0x${string}`,
-      BigInt(parseInt(mandate.expires)),
-      mandate.token as `0x${string}`,
-      BigInt(mandate.minimumAmount),
-      BigInt(mandate.baselinePriorityFee),
-      BigInt(mandate.scalingFactor),
-      mandate.salt as `0x${string}`,
-    ]
-  );
-
-  return keccak256(encodedParameters);
-};
-
-const deriveClaimHash = (
-  arbiter: string,
-  sponsor: string,
-  nonce: string,
-  expiration: string,
-  id: string,
-  amount: string,
-  mandate: Mandate
-): `0x${string}` => {
-  // First derive the mandate hash
-  const mandateHash = deriveMandateHash(mandate);
-
-  // Calculate the COMPACT_TYPEHASH
-  const COMPACT_TYPE_STRING =
-    'Compact(address arbiter,address sponsor,uint256 nonce,uint256 expires,uint256 id,uint256 amount,Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
-  const COMPACT_TYPEHASH = keccak256(toBytes(COMPACT_TYPE_STRING));
-
-  // Encode all parameters including the derived mandate hash
-  const encodedParameters = encodeAbiParameters(
-    [
-      { type: 'bytes32' }, // COMPACT_TYPEHASH
-      { type: 'address' }, // arbiter
-      { type: 'address' }, // sponsor
-      { type: 'uint256' }, // nonce
-      { type: 'uint256' }, // expires
-      { type: 'uint256' }, // id
-      { type: 'uint256' }, // amount
-      { type: 'bytes32' }, // mandateHash
-    ],
-    [
-      COMPACT_TYPEHASH,
-      arbiter as `0x${string}`,
-      sponsor as `0x${string}`,
-      BigInt(nonce),
-      BigInt(expiration),
-      BigInt(id),
-      BigInt(amount),
-      mandateHash,
-    ]
-  );
-
-  return keccak256(encodedParameters);
-};
-
-// Max uint256 value for infinite approval
-const MAX_UINT256 = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const;
-
-// Supported chains for output token
-const SUPPORTED_CHAINS = [
-  { id: 130, name: 'Unichain' },
-  { id: 8453, name: 'Base' },
-  { id: 10, name: 'Optimism' },
-];
-
-// Input chains include Ethereum
-const INPUT_CHAINS = [{ id: 1, name: 'Ethereum' }, ...SUPPORTED_CHAINS];
-
-// Default sponsor address when wallet is not connected
-const DEFAULT_SPONSOR = '0x0000000000000000000000000000000000000000';
-
-enum ResetPeriod {
-  OneSecond = 0,
-  FifteenSeconds = 1,
-  OneMinute = 2,
-  TenMinutes = 3,
-  OneHourAndFiveMinutes = 4,
-  OneDay = 5,
-  SevenDaysAndOneHour = 6,
-  ThirtyDays = 7,
-}
-
-interface TradeFormValues {
-  inputToken: string;
-  outputToken: string;
-  inputAmount: string;
-  slippageTolerance: number;
-  baselinePriorityFee: number;
-  resetPeriod: ResetPeriod;
-  isMultichain: boolean;
-}
 
 export function TradeForm() {
   const { isConnected, address = DEFAULT_SPONSOR } = useAccount();
@@ -228,30 +123,6 @@ export function TradeForm() {
     lockId
   );
 
-  // Format balance with proper decimals
-  const formatTokenAmount = (balance: bigint | undefined, decimals: number) => {
-    if (!balance) return '0';
-
-    // Convert to string with full precision using BigInt division
-    const divisor = BigInt(10 ** decimals);
-    const integerPart = balance / divisor;
-    const fractionalPart = balance % divisor;
-
-    // Pad the fractional part with leading zeros if needed
-    const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
-
-    // Combine integer and fractional parts
-    const fullStr = `${integerPart}${fractionalStr === '0'.repeat(decimals) ? '' : '.' + fractionalStr}`;
-
-    // Parse to number for formatting, but limit to 8 decimal places
-    const num = Number(fullStr);
-    return num.toLocaleString(undefined, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 8,
-      useGrouping: true,
-    });
-  };
-
   // Format balance display as "unlocked / total symbol"
   const formatBalanceDisplay = (
     unlockedBalance: bigint | undefined,
@@ -294,21 +165,6 @@ export function TradeForm() {
   const [depositModalVisible, setDepositModalVisible] = useState(false);
   const [ethereumOutputModalVisible, setEthereumOutputModalVisible] = useState(false);
 
-  // Map reset period enum to seconds for calibrator
-  const resetPeriodToSeconds = (resetPeriod: ResetPeriod): number => {
-    const mapping: Record<ResetPeriod, number> = {
-      [ResetPeriod.OneSecond]: 1,
-      [ResetPeriod.FifteenSeconds]: 15,
-      [ResetPeriod.OneMinute]: 60,
-      [ResetPeriod.TenMinutes]: 600,
-      [ResetPeriod.OneHourAndFiveMinutes]: 3900,
-      [ResetPeriod.OneDay]: 86400,
-      [ResetPeriod.SevenDaysAndOneHour]: 604800,
-      [ResetPeriod.ThirtyDays]: 2592000,
-    };
-    return mapping[resetPeriod];
-  };
-
   // Update timestamp in quote params every 5 seconds unless executing swap
   useEffect(() => {
     if (isExecutingSwap || !quoteParams) return;
@@ -325,47 +181,26 @@ export function TradeForm() {
 
   // Update quote parameters when inputs change, but not during swap execution
   useEffect(() => {
-    console.log('\n=== Quote Parameters Effect Triggered ===');
-    console.log('Current state:', {
-      isExecutingSwap,
-      selectedInputToken,
-      selectedInputAmount,
-      selectedOutputToken,
-      selectedOutputChain,
-      quoteParams
-    });
-
     if (isExecutingSwap) {
-      console.log('Skipping quote update during swap execution');
       return;
     }
 
-    // Always clear quote params when input amount or input token changes
+    // Only proceed with input amount and input token
     if (!selectedInputToken?.address || !selectedInputAmount) {
-      console.log('Missing input params:', {
-        hasInputToken: !!selectedInputToken?.address,
-        hasInputAmount: !!selectedInputAmount
-      });
       return;
     }
 
     // Only proceed with setting new quote params if we have output token
     if (!selectedOutputToken?.address) {
-      console.log('Missing output token, keeping quote cleared');
       return;
     }
 
     // Ensure we have valid chain IDs
-
-
     if (typeof selectedInputChain !== 'number' || typeof selectedOutputChain !== 'number') {
-      console.log('Invalid chain IDs:', { selectedInputChain, selectedOutputChain });
-      console.log('Clearing quote params');
       setQuoteParams(undefined);
       return;
     }
 
-    console.log('All parameters valid, creating new quote params');
     const newParams: GetQuoteParams = {
       inputTokenChainId: selectedInputChain,
       inputTokenAddress: selectedInputToken.address,
@@ -382,9 +217,7 @@ export function TradeForm() {
         : '0',
       timestamp: Math.floor(Date.now() / 5000) * 5000,
     };
-    console.log('Setting new quote params:', newParams);
     setQuoteParams(newParams);
-    console.log('=== End Quote Parameters Effect ===\n');
   }, [
     isExecutingSwap,
     isConnected,
@@ -401,50 +234,28 @@ export function TradeForm() {
 
   // Handle form value changes
   const handleValuesChange = useCallback(
-    (field: keyof TradeFormValues, value: string | number | boolean) => {
-      console.log('\n=== handleValuesChange Called ===');
-      console.log('Field:', field);
-      console.log('Value:', value);
-      console.log('Current state:', {
-        selectedInputToken,
-        selectedInputAmount,
-        selectedOutputToken,
-        selectedOutputChain,
-        formValues
-      });
-      
+    (field: keyof TradeFormValues, value: string | number | boolean) => { 
       // Update selected tokens if token fields change
       if (field === 'inputToken') {
-        console.log('Input token change detected');
         const newInputToken = inputTokens.find(token => token.address === value);
-        console.log('Found new input token:', newInputToken);
         if (newInputToken !== selectedInputToken) {
-          console.log('Setting new input token');
           setSelectedInputToken(newInputToken);
         }
       } else if (field === 'outputToken') {
-        console.log('Output token change detected');
         const newOutputToken = outputTokens.find(token => 
           token.address === value && token.chainId === selectedOutputChain
         );
-        console.log('Found new output token:', newOutputToken);
         if (newOutputToken !== selectedOutputToken) {
-          console.log('Setting new output token');
           setSelectedOutputToken(newOutputToken);
         }
       } else if (field === 'inputAmount') {
-        console.log('Input amount change detected, setting to:', value);
         setSelectedInputAmount(value as string);
       }
 
       setFormValues(prev => {
-        console.log('Updating form values from:', prev);
         const newValues = { ...prev, [field]: value };
-        console.log('Updating form values to:', newValues);
         return newValues;
       });
-      
-      console.log('=== End handleValuesChange ===\n');
     },
     [inputTokens, outputTokens, selectedInputToken, selectedOutputToken, selectedOutputChain, formValues]
   );
@@ -670,29 +481,8 @@ export function TradeForm() {
 
     if (shortfall > 0n && allowance !== undefined) {
       setNeedsApproval(shortfall > allowance);
-
-      // Log the relevant values
-      console.log({
-        lockedBalance: {
-          raw: lockedBalance?.toString(),
-          formatted: formatTokenAmount(lockedBalance, selectedInputToken.decimals),
-        },
-        inputAmount: {
-          raw: parseUnits(selectedInputAmount || '0', selectedInputToken.decimals).toString(),
-          formatted: selectedInputAmount,
-        },
-        shortfall: {
-          raw: shortfall.toString(),
-          formatted: formatTokenAmount(shortfall, selectedInputToken.decimals),
-        },
-        allowance: {
-          raw: allowance.toString(),
-          formatted: formatTokenAmount(allowance, selectedInputToken.decimals),
-        },
-        needsApproval: shortfall > allowance,
-      });
     }
-  }, [shortfall, allowance, selectedInputToken, lockedBalance, selectedInputAmount]);
+  }, [shortfall, allowance, selectedInputToken]);
 
   // State for tracking approval transaction
   const [isApproving, setIsApproving] = useState(false);
@@ -766,7 +556,6 @@ export function TradeForm() {
       // Get suggested nonce first
       setStatusMessage('Getting suggested nonce...');
       const suggestedNonce = await smallocator.getSuggestedNonce(chainId.toString());
-      console.log('Got suggested nonce:', suggestedNonce);
 
       // Calculate deposit parameters
       const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
@@ -864,7 +653,7 @@ export function TradeForm() {
           if (Number(latestBlock.timestamp) >= targetTimestamp) {
             clearInterval(pollInterval);
             setIsWaitingForFinalization(false);
-            console.log('Deposit finalized, starting Deposit & Swap with exponential backoff...');
+            console.log('Deposit finalized, requesting allocation...');
             // Helper function for exponential backoff retries
             async () => {
               const delays = [0, 1000, 2000, 4000, 8000]; // Initial + 4 retries with exponential backoff
@@ -908,8 +697,8 @@ export function TradeForm() {
 
                   // Use the stored nonce when making the smallocator request
                   const smallocatorRequest = {
-          chainId: quote.data.mandate.chainId.toString(),
-          compact: {
+                      chainId: quote.data.mandate.chainId.toString(),
+                      compact: {
                       arbiter: quote.data.arbiter,
                       sponsor: quote.data.sponsor,
                       nonce: finalNonce,
@@ -971,11 +760,11 @@ export function TradeForm() {
                   console.log('Attempt successful!');
                   return; // Success, exit the retry loop
                 } catch (error) {
-                  console.log(`Attempt ${attempt + 1} failed:`, error);
+                  console.error(`Attempt ${attempt + 1} failed:`, error);
                   
                   // Only show error and update UI state on final attempt
                   if (attempt === delays.length - 1) {
-                    console.log('All retry attempts exhausted');
+                    console.error('All retry attempts exhausted');
                     throw error;
                   }
                 }
@@ -1231,7 +1020,6 @@ export function TradeForm() {
                 onChange={value => {
                   const newChainId = Number(value);
                   if (newChainId !== selectedOutputChain) {
-                    console.log('Output chain changing to:', newChainId);
                     setSelectedOutputChain(newChainId);
                     setSelectedOutputToken(undefined);
                     // Clear quote parameters when output chain changes
@@ -1266,10 +1054,6 @@ export function TradeForm() {
               <Select
                 value={formValues.outputToken}
                 onChange={value => {
-                  console.log('Output token changing to:', {
-                    value,
-                    token: outputTokens.find(t => t.address === value)
-                  });
                   handleValuesChange('outputToken', value.toString());
                 }}
                 placeholder="Token"
