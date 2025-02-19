@@ -82,6 +82,7 @@ export function useTokenBalanceCheck(
         setSmalllocatorBalance(BigInt(balance.balanceAvailableToAllocate));
       } catch (error) {
         console.error('Error fetching smallocator balance:', error);
+        setSmalllocatorBalance(BigInt(0));
       }
     }
 
