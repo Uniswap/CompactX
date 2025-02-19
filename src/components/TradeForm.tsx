@@ -12,7 +12,7 @@ import {
   ResetPeriod,
   deriveClaimHash,
   resetPeriodToSeconds,
-  type TradeFormValues
+  type TradeFormValues,
 } from '../utils/tradeUtils';
 import type { Token } from '../types/index';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -109,7 +109,11 @@ export function TradeForm() {
   }, [isConnected, selectedInputToken?.address, formValues.resetPeriod, formValues.isMultichain]);
 
   const [isExecutingSwap, setIsExecutingSwap] = useState(false);
-  const { data: quote, isLoading, error } = useCalibrator().useQuote(quoteParams, quoteVersion, isExecutingSwap);
+  const {
+    data: quote,
+    isLoading,
+    error,
+  } = useCalibrator().useQuote(quoteParams, quoteVersion, isExecutingSwap);
   const { lockedBalance, lockedIncludingAllocated, unlockedBalance } = useTokenBalanceCheck(
     selectedInputToken?.address as `0x${string}` | undefined,
     lockId
@@ -129,7 +133,10 @@ export function TradeForm() {
 
     const lockedFormatted = formatTokenAmount(lockedBalance || 0n, token.decimals);
     const totalFormatted = formatTokenAmount(total, token.decimals);
-    const lockedIncludingAllocatedFormatted = formatTokenAmount(lockedIncludingAllocated || 0n, token.decimals);
+    const lockedIncludingAllocatedFormatted = formatTokenAmount(
+      lockedIncludingAllocated || 0n,
+      token.decimals
+    );
 
     return (
       <div className="mt-2 text-sm flex items-center gap-2">
@@ -146,7 +153,11 @@ export function TradeForm() {
             {totalFormatted} {token.symbol}
           </span>
         </div>
-        <TooltipIcon title='The first value (in grey) represents your "activated" balance. This is your balance currently held in a resource lock that is not already allocated to a cross-chain swap. A middle value (in yellow) will appear if you have pending allocations and represents the full balance in your resource lock. The last value (in green) is your total balance, including any direct, unactivated tokens. Note that a deposit & swap requires a transaction (as well as an approval transaction on your first ERC20 token deposit) while a swap using your activated balance only requires a signature.' width={500} offset={150} />
+        <TooltipIcon
+          title='The first value (in grey) represents your "activated" balance. This is your balance currently held in a resource lock that is not already allocated to a cross-chain swap. A middle value (in yellow) will appear if you have pending allocations and represents the full balance in your resource lock. The last value (in green) is your total balance, including any direct, unactivated tokens. Note that a deposit & swap requires a transaction (as well as an approval transaction on your first ERC20 token deposit) while a swap using your activated balance only requires a signature.'
+          width={500}
+          offset={150}
+        />
       </div>
     );
   };
@@ -163,7 +174,7 @@ export function TradeForm() {
   // Update timestamp in quote params every 5 seconds unless executing swap
   useEffect(() => {
     if (isExecutingSwap || !quoteParams) return;
-    
+
     const interval = setInterval(() => {
       setQuoteParams(prev => ({
         ...prev!,
@@ -229,7 +240,7 @@ export function TradeForm() {
 
   // Handle form value changes
   const handleValuesChange = useCallback(
-    (field: keyof TradeFormValues, value: string | number | boolean) => { 
+    (field: keyof TradeFormValues, value: string | number | boolean) => {
       // Update selected tokens if token fields change
       if (field === 'inputToken') {
         const newInputToken = inputTokens.find(token => token.address === value);
@@ -237,8 +248,8 @@ export function TradeForm() {
           setSelectedInputToken(newInputToken);
         }
       } else if (field === 'outputToken') {
-        const newOutputToken = outputTokens.find(token => 
-          token.address === value && token.chainId === selectedOutputChain
+        const newOutputToken = outputTokens.find(
+          token => token.address === value && token.chainId === selectedOutputChain
         );
         if (newOutputToken && newOutputToken !== selectedOutputToken) {
           setSelectedOutputToken(newOutputToken);
@@ -270,7 +281,9 @@ export function TradeForm() {
   }, [chainId, isConnected, selectedOutputChain]);
 
   // Handle the actual swap after quote is received
-  const handleSwap = async (options: { skipSignature?: boolean; isDepositAndSwap?: boolean } = {}) => {
+  const handleSwap = async (
+    options: { skipSignature?: boolean; isDepositAndSwap?: boolean } = {}
+  ) => {
     const { skipSignature = false, isDepositAndSwap = false } = options;
     try {
       setIsSigning(true);
@@ -351,7 +364,9 @@ export function TradeForm() {
         };
 
         console.log('Making request to smallocator...');
-        const { signature, nonce: newNonce } = await smallocator.submitCompact(smallocatorRequest, { isDepositAndSwap: false });
+        const { signature, nonce: newNonce } = await smallocator.submitCompact(smallocatorRequest, {
+          isDepositAndSwap: false,
+        });
         smallocatorSignature = signature;
         nonce = newNonce;
       }
@@ -645,14 +660,16 @@ export function TradeForm() {
                 try {
                   // Wait for the delay (except for first attempt)
                   if (attempt > 0) {
-                    console.log(`Waiting ${delays[attempt] / 1000} seconds before attempt ${attempt + 1}...`);
+                    console.log(
+                      `Waiting ${delays[attempt] / 1000} seconds before attempt ${attempt + 1}...`
+                    );
                     setStatusMessage(`Retrying in ${delays[attempt] / 1000} seconds...`);
                     await new Promise(resolve => setTimeout(resolve, delays[attempt]));
                   }
-                  
+
                   console.log(`Making attempt ${attempt + 1} of ${delays.length}...`);
                   setStatusMessage('Requesting allocation...');
-                  
+
                   // Create mandate with required properties
                   const mandate: Mandate = {
                     chainId: quote.data.mandate.chainId,
@@ -680,8 +697,8 @@ export function TradeForm() {
 
                   // Use the stored nonce when making the smallocator request
                   const smallocatorRequest = {
-                      chainId: chainId.toString(),
-                      compact: {
+                    chainId: chainId.toString(),
+                    compact: {
                       arbiter: quote.data.arbiter,
                       sponsor: quote.data.sponsor,
                       nonce: finalNonce,
@@ -694,8 +711,13 @@ export function TradeForm() {
                     },
                   };
 
-                  console.log('Making request to smallocator with stored nonce:', smallocatorRequest);
-                  const { signature } = await smallocator.submitCompact(smallocatorRequest, { isDepositAndSwap: true });
+                  console.log(
+                    'Making request to smallocator with stored nonce:',
+                    smallocatorRequest
+                  );
+                  const { signature } = await smallocator.submitCompact(smallocatorRequest, {
+                    isDepositAndSwap: true,
+                  });
 
                   // Proceed with broadcast using the signature and stored nonce
                   const broadcastPayload: CompactRequestPayload = {
@@ -748,7 +770,7 @@ export function TradeForm() {
                   return; // Success, exit the retry loop
                 } catch (error) {
                   console.error(`Attempt ${attempt + 1} failed:`, error);
-                  
+
                   // Only show error and update UI state on final attempt
                   if (attempt === delays.length - 1) {
                     console.error('All retry attempts exhausted');
@@ -799,10 +821,10 @@ export function TradeForm() {
       isConnected={isConnected}
       isAuthenticated={isAuthenticated}
       isApproving={isApproving}
+      address={address}
       isDepositing={isDepositing}
       isWaitingForFinalization={isWaitingForFinalization}
       isSigning={isSigning}
-      isExecutingSwap={isExecutingSwap}
       isLoading={isLoading}
       chainId={chainId}
       selectedInputChain={selectedInputChain}
@@ -820,7 +842,6 @@ export function TradeForm() {
       depositModalVisible={depositModalVisible}
       needsApproval={needsApproval}
       lockedBalance={lockedBalance}
-      lockedIncludingAllocated={lockedIncludingAllocated}
       unlockedBalance={unlockedBalance}
       inputTokens={inputTokens}
       outputTokens={outputTokens}
@@ -846,11 +867,11 @@ export function TradeForm() {
 
           // Store current tokens and form values before the swap
           // These will be swapped: input becomes output, output becomes input
-          const currentInputToken = selectedInputToken;  // Store current input to become new output
-          const currentOutputToken = selectedOutputToken;  // Store current output to become new input
+          const currentInputToken = selectedInputToken; // Store current input to become new output
+          const currentOutputToken = selectedOutputToken; // Store current output to become new input
           const currentFormValues = {
-            inputToken: formValues.inputToken,  // Store current input token ID to become new output
-            outputToken: formValues.outputToken,  // Store current output token ID to become new input
+            inputToken: formValues.inputToken, // Store current input token ID to become new output
+            outputToken: formValues.outputToken, // Store current output token ID to become new input
           };
 
           // Clear tokens first to avoid any chain mismatch issues during chain switch
@@ -866,8 +887,8 @@ export function TradeForm() {
           switchChain?.({ chainId: targetChainId });
 
           // Swap the chains: output chain becomes input, input chain becomes output
-          setSelectedInputChain(targetChainId);  // Current output chain becomes new input
-          setSelectedOutputChain(currentChainId);  // Current input chain becomes new output
+          setSelectedInputChain(targetChainId); // Current output chain becomes new input
+          setSelectedOutputChain(currentChainId); // Current input chain becomes new output
 
           // Set the tokens after a small delay to ensure chain state is updated
           setTimeout(() => {
@@ -898,35 +919,35 @@ export function TradeForm() {
         } else {
           // Not connected, just swap the selected chains
           const tempChain = selectedInputChain;
-          setSelectedInputChain(selectedOutputChain);  // Output chain becomes input
-          setSelectedOutputChain(tempChain);  // Input chain becomes output
+          setSelectedInputChain(selectedOutputChain); // Output chain becomes input
+          setSelectedOutputChain(tempChain); // Input chain becomes output
 
           // Store tokens before swapping
-          const tempInputToken = selectedInputToken;  // Store current input to become new output
-          const tempOutputToken = selectedOutputToken;  // Store current output to become new input
+          const tempInputToken = selectedInputToken; // Store current input to become new output
+          const tempOutputToken = selectedOutputToken; // Store current output to become new input
 
           // Swap tokens with null checks
           if (tempOutputToken) {
-            setSelectedInputToken(tempOutputToken);  // Current output becomes new input
+            setSelectedInputToken(tempOutputToken); // Current output becomes new input
           }
           if (tempInputToken) {
-            setSelectedOutputToken(tempInputToken);  // Current input becomes new output
+            setSelectedOutputToken(tempInputToken); // Current input becomes new output
           }
 
           // Update form values with swapped tokens
           setFormValues(prev => ({
             ...prev,
-            inputToken: prev.outputToken,  // Output token ID becomes input
-            outputToken: prev.inputToken,  // Input token ID becomes output
-            inputAmount: quote ? prev.inputAmount : '',  // Preserve amount if we have a quote
+            inputToken: prev.outputToken, // Output token ID becomes input
+            outputToken: prev.inputToken, // Input token ID becomes output
+            inputAmount: quote ? prev.inputAmount : '', // Preserve amount if we have a quote
           }));
 
           // Update quote params if we have a quote and both tokens
           if (quote && tempInputToken && tempOutputToken) {
             setQuoteParams(prev => ({
               ...prev!,
-              inputToken: tempOutputToken.address,  // Use stored output token as new input
-              outputToken: tempInputToken.address,  // Use stored input token as new output
+              inputToken: tempOutputToken.address, // Use stored output token as new input
+              outputToken: tempInputToken.address, // Use stored input token as new output
               inputAmount: selectedInputAmount,
             }));
           } else {
@@ -934,7 +955,7 @@ export function TradeForm() {
           }
         }
       }}
-      onInputChainChange={(chainId) => {
+      onInputChainChange={chainId => {
         setSelectedInputChain(Number(chainId));
         // Clear input token and quote when changing chains
         setSelectedInputToken(undefined);
@@ -944,14 +965,12 @@ export function TradeForm() {
         // If the input chain would be the same as the output chain,
         // select the next available chain, preferring Unichain
         if (chainId === selectedOutputChain) {
-          const availableChains = SUPPORTED_CHAINS.filter(
-            chain => chain.id !== chainId
-          );
+          const availableChains = SUPPORTED_CHAINS.filter(chain => chain.id !== chainId);
           const unichain = availableChains.find(chain => chain.id === 130);
           setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
         }
       }}
-      onOutputChainChange={(value) => {
+      onOutputChainChange={value => {
         const newChainId = Number(value);
         if (newChainId !== selectedOutputChain) {
           setSelectedOutputChain(newChainId);

@@ -17,7 +17,6 @@ interface TradeFormUIProps {
   isDepositing: boolean;
   isWaitingForFinalization: boolean;
   isSigning: boolean;
-  isExecutingSwap: boolean;
   isLoading: boolean;
   chainId: number;
   selectedInputChain: number;
@@ -35,10 +34,10 @@ interface TradeFormUIProps {
   depositModalVisible: boolean;
   needsApproval: boolean;
   lockedBalance: bigint | undefined;
-  lockedIncludingAllocated: bigint | undefined;
   unlockedBalance: bigint | undefined;
   inputTokens: Token[];
   outputTokens: Token[];
+  address?: string;
   onSignIn: () => void;
   onApprove: () => void;
   onSwap: (options: { skipSignature?: boolean; isDepositAndSwap?: boolean }) => void;
@@ -64,7 +63,6 @@ export function TradeFormUI({
   isDepositing,
   isWaitingForFinalization,
   isSigning,
-  isExecutingSwap,
   isLoading,
   chainId,
   selectedInputChain,
@@ -82,10 +80,10 @@ export function TradeFormUI({
   depositModalVisible,
   needsApproval,
   lockedBalance,
-  lockedIncludingAllocated,
   unlockedBalance,
   inputTokens,
   outputTokens,
+  address,
   onSignIn,
   onApprove,
   onSwap,
@@ -105,376 +103,373 @@ export function TradeFormUI({
   ];
 
   return (
-    <div className="w-full max-w-2xl p-6 bg-[#0a0a0a] rounded-xl shadow-xl border border-gray-800">
-      <div className="flex flex-col gap-4" data-testid="trade-form">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-xl font-semibold text-[#00ff00]">Swap</h1>
-          <button
-            onClick={() => setSettingsVisible(true)}
-            className="p-2 text-gray-400 hover:text-gray-300 hover:bg-[#1a1a1a] rounded-lg transition-colors"
-            aria-label="Settings"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <div className="rounded-lg bg-[#0a0a0a] border border-gray-800 p-4">
-          <div className="mb-2 text-sm text-white">Sell</div>
-          <div className="flex items-center w-full">
-            <div className="flex-1 pr-2">
-              <NumberInput
-                value={selectedInputAmount}
-                onChange={value => onValuesChange('inputAmount', value)}
-                placeholder="0.0"
-                className="w-full"
-                variant="borderless"
-                aria-label="Input Amount"
-              />
-            </div>
-            <div className="flex space-x-2">
-              {!isConnected && (
-                <Select
-                  placeholder="Chain"
-                  value={selectedInputChain}
-                  onChange={chainId => onInputChainChange(Number(chainId))}
-                  options={INPUT_CHAINS.map(chain => ({
-                    label: chain.name,
-                    value: chain.id,
-                  }))}
-                  aria-label="Input Chain"
-                  className="w-32"
+    <div className="w-full max-w-2xl flex flex-col gap-6">
+      <div className="p-6 bg-[#0a0a0a] rounded-xl shadow-xl border border-gray-800">
+        <div className="flex flex-col gap-4" data-testid="trade-form">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-xl font-semibold text-[#00ff00]">Swap</h1>
+            <button
+              onClick={() => setSettingsVisible(true)}
+              className="p-2 text-gray-400 hover:text-gray-300 hover:bg-[#1a1a1a] rounded-lg transition-colors"
+              aria-label="Settings"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                  clipRule="evenodd"
                 />
-              )}
-              <Select
-                value={formValues.inputToken}
-                onChange={value => onValuesChange('inputToken', value.toString())}
-                placeholder="Token"
-                options={inputTokens
-                  .filter(token =>
-                    isConnected ? token.chainId === chainId : token.chainId === selectedInputChain
-                  )
-                  .map(token => ({
-                    label: token.symbol,
-                    value: token.address,
-                  }))}
-                aria-label="Input Token"
-                data-testid="input-token-select"
-                className="w-28"
-              />
-            </div>
+              </svg>
+            </button>
           </div>
-          {selectedInputToken &&
-            formatBalanceDisplay(unlockedBalance, lockedBalance, selectedInputToken)}
-        </div>
 
-        <div className="flex justify-center -my-2 relative z-10">
-          <button
-            className="w-8 h-8 rounded-lg bg-[#1a1a1a] border border-gray-700 hover:bg-[#2a2a2a] flex items-center justify-center text-[#00ff00] transition-colors"
-            onClick={onChainSwitch}
-          >
-            ⇵
-          </button>
-        </div>
-
-        <div className="rounded-lg bg-[#0a0a0a] border border-gray-800 p-4">
-          <div className="mb-2 text-sm text-white">Buy</div>
-          <div className="flex items-start w-full">
-            <div className="flex-1 pr-2" data-testid="quote-amount">
-              <div className="text-2xl text-white">
-                {quote?.context?.quoteOutputAmountNet &&
-                  selectedOutputToken &&
-                  formatTokenAmount(
-                    BigInt(quote.context.quoteOutputAmountNet),
-                    selectedOutputToken.decimals
-                  )}
+          <div className="rounded-lg bg-[#0a0a0a] border border-gray-800 p-4">
+            <div className="mb-2 text-sm text-white">Sell</div>
+            <div className="flex items-center w-full">
+              <div className="flex-1 pr-2">
+                <NumberInput
+                  value={selectedInputAmount}
+                  onChange={value => onValuesChange('inputAmount', value)}
+                  placeholder="0.0"
+                  className="w-full"
+                  variant="borderless"
+                  aria-label="Input Amount"
+                />
               </div>
-              {isLoading && (
-                <div className="text-sm text-gray-500 quote-loading mt-1">
-                  Getting latest quote...
-                </div>
-              )}
-            </div>
-            <div className="flex space-x-2">
-              <Select
-                placeholder="Chain"
-                value={selectedOutputChain}
-                onChange={value => onOutputChainChange(Number(value))}
-                options={(() => {
-                  const filtered = SUPPORTED_CHAINS.filter(chain => {
-                    if (isConnected) {
-                      return chain.id !== chainId;
-                    }
-                    return chain.id !== selectedInputChain;
-                  });
-
-                  return filtered
-                    .sort((a, b) => {
-                      if (a.id === 130) return -1;
-                      if (b.id === 130) return 1;
-                      return 0;
-                    })
-                    .map(chain => ({
+              <div className="flex space-x-2">
+                {!isConnected && (
+                  <Select
+                    placeholder="Chain"
+                    value={selectedInputChain}
+                    onChange={chainId => onInputChainChange(Number(chainId))}
+                    options={INPUT_CHAINS.map(chain => ({
                       label: chain.name,
                       value: chain.id,
-                    }));
-                })()}
-                aria-label="Output Chain"
-                className="w-32"
-              />
-              <Select
-                value={formValues.outputToken}
-                onChange={value => onValuesChange('outputToken', value.toString())}
-                placeholder="Token"
-                disabled={!selectedOutputChain}
-                options={outputTokens
-                  .filter(token => token.chainId === selectedOutputChain)
-                  .map(token => ({
-                    label: token.symbol,
-                    value: token.address,
-                  }))}
-                aria-label="Output Token"
-                data-testid="output-token-select"
-                className="w-28"
-              />
+                    }))}
+                    aria-label="Input Chain"
+                    className="w-32"
+                  />
+                )}
+                <Select
+                  value={formValues.inputToken}
+                  onChange={value => onValuesChange('inputToken', value.toString())}
+                  placeholder="Token"
+                  options={inputTokens
+                    .filter(token =>
+                      isConnected ? token.chainId === chainId : token.chainId === selectedInputChain
+                    )
+                    .map(token => ({
+                      label: token.symbol,
+                      value: token.address,
+                    }))}
+                  aria-label="Input Token"
+                  data-testid="input-token-select"
+                  className="w-28"
+                />
+              </div>
             </div>
+            {selectedInputToken &&
+              formatBalanceDisplay(unlockedBalance, lockedBalance, selectedInputToken)}
           </div>
-          {quote?.context && (
-            <div className="mt-1 text-sm text-white space-y-2">
-              {!quote.context.dispensationUSD && (
-                <div className="text-yellow-500">
-                  Warning: Settlement cost information unavailable
-                </div>
-              )}
-              {quote.context.dispensationUSD && (
-                <div className="flex items-center gap-2">
-                  <span>Settlement Cost: {quote.context.dispensationUSD}</span>
-                  <TooltipIcon title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold. The filler will provide this payment in addition to any gas fees required to deliver the token you are buying." />
-                </div>
-              )}
-              {quote?.data?.mandate?.minimumAmount && selectedOutputToken && (
-                <div className="flex items-center gap-2">
-                  <span>
-                    Minimum received:{' '}
-                    {formatTokenAmount(
-                      BigInt(quote.data.mandate.minimumAmount),
+
+          <div className="flex justify-center -my-2 relative z-10">
+            <button
+              className="w-8 h-8 rounded-lg bg-[#1a1a1a] border border-gray-700 hover:bg-[#2a2a2a] flex items-center justify-center text-[#00ff00] transition-colors"
+              onClick={onChainSwitch}
+            >
+              ⇵
+            </button>
+          </div>
+
+          <div className="rounded-lg bg-[#0a0a0a] border border-gray-800 p-4">
+            <div className="mb-2 text-sm text-white">Buy</div>
+            <div className="flex items-start w-full">
+              <div className="flex-1 pr-2" data-testid="quote-amount">
+                <div className="text-2xl text-white">
+                  {quote?.context?.quoteOutputAmountNet &&
+                    selectedOutputToken &&
+                    formatTokenAmount(
+                      BigInt(quote.context.quoteOutputAmountNet),
                       selectedOutputToken.decimals
                     )}
-                  </span>
-                  <TooltipIcon title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides." />
                 </div>
-              )}
+                {isLoading && (
+                  <div className="text-sm text-gray-500 quote-loading mt-1">
+                    Getting latest quote...
+                  </div>
+                )}
+              </div>
+              <div className="flex space-x-2">
+                <Select
+                  placeholder="Chain"
+                  value={selectedOutputChain}
+                  onChange={value => onOutputChainChange(Number(value))}
+                  options={(() => {
+                    const filtered = SUPPORTED_CHAINS.filter(chain => {
+                      if (isConnected) {
+                        return chain.id !== chainId;
+                      }
+                      return chain.id !== selectedInputChain;
+                    });
+
+                    return filtered
+                      .sort((a, b) => {
+                        if (a.id === 130) return -1;
+                        if (b.id === 130) return 1;
+                        return 0;
+                      })
+                      .map(chain => ({
+                        label: chain.name,
+                        value: chain.id,
+                      }));
+                  })()}
+                  aria-label="Output Chain"
+                  className="w-32"
+                />
+                <Select
+                  value={formValues.outputToken}
+                  onChange={value => onValuesChange('outputToken', value.toString())}
+                  placeholder="Token"
+                  disabled={!selectedOutputChain}
+                  options={outputTokens
+                    .filter(token => token.chainId === selectedOutputChain)
+                    .map(token => ({
+                      label: token.symbol,
+                      value: token.address,
+                    }))}
+                  aria-label="Output Token"
+                  data-testid="output-token-select"
+                  className="w-28"
+                />
+              </div>
             </div>
-          )}
-        </div>
-
-        {(error || errorMessage) && (
-          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-red-500">
-            <div className="font-bold">Error</div>
-            <div>{error?.message || errorMessage}</div>
-          </div>
-        )}
-
-        {statusMessage && !errorMessage && (
-          <div className="mt-4 text-center text-[#00ff00]">{statusMessage}</div>
-        )}
-
-        <Modal
-          title="Output Chain Unavailable"
-          open={ethereumOutputModalVisible}
-          onClose={onEthereumOutputModalClose}
-        >
-          <p className="text-white mb-4">
-            Ethereum is not available as the output chain for cross-chain swaps as it does not
-            enforce transaction ordering by priority fee. Please select a different output chain.
-          </p>
-          <div className="flex justify-end">
-            <button
-              onClick={onEthereumOutputModalClose}
-              className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
-            >
-              Close
-            </button>
-          </div>
-        </Modal>
-
-        <Modal
-          title="Deposit Required"
-          open={depositModalVisible}
-          onClose={onDepositModalClose}
-        >
-          <p className="text-white mb-4">
-            {needsApproval ? (
-              <>
-                Token approval required. Please visit{' '}
-                <a
-                  href="https://smallocator.xyz"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#00ff00] hover:underline"
-                >
-                  https://smallocator.xyz
-                </a>{' '}
-                to approve and deposit before making a swap.
-              </>
-            ) : (
-              <>
-                Coming soon... for now, visit{' '}
-                <a
-                  href="https://smallocator.xyz"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#00ff00] hover:underline"
-                >
-                  https://smallocator.xyz
-                </a>{' '}
-                to perform a deposit before making a swap.
-              </>
-            )}
-          </p>
-          <div className="flex justify-end">
-            <button
-              onClick={onDepositModalClose}
-              className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
-            >
-              Close
-            </button>
-          </div>
-        </Modal>
-
-        {!isConnected ? (
-          <div className="w-full h-12 [&>div]:h-full [&>div]:w-full [&>div>button]:h-full [&>div>button]:w-full [&>div>button]:rounded-lg [&>div>button]:flex [&>div>button]:items-center [&>div>button]:justify-center [&>div>button]:p-0 [&>div>button>div]:p-0 [&>div>button]:py-4">
-            <ConnectButton />
-          </div>
-        ) : !isAuthenticated ? (
-          <button
-            onClick={onSignIn}
-            className="w-full h-12 rounded-lg font-medium transition-colors bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20"
-          >
-            Sign in to Smallocator
-          </button>
-        ) : (
-          <button
-            onClick={() => {
-              if (needsApproval && selectedInputToken) {
-                onApprove();
-                return;
-              }
-
-              if (
-                selectedInputToken &&
-                selectedInputAmount &&
-                lockedBalance !== undefined &&
-                unlockedBalance !== undefined
-              ) {
-                const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
-                const totalBalance = lockedBalance + unlockedBalance;
-
-                if (totalBalance < inputAmount) {
-                  return;
-                } else if (lockedBalance < inputAmount) {
-                  onDepositAndSwap();
-                  return;
-                }
-              }
-              onSwap({ isDepositAndSwap: false });
-            }}
-            disabled={(() => {
-              if (isApproving) return true;
-              if (needsApproval && selectedInputToken) return false;
-              if (
-                !quote?.data ||
-                isLoading ||
-                isSigning ||
-                !selectedInputToken ||
-                !selectedInputAmount
-              ) {
-                return true;
-              }
-
-              if (selectedInputToken && selectedInputAmount) {
-                const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
-                const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
-                return totalBalance < inputAmount;
-              }
-              return true;
-            })()}
-            className={`w-full h-12 rounded-lg font-medium transition-colors ${(() => {
-              if (isApproving) return 'bg-gray-700 text-gray-400 cursor-not-allowed';
-              if (needsApproval && selectedInputToken) {
-                return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
-              }
-              if (
-                !quote?.data ||
-                isLoading ||
-                isSigning ||
-                !selectedInputToken ||
-                !selectedInputAmount ||
-                (() => {
-                  if (selectedInputToken && selectedInputAmount) {
-                    const inputAmount = parseUnits(
-                      selectedInputAmount,
-                      selectedInputToken.decimals
-                    );
-                    const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
-                    return totalBalance < inputAmount;
-                  }
-                  return false;
-                })()
-              ) {
-                return 'bg-gray-700 text-gray-400 cursor-not-allowed';
-              }
-              return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
-            })()}`}
-          >
-            {(() => {
-              if (isApproving) return 'Waiting for approval...';
-              if (needsApproval && selectedInputToken)
-                return `Approve ${selectedInputToken.symbol}`;
-              if (isDepositing && !isWaitingForFinalization) return 'Depositing...';
-              if (isWaitingForFinalization) return 'Waiting for finalization...';
-              if (isSigning) return 'Signing...';
-              if (error) return 'Try Again';
-              if (!selectedInputToken || !selectedInputAmount) return 'Swap';
-
-              const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
-              const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
-
-              if (totalBalance < inputAmount) {
-                return 'Insufficient Balance';
-              } else if (lockedBalance !== undefined && lockedBalance < inputAmount) {
-                return 'Deposit & Swap';
-              }
-              return 'Swap';
-            })()}
-            {(isSigning || isApproving || isDepositing || isWaitingForFinalization) && (
-              <div className="inline-block ml-2 animate-spin h-4 w-4">
-                <svg className="text-current" viewBox="0 0 24 24" fill="currentColor">
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
+            {quote?.context && (
+              <div className="mt-1 text-sm text-white space-y-2">
+                {!quote.context.dispensationUSD && (
+                  <div className="text-yellow-500">
+                    Warning: Settlement cost information unavailable
+                  </div>
+                )}
+                {quote.context.dispensationUSD && (
+                  <div className="flex items-center gap-2">
+                    <span>Settlement Cost: {quote.context.dispensationUSD}</span>
+                    <TooltipIcon title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold. The filler will provide this payment in addition to any gas fees required to deliver the token you are buying." />
+                  </div>
+                )}
+                {quote?.data?.mandate?.minimumAmount && selectedOutputToken && (
+                  <div className="flex items-center gap-2">
+                    <span>
+                      Minimum received:{' '}
+                      {formatTokenAmount(
+                        BigInt(quote.data.mandate.minimumAmount),
+                        selectedOutputToken.decimals
+                      )}
+                    </span>
+                    <TooltipIcon title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides." />
+                  </div>
+                )}
               </div>
             )}
-          </button>
-        )}
+          </div>
 
+          {(error || errorMessage) && (
+            <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-red-500">
+              <div className="font-bold">Error</div>
+              <div>{error?.message || errorMessage}</div>
+            </div>
+          )}
+
+          {statusMessage && !errorMessage && (
+            <div className="mt-4 text-center text-[#00ff00]">{statusMessage}</div>
+          )}
+
+          <Modal
+            title="Output Chain Unavailable"
+            open={ethereumOutputModalVisible}
+            onClose={onEthereumOutputModalClose}
+          >
+            <p className="text-white mb-4">
+              Ethereum is not available as the output chain for cross-chain swaps as it does not
+              enforce transaction ordering by priority fee. Please select a different output chain.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={onEthereumOutputModalClose}
+                className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </Modal>
+
+          <Modal title="Deposit Required" open={depositModalVisible} onClose={onDepositModalClose}>
+            <p className="text-white mb-4">
+              {needsApproval ? (
+                <>
+                  Token approval required. Please visit{' '}
+                  <a
+                    href="https://smallocator.xyz"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#00ff00] hover:underline"
+                  >
+                    https://smallocator.xyz
+                  </a>{' '}
+                  to approve and deposit before making a swap.
+                </>
+              ) : (
+                <>
+                  Coming soon... for now, visit{' '}
+                  <a
+                    href="https://smallocator.xyz"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#00ff00] hover:underline"
+                  >
+                    https://smallocator.xyz
+                  </a>{' '}
+                  to perform a deposit before making a swap.
+                </>
+              )}
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={onDepositModalClose}
+                className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </Modal>
+
+          {!isConnected ? (
+            <div className="w-full h-12 [&>div]:h-full [&>div]:w-full [&>div>button]:h-full [&>div>button]:w-full [&>div>button]:rounded-lg [&>div>button]:flex [&>div>button]:items-center [&>div>button]:justify-center [&>div>button]:p-0 [&>div>button>div]:p-0 [&>div>button]:py-4">
+              <ConnectButton />
+            </div>
+          ) : !isAuthenticated ? (
+            <button
+              onClick={onSignIn}
+              className="w-full h-12 rounded-lg font-medium transition-colors bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20"
+            >
+              Sign in to Smallocator
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                if (needsApproval && selectedInputToken) {
+                  onApprove();
+                  return;
+                }
+
+                if (
+                  selectedInputToken &&
+                  selectedInputAmount &&
+                  lockedBalance !== undefined &&
+                  unlockedBalance !== undefined
+                ) {
+                  const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
+                  const totalBalance = lockedBalance + unlockedBalance;
+
+                  if (totalBalance < inputAmount) {
+                    return;
+                  } else if (lockedBalance < inputAmount) {
+                    onDepositAndSwap();
+                    return;
+                  }
+                }
+                onSwap({ isDepositAndSwap: false });
+              }}
+              disabled={(() => {
+                if (isApproving) return true;
+                if (needsApproval && selectedInputToken) return false;
+                if (
+                  !quote?.data ||
+                  isLoading ||
+                  isSigning ||
+                  !selectedInputToken ||
+                  !selectedInputAmount
+                ) {
+                  return true;
+                }
+
+                if (selectedInputToken && selectedInputAmount) {
+                  const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
+                  const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+                  return totalBalance < inputAmount;
+                }
+                return true;
+              })()}
+              className={`w-full h-12 rounded-lg font-medium transition-colors ${(() => {
+                if (isApproving) return 'bg-gray-700 text-gray-400 cursor-not-allowed';
+                if (needsApproval && selectedInputToken) {
+                  return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
+                }
+                if (
+                  !quote?.data ||
+                  isLoading ||
+                  isSigning ||
+                  !selectedInputToken ||
+                  !selectedInputAmount ||
+                  (() => {
+                    if (selectedInputToken && selectedInputAmount) {
+                      const inputAmount = parseUnits(
+                        selectedInputAmount,
+                        selectedInputToken.decimals
+                      );
+                      const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+                      return totalBalance < inputAmount;
+                    }
+                    return false;
+                  })()
+                ) {
+                  return 'bg-gray-700 text-gray-400 cursor-not-allowed';
+                }
+                return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
+              })()}`}
+            >
+              {(() => {
+                if (isApproving) return 'Waiting for approval...';
+                if (needsApproval && selectedInputToken)
+                  return `Approve ${selectedInputToken.symbol}`;
+                if (isDepositing && !isWaitingForFinalization) return 'Depositing...';
+                if (isWaitingForFinalization) return 'Waiting for finalization...';
+                if (isSigning) return 'Signing...';
+                if (error) return 'Try Again';
+                if (!selectedInputToken || !selectedInputAmount) return 'Swap';
+
+                const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
+                const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
+
+                if (totalBalance < inputAmount) {
+                  return 'Insufficient Balance';
+                } else if (lockedBalance !== undefined && lockedBalance < inputAmount) {
+                  return 'Deposit & Swap';
+                }
+                return 'Swap';
+              })()}
+              {(isSigning || isApproving || isDepositing || isWaitingForFinalization) && (
+                <div className="inline-block ml-2 animate-spin h-4 w-4">
+                  <svg className="text-current" viewBox="0 0 24 24" fill="currentColor">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                </div>
+              )}
+            </button>
+          )}
+        </div>
         {settingsVisible && (
           <Modal title="Settings" open={settingsVisible} onClose={() => setSettingsVisible(false)}>
             <div className="space-y-4">
@@ -569,8 +564,14 @@ export function TradeFormUI({
                     formatNumber(formValues.baselinePriorityFee, '0')
                   );
 
-                  onValuesChange('slippageTolerance', Number(formatNumber(formValues.slippageTolerance, '0.5')));
-                  onValuesChange('baselinePriorityFee', Number(formatNumber(formValues.baselinePriorityFee, '0')));
+                  onValuesChange(
+                    'slippageTolerance',
+                    Number(formatNumber(formValues.slippageTolerance, '0.5'))
+                  );
+                  onValuesChange(
+                    'baselinePriorityFee',
+                    Number(formatNumber(formValues.baselinePriorityFee, '0'))
+                  );
                   setSettingsVisible(false);
                 }}
                 className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
@@ -580,6 +581,81 @@ export function TradeFormUI({
             </div>
           </Modal>
         )}
+      </div>
+      <div className="space-y-2 text-sm text-gray-400">
+        <div>
+          ⚠️ Swap confirmation not implemented yet — check the{' '}
+          <a
+            href={(() => {
+              const chainExplorerMap: Record<number, string> = {
+                1: 'https://etherscan.io/',
+                10: 'https://optimistic.etherscan.io/',
+                8453: 'https://basescan.org/',
+                130: 'https://uniscan.xyz/',
+              };
+              const baseUrl = chainExplorerMap[selectedOutputChain] || 'https://etherscan.io/';
+              return isConnected && address ? `${baseUrl}address/${address}` : baseUrl;
+            })()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#00ff00] hover:underline"
+          >
+            {(() => {
+              const chainNameMap: Record<number, string> = {
+                1: 'Ethereum',
+                10: 'Optimism',
+                8453: 'Base',
+                130: 'Unichain',
+              };
+              return chainNameMap[selectedOutputChain] || 'Ethereum';
+            })()}{' '}
+            block explorer
+          </a>{' '}
+          to see fill status.
+        </div>
+        <div>
+          🤲 Intents are sent to{' '}
+          <a
+            href="https://fillanthropist.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#00ff00] hover:underline"
+          >
+            Fillanthropist
+          </a>{' '}
+          and must be filled manually.
+        </div>
+        <div>
+          🤏 Manage resource lock deposits, transfers & withdrawals using{' '}
+          <a
+            href="https://smallocator.xyz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#00ff00] hover:underline"
+          >
+            Smallocator
+          </a>
+          .
+        </div>
+        <div>
+          <svg
+            viewBox="0 0 24 24"
+            className="w-4 h-4 inline-block align-text-bottom mr-1"
+            fill="currentColor"
+          >
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+          </svg>
+          Site under active development; submit bug reports and PRs to the{' '}
+          <a
+            href="https://github.com/Uniswap/CompactX"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#00ff00] hover:underline"
+          >
+            CompactX repo
+          </a>
+          .
+        </div>
       </div>
     </div>
   );
