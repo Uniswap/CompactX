@@ -1,6 +1,6 @@
 # CompactX
 
-CompactX is a proof-of-concept, React-based web interface for performing cross-chain swaps. It is built using [The Compact](https://github.com/Uniswap/TheCompact) protocol.
+CompactX is a proof-of-concept, React-based web interface for performing cross-chain swaps. It is built using [The Compact](https://github.com/Uniswap/the-compact).
 
 ## Related Services
 
