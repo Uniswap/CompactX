@@ -7,7 +7,6 @@ import {
   formatTokenAmount,
   MAX_UINT256,
   SUPPORTED_CHAINS,
-  INPUT_CHAINS,
   DEFAULT_SPONSOR,
   ResetPeriod,
   deriveClaimHash,
@@ -756,7 +755,7 @@ export function TradeForm() {
             };
 
             // Start the retry process
-            await handleSwap({ skipSignature: true, isDepositAndSwap: true });
+            await retryWithBackoff();
           }
         } catch (error) {
           console.error('Error polling for finalization:', error);
@@ -824,6 +823,7 @@ export function TradeForm() {
       onSignIn={signIn}
       onApprove={handleApprove}
       onSwap={handleSwap}
+      onDepositAndSwap={handleDepositAndSwap}
       setSettingsVisible={setSettingsVisible}
       onEthereumOutputModalClose={() => setEthereumOutputModalVisible(false)}
       onDepositModalClose={() => setDepositModalVisible(false)}

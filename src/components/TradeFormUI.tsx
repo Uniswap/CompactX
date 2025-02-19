@@ -42,6 +42,7 @@ interface TradeFormUIProps {
   onSignIn: () => void;
   onApprove: () => void;
   onSwap: (options: { skipSignature?: boolean; isDepositAndSwap?: boolean }) => void;
+  onDepositAndSwap: () => void;
   setSettingsVisible: (visible: boolean) => void;
   onEthereumOutputModalClose: () => void;
   onDepositModalClose: () => void;
@@ -96,6 +97,7 @@ export function TradeFormUI({
   onInputChainChange,
   onOutputChainChange,
   formatBalanceDisplay,
+  onDepositAndSwap,
 }: TradeFormUIProps) {
   const scopeOptions = [
     { label: 'Multichain', value: true },
@@ -376,7 +378,7 @@ export function TradeFormUI({
                 if (totalBalance < inputAmount) {
                   return;
                 } else if (lockedBalance < inputAmount) {
-                  onSwap({ isDepositAndSwap: true });
+                  onDepositAndSwap();
                   return;
                 }
               }
