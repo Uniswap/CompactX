@@ -1,6 +1,6 @@
 # CompactX
 
-CompactX is a proof-of-concept, React-based web interface for performing cross-chain swaps. It is built using [The Compact](https://github.com/Uniswap/the-compact).
+[CompactX](https://compactx.org/) is a proof-of-concept, React-based web interface for performing cross-chain swaps. It is built using [The Compact](https://github.com/Uniswap/the-compact).
 
 ## Related Services
 
@@ -10,6 +10,7 @@ CompactX relies on several key services:
 - [Calibrator](https://github.com/Uniswap/Calibrator) - Intent parameterization service
 - [Smallocator](https://github.com/Uniswap/Smallocator) - Resource lock allocation service
 - [Fillanthropist](https://github.com/Uniswap/Fillanthropist) - Manual filler / solver (meant as an illustrative example of how settlement works)
+- [Disseminator](https://github.com/Uniswap/disseminator) - disseminates intents to Fillanthropist as well as any connected websocket clients
 
 ## Installation
 
