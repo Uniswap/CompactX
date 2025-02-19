@@ -1,12 +1,7 @@
-import { Select } from './Select';
-import { NumberInput } from './NumberInput';
 import { useToast } from '../hooks/useToast';
-import { Modal } from './Modal';
-import { SegmentedControl } from './SegmentedControl';
-import { TooltipIcon } from './TooltipIcon';
+import { TradeFormUI } from './TradeFormUI';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
-import { ConnectButton } from '../config/wallet';
 import { parseUnits, type Hex } from 'viem';
 import {
   formatTokenAmount,
@@ -19,6 +14,7 @@ import {
   resetPeriodToSeconds,
   type TradeFormValues
 } from '../utils/tradeUtils';
+import type { Token } from '../types/index';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTokens } from '../hooks/useTokens';
 import { useCalibrator } from '../hooks/useCalibrator';
@@ -76,12 +72,8 @@ export function TradeForm() {
   }, [isConnected, chainId]);
 
   const { inputTokens, outputTokens } = useTokens(selectedInputChain);
-  const [selectedInputToken, setSelectedInputToken] = useState<
-    (typeof inputTokens)[0] | undefined
-  >();
-  const [selectedOutputToken, setSelectedOutputToken] = useState<
-    (typeof outputTokens)[0] | undefined
-  >();
+  const [selectedInputToken, setSelectedInputToken] = useState<Token | undefined>();
+  const [selectedOutputToken, setSelectedOutputToken] = useState<Token | undefined>();
 
   const [formValues, setFormValues] = useState<Partial<TradeFormValues>>(() => ({
     inputToken: '',
@@ -127,7 +119,7 @@ export function TradeForm() {
   const formatBalanceDisplay = (
     unlockedBalance: bigint | undefined,
     lockedBalance: bigint | undefined,
-    token: (typeof inputTokens)[0] | undefined
+    token: Token | undefined
   ) => {
     if (!token || !isConnected) return '';
 
@@ -238,14 +230,14 @@ export function TradeForm() {
       // Update selected tokens if token fields change
       if (field === 'inputToken') {
         const newInputToken = inputTokens.find(token => token.address === value);
-        if (newInputToken !== selectedInputToken) {
+        if (newInputToken && newInputToken !== selectedInputToken) {
           setSelectedInputToken(newInputToken);
         }
       } else if (field === 'outputToken') {
         const newOutputToken = outputTokens.find(token => 
           token.address === value && token.chainId === selectedOutputChain
         );
-        if (newOutputToken !== selectedOutputToken) {
+        if (newOutputToken && newOutputToken !== selectedOutputToken) {
           setSelectedOutputToken(newOutputToken);
         }
       } else if (field === 'inputAmount') {
@@ -257,7 +249,7 @@ export function TradeForm() {
         return newValues;
       });
     },
-    [inputTokens, outputTokens, selectedInputToken, selectedOutputToken, selectedOutputChain, formValues]
+    [inputTokens, outputTokens, selectedInputToken, selectedOutputToken, selectedOutputChain]
   );
 
   // Handle chain changes and conflicts
@@ -273,14 +265,6 @@ export function TradeForm() {
       setFormValues(prev => ({ ...prev, outputToken: '' }));
     }
   }, [chainId, isConnected, selectedOutputChain]);
-
-  // Refresh quote when wallet connects or amount changes
-  // useEffect(() => {
-  //   if (selectedInputAmount && (isConnected || selectedInputToken)) {
-  //     // Force quote params update when amount changes or wallet connects
-  //     setQuoteParams(undefined);
-  //   }
-  // }, [isConnected, selectedInputAmount, selectedInputToken]);
 
   // Handle the actual swap after quote is received
   const handleSwap = async (options: { skipSignature?: boolean; isDepositAndSwap?: boolean } = {}) => {
@@ -655,7 +639,7 @@ export function TradeForm() {
             setIsWaitingForFinalization(false);
             console.log('Deposit finalized, requesting allocation...');
             // Helper function for exponential backoff retries
-            async () => {
+            const retryWithBackoff = async () => {
               const delays = [0, 1000, 2000, 4000, 8000]; // Initial + 4 retries with exponential backoff
 
               for (let attempt = 0; attempt < delays.length; attempt++) {
@@ -808,632 +792,172 @@ export function TradeForm() {
   };
 
   return (
-    <div className="w-full max-w-2xl p-6 bg-[#0a0a0a] rounded-xl shadow-xl border border-gray-800">
-      <div className="flex flex-col gap-4" data-testid="trade-form">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-xl font-semibold text-[#00ff00]">Swap</h1>
-          <button
-            onClick={() => setSettingsVisible(true)}
-            className="p-2 text-gray-400 hover:text-gray-300 hover:bg-[#1a1a1a] rounded-lg transition-colors"
-            aria-label="Settings"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
+    <TradeFormUI
+      isConnected={isConnected}
+      isAuthenticated={isAuthenticated}
+      isApproving={isApproving}
+      isDepositing={isDepositing}
+      isWaitingForFinalization={isWaitingForFinalization}
+      isSigning={isSigning}
+      isExecutingSwap={isExecutingSwap}
+      isLoading={isLoading}
+      chainId={chainId}
+      selectedInputChain={selectedInputChain}
+      selectedOutputChain={selectedOutputChain}
+      selectedInputAmount={selectedInputAmount}
+      selectedInputToken={selectedInputToken}
+      selectedOutputToken={selectedOutputToken}
+      formValues={formValues}
+      quote={quote}
+      error={error}
+      errorMessage={errorMessage}
+      statusMessage={statusMessage}
+      settingsVisible={settingsVisible}
+      ethereumOutputModalVisible={ethereumOutputModalVisible}
+      depositModalVisible={depositModalVisible}
+      needsApproval={needsApproval}
+      lockedBalance={lockedBalance}
+      lockedIncludingAllocated={lockedIncludingAllocated}
+      unlockedBalance={unlockedBalance}
+      inputTokens={inputTokens}
+      outputTokens={outputTokens}
+      onSignIn={signIn}
+      onApprove={handleApprove}
+      onSwap={handleSwap}
+      setSettingsVisible={setSettingsVisible}
+      onEthereumOutputModalClose={() => setEthereumOutputModalVisible(false)}
+      onDepositModalClose={() => setDepositModalVisible(false)}
+      onValuesChange={handleValuesChange}
+      onChainSwitch={() => {
+        // Check if trying to swap Ethereum to be the output chain
+        if ((isConnected ? chainId : selectedInputChain) === 1) {
+          setEthereumOutputModalVisible(true);
+          return;
+        }
 
-        <div className="rounded-lg bg-[#0a0a0a] border border-gray-800 p-4">
-          <div className="mb-2 text-sm text-white">Sell</div>
-          <div className="flex items-center w-full">
-            <div className="flex-1 pr-2">
-              <NumberInput
-                value={selectedInputAmount}
-                onChange={value => handleValuesChange('inputAmount', value)}
-                placeholder="0.0"
-                className="w-full"
-                variant="borderless"
-                aria-label="Input Amount"
-              />
-            </div>
-            <div className="flex space-x-2">
-              {!isConnected && (
-                <Select
-                  placeholder="Chain"
-                  value={selectedInputChain}
-                  onChange={chainId => {
-                    setSelectedInputChain(Number(chainId));
-                    // Clear input token and quote when changing chains
-                    setSelectedInputToken(undefined);
-                    setQuoteParams(undefined);
-                    setFormValues(prev => ({ ...prev, inputToken: '', inputAmount: '' }));
+        if (isConnected) {
+          // If connected, we need to switch the actual network
+          const currentChainId = chainId;
+          const targetChainId = selectedOutputChain;
 
-                    // If the input chain would be the same as the output chain,
-                    // select the next available chain, preferring Unichain
-                    if (chainId === selectedOutputChain) {
-                      const availableChains = SUPPORTED_CHAINS.filter(
-                        chain => chain.id !== chainId
-                      );
-                      const unichain = availableChains.find(chain => chain.id === 130);
-                      setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
-                    }
-                  }}
-                  options={INPUT_CHAINS.map(chain => ({
-                    label: chain.name,
-                    value: chain.id,
-                  }))}
-                  aria-label="Input Chain"
-                  className="w-32"
-                />
-              )}
-              <Select
-                value={formValues.inputToken}
-                onChange={value => handleValuesChange('inputToken', value.toString())}
-                placeholder="Token"
-                options={inputTokens
-                  .filter(token =>
-                    isConnected ? token.chainId === chainId : token.chainId === selectedInputChain
-                  )
-                  .map(token => ({
-                    label: token.symbol,
-                    value: token.address,
-                  }))}
-                aria-label="Input Token"
-                data-testid="input-token-select"
-                className="w-28"
-              />
-            </div>
-          </div>
-          {selectedInputToken &&
-            formatBalanceDisplay(unlockedBalance, lockedBalance, selectedInputToken)}
-        </div>
+          // Store current tokens and form values before the swap
+          // These will be swapped: input becomes output, output becomes input
+          const currentInputToken = selectedInputToken;  // Store current input to become new output
+          const currentOutputToken = selectedOutputToken;  // Store current output to become new input
+          const currentFormValues = {
+            inputToken: formValues.inputToken,  // Store current input token ID to become new output
+            outputToken: formValues.outputToken,  // Store current output token ID to become new input
+          };
 
-        <div className="flex justify-center -my-2 relative z-10">
-          <button
-            className="w-8 h-8 rounded-lg bg-[#1a1a1a] border border-gray-700 hover:bg-[#2a2a2a] flex items-center justify-center text-[#00ff00] transition-colors"
-            onClick={() => {
-              // Check if trying to swap Ethereum to be the output chain
-              if ((isConnected ? chainId : selectedInputChain) === 1) {
-                setEthereumOutputModalVisible(true);
-                return;
-              }
+          // Clear tokens first to avoid any chain mismatch issues during chain switch
+          setSelectedInputToken(undefined);
+          setSelectedOutputToken(undefined);
+          setFormValues(prev => ({
+            ...prev,
+            inputToken: '',
+            outputToken: '',
+          }));
 
-              if (isConnected) {
-                // If connected, we need to switch the actual network
-                const currentChainId = chainId;
-                const targetChainId = selectedOutputChain;
+          // Switch to the output chain (it will become the new input chain)
+          switchChain?.({ chainId: targetChainId });
 
-                // Store current tokens and form values before the swap
-                const currentInputToken = selectedInputToken;
-                const currentOutputToken = selectedOutputToken;
-                const currentFormValues = {
-                  inputToken: formValues.inputToken,
-                  outputToken: formValues.outputToken,
-                };
+          // Swap the chains: output chain becomes input, input chain becomes output
+          setSelectedInputChain(targetChainId);  // Current output chain becomes new input
+          setSelectedOutputChain(currentChainId);  // Current input chain becomes new output
 
-                // Clear tokens first to avoid any chain mismatch issues
-                setSelectedInputToken(undefined);
-                setSelectedOutputToken(undefined);
-                setFormValues(prev => ({
-                  ...prev,
-                  inputToken: '',
-                  outputToken: '',
-                }));
+          // Set the tokens after a small delay to ensure chain state is updated
+          setTimeout(() => {
+            // Update form values with swapped tokens first
+            setFormValues(prev => ({
+              ...prev,
+              inputToken: currentFormValues.outputToken,
+              outputToken: currentFormValues.inputToken,
+              inputAmount: quote ? prev.inputAmount : '',
+            }));
 
-                // Switch to the output chain
-                switchChain?.({ chainId: targetChainId });
+            // Then set the tokens
+            setSelectedInputToken(currentOutputToken);
+            setSelectedOutputToken(currentInputToken);
 
-                // Update the form to swap the chains
-                setSelectedInputChain(targetChainId);
-                setSelectedOutputChain(currentChainId);
+            // Update quote params if we have a quote
+            if (quote && currentInputToken && currentOutputToken) {
+              setQuoteParams(prev => ({
+                ...prev!,
+                inputToken: currentOutputToken.address,
+                outputToken: currentInputToken.address,
+                inputAmount: selectedInputAmount,
+              }));
+            } else {
+              setQuoteParams(undefined);
+            }
+          }, 50);
+        } else {
+          // Not connected, just swap the selected chains
+          const tempChain = selectedInputChain;
+          setSelectedInputChain(selectedOutputChain);  // Output chain becomes input
+          setSelectedOutputChain(tempChain);  // Input chain becomes output
 
-                // Set the tokens after a small delay to ensure chain state is updated
-                setTimeout(() => {
-                  // Update form values with swapped tokens first
-                  setFormValues(prev => ({
-                    ...prev,
-                    inputToken: currentFormValues.outputToken,
-                    outputToken: currentFormValues.inputToken,
-                    inputAmount: quote ? prev.inputAmount : '',
-                  }));
+          // Store tokens before swapping
+          const tempInputToken = selectedInputToken;  // Store current input to become new output
+          const tempOutputToken = selectedOutputToken;  // Store current output to become new input
 
-                  // Then set the tokens
-                  setSelectedInputToken(currentOutputToken);
-                  setSelectedOutputToken(currentInputToken);
+          // Swap tokens with null checks
+          if (tempOutputToken) {
+            setSelectedInputToken(tempOutputToken);  // Current output becomes new input
+          }
+          if (tempInputToken) {
+            setSelectedOutputToken(tempInputToken);  // Current input becomes new output
+          }
 
-                  // Update quote params if we have a quote
-                  if (quote && currentInputToken && currentOutputToken) {
-                    setQuoteParams(prev => ({
-                      ...prev!,
-                      inputToken: currentOutputToken.address,
-                      outputToken: currentInputToken.address,
-                      inputAmount: selectedInputAmount,
-                    }));
-                  } else {
-                    setQuoteParams(undefined);
-                  }
-                }, 50);
-              } else {
-                // Not connected, just swap the selected chains
-                const tempChain = selectedInputChain;
-                setSelectedInputChain(selectedOutputChain);
-                setSelectedOutputChain(tempChain);
+          // Update form values with swapped tokens
+          setFormValues(prev => ({
+            ...prev,
+            inputToken: prev.outputToken,  // Output token ID becomes input
+            outputToken: prev.inputToken,  // Input token ID becomes output
+            inputAmount: quote ? prev.inputAmount : '',  // Preserve amount if we have a quote
+          }));
 
-                // Swap tokens
-                const tempInputToken = selectedInputToken;
-                const tempOutputToken = selectedOutputToken;
-                setSelectedInputToken(tempOutputToken);
-                setSelectedOutputToken(tempInputToken);
+          // Update quote params if we have a quote and both tokens
+          if (quote && tempInputToken && tempOutputToken) {
+            setQuoteParams(prev => ({
+              ...prev!,
+              inputToken: tempOutputToken.address,  // Use stored output token as new input
+              outputToken: tempInputToken.address,  // Use stored input token as new output
+              inputAmount: selectedInputAmount,
+            }));
+          } else {
+            setQuoteParams(undefined);
+          }
+        }
+      }}
+      onInputChainChange={(chainId) => {
+        setSelectedInputChain(Number(chainId));
+        // Clear input token and quote when changing chains
+        setSelectedInputToken(undefined);
+        setQuoteParams(undefined);
+        setFormValues(prev => ({ ...prev, inputToken: '', inputAmount: '' }));
 
-                // Update form values with swapped tokens
-                setFormValues(prev => ({
-                  ...prev,
-                  inputToken: prev.outputToken,
-                  outputToken: prev.inputToken,
-                  inputAmount: quote ? prev.inputAmount : '',
-                }));
-
-                // Update quote params if we have a quote
-                if (quote && selectedInputToken && selectedOutputToken) {
-                  setQuoteParams(prev => ({
-                    ...prev!,
-                    inputToken: selectedOutputToken.address,
-                    outputToken: selectedInputToken.address,
-                    inputAmount: selectedInputAmount,
-                  }));
-                } else {
-                  setQuoteParams(undefined);
-                }
-              }
-            }}
-          >
-            ⇵
-          </button>
-        </div>
-
-        <div className="rounded-lg bg-[#0a0a0a] border border-gray-800 p-4">
-          <div className="mb-2 text-sm text-white">Buy</div>
-          <div className="flex items-start w-full">
-            <div className="flex-1 pr-2" data-testid="quote-amount">
-              <div className="text-2xl text-white">
-                {quote?.context?.quoteOutputAmountNet &&
-                  selectedOutputToken &&
-                  formatTokenAmount(
-                    BigInt(quote.context.quoteOutputAmountNet),
-                    selectedOutputToken.decimals
-                  )}
-              </div>
-              {isLoading && (
-                <div className="text-sm text-gray-500 quote-loading mt-1">
-                  Getting latest quote...
-                </div>
-              )}
-            </div>
-            <div className="flex space-x-2">
-              <Select
-                placeholder="Chain"
-                value={selectedOutputChain}
-                onChange={value => {
-                  const newChainId = Number(value);
-                  if (newChainId !== selectedOutputChain) {
-                    setSelectedOutputChain(newChainId);
-                    setSelectedOutputToken(undefined);
-                    // Clear quote parameters when output chain changes
-                    setQuoteParams(undefined);
-                    setFormValues(prev => ({ ...prev, outputToken: '' }));
-                  }
-                }}
-                options={(() => {
-                  // Filter available chains
-                  const filtered = SUPPORTED_CHAINS.filter(chain => {
-                    if (isConnected) {
-                      return chain.id !== chainId;
-                    }
-                    return chain.id !== selectedInputChain;
-                  });
-
-                  // Sort to ensure Unichain appears first if available
-                  return filtered
-                    .sort((a, b) => {
-                      if (a.id === 130) return -1;
-                      if (b.id === 130) return 1;
-                      return 0;
-                    })
-                    .map(chain => ({
-                      label: chain.name,
-                      value: chain.id,
-                    }));
-                })()}
-                aria-label="Output Chain"
-                className="w-32"
-              />
-              <Select
-                value={formValues.outputToken}
-                onChange={value => {
-                  handleValuesChange('outputToken', value.toString());
-                }}
-                placeholder="Token"
-                disabled={!selectedOutputChain}
-                options={outputTokens
-                  .filter(token => token.chainId === selectedOutputChain)
-                  .map(token => ({
-                    label: token.symbol,
-                    value: token.address,
-                  }))}
-                aria-label="Output Token"
-                data-testid="output-token-select"
-                className="w-28"
-              />
-            </div>
-          </div>
-          {quote?.context && (
-            <div className="mt-1 text-sm text-white space-y-2">
-              {!quote.context.dispensationUSD && (
-                <div className="text-yellow-500">
-                  Warning: Settlement cost information unavailable
-                </div>
-              )}
-              {quote.context.dispensationUSD && (
-                <div className="flex items-center gap-2">
-                  <span>Settlement Cost: {quote.context.dispensationUSD}</span>
-                  <TooltipIcon title="Estimated cost to a filler to dispatch a cross-chain message and claim the tokens being sold. The filler will provide this payment in addition to any gas fees required to deliver the token you are buying." />
-                </div>
-              )}
-              {quote?.data?.mandate?.minimumAmount && selectedOutputToken && (
-                <div className="flex items-center gap-2">
-                  <span>
-                    Minimum received:{' '}
-                    {formatTokenAmount(
-                      BigInt(quote.data.mandate.minimumAmount),
-                      selectedOutputToken.decimals
-                    )}
-                  </span>
-                  <TooltipIcon title="The minimum amount you will receive; the final received amount increases based on the gas priority fee the filler provides." />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {(error || errorMessage) && (
-          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-red-500">
-            <div className="font-bold">Error</div>
-            <div>{error?.message || errorMessage}</div>
-          </div>
-        )}
-
-        {statusMessage && !errorMessage && (
-          <div className="mt-4 text-center text-[#00ff00]">{statusMessage}</div>
-        )}
-
-        <Modal
-          title="Output Chain Unavailable"
-          open={ethereumOutputModalVisible}
-          onClose={() => setEthereumOutputModalVisible(false)}
-        >
-          <p className="text-white mb-4">
-            Ethereum is not available as the output chain for cross-chain swaps as it does not
-            enforce transaction ordering by priority fee. Please select a different output chain.
-          </p>
-          <div className="flex justify-end">
-            <button
-              onClick={() => setEthereumOutputModalVisible(false)}
-              className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
-            >
-              Close
-            </button>
-          </div>
-        </Modal>
-
-        <Modal
-          title="Deposit Required"
-          open={depositModalVisible}
-          onClose={() => setDepositModalVisible(false)}
-        >
-          <p className="text-white mb-4">
-            {needsApproval ? (
-              <>
-                Token approval required. Please visit{' '}
-                <a
-                  href="https://smallocator.xyz"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#00ff00] hover:underline"
-                >
-                  https://smallocator.xyz
-                </a>{' '}
-                to approve and deposit before making a swap.
-              </>
-            ) : (
-              <>
-                Coming soon... for now, visit{' '}
-                <a
-                  href="https://smallocator.xyz"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#00ff00] hover:underline"
-                >
-                  https://smallocator.xyz
-                </a>{' '}
-                to perform a deposit before making a swap.
-              </>
-            )}
-          </p>
-          <div className="flex justify-end">
-            <button
-              onClick={() => setDepositModalVisible(false)}
-              className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
-            >
-              Close
-            </button>
-          </div>
-        </Modal>
-
-        {!isConnected ? (
-          <div className="w-full h-12 [&>div]:h-full [&>div]:w-full [&>div>button]:h-full [&>div>button]:w-full [&>div>button]:rounded-lg [&>div>button]:flex [&>div>button]:items-center [&>div>button]:justify-center [&>div>button]:p-0 [&>div>button>div]:p-0 [&>div>button]:py-4">
-            <ConnectButton />
-          </div>
-        ) : !isAuthenticated ? (
-          <button
-            onClick={signIn}
-            className="w-full h-12 rounded-lg font-medium transition-colors bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20"
-          >
-            Sign in to Smallocator
-          </button>
-        ) : (
-          <button
-            onClick={() => {
-              // If we need approval first, handle it regardless of other conditions
-              if (needsApproval && selectedInputToken) {
-                handleApprove();
-                return;
-              }
-
-              // For deposit and swap, we need the full conditions
-              if (
-                selectedInputToken &&
-                selectedInputAmount &&
-                lockedBalance !== undefined &&
-                unlockedBalance !== undefined
-              ) {
-                const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
-                const totalBalance = lockedBalance + unlockedBalance;
-
-                if (totalBalance < inputAmount) {
-                  return; // Do nothing, button will be disabled
-                } else if (lockedBalance < inputAmount) {
-                  // Instead of showing the deposit modal, initiate deposit and swap
-                  handleDepositAndSwap();
-                  return;
-                }
-              }
-              handleSwap({ isDepositAndSwap: false });
-            }}
-            disabled={(() => {
-              // If we're approving, always disable
-              if (isApproving) return true;
-
-              // If we need approval and have a selected input token, enable
-              if (needsApproval && selectedInputToken) return false;
-
-              // For swap functionality, require all conditions
-              if (
-                !quote?.data ||
-                isLoading ||
-                isSigning ||
-                !selectedInputToken ||
-                !selectedInputAmount
-              ) {
-                return true;
-              }
-
-              // Check balance for swap
-              if (selectedInputToken && selectedInputAmount) {
-                const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
-                const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
-                return totalBalance < inputAmount;
-              }
-              return true;
-            })()}
-            className={`w-full h-12 rounded-lg font-medium transition-colors ${(() => {
-              // If we're approving, show disabled state
-              if (isApproving) return 'bg-gray-700 text-gray-400 cursor-not-allowed';
-
-              // If we need approval and have a selected input token, show enabled state
-              if (needsApproval && selectedInputToken) {
-                return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
-              }
-
-              // For swap functionality, check all conditions
-              if (
-                !quote?.data ||
-                isLoading ||
-                isSigning ||
-                !selectedInputToken ||
-                !selectedInputAmount ||
-                (() => {
-                  if (selectedInputToken && selectedInputAmount) {
-                    const inputAmount = parseUnits(
-                      selectedInputAmount,
-                      selectedInputToken.decimals
-                    );
-                    const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
-                    return totalBalance < inputAmount;
-                  }
-                  return false;
-                })()
-              ) {
-                return 'bg-gray-700 text-gray-400 cursor-not-allowed';
-              }
-
-              return 'bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20';
-            })()}`}
-          >
-            {(() => {
-              // Show approval states first
-              if (isApproving) return 'Waiting for approval...';
-              if (needsApproval && selectedInputToken)
-                return `Approve ${selectedInputToken.symbol}`;
-
-              // Show deposit states
-              if (isDepositing && !isWaitingForFinalization) return 'Depositing...';
-              if (isWaitingForFinalization) return 'Waiting for finalization...';
-
-              // Then show other states
-              if (isSigning) return 'Signing...';
-              if (error) return 'Try Again';
-              if (!selectedInputToken || !selectedInputAmount) return 'Swap';
-
-              const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
-              const totalBalance = (lockedBalance || 0n) + (unlockedBalance || 0n);
-
-              if (totalBalance < inputAmount) {
-                return 'Insufficient Balance';
-              } else if (lockedBalance !== undefined && lockedBalance < inputAmount) {
-                return 'Deposit & Swap';
-              }
-              return 'Swap';
-            })()}
-            {(isSigning || isApproving || isDepositing || isWaitingForFinalization) && (
-              <div className="inline-block ml-2 animate-spin h-4 w-4">
-                <svg className="text-current" viewBox="0 0 24 24" fill="currentColor">
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-              </div>
-            )}
-          </button>
-        )}
-
-        {settingsVisible && (
-          <Modal title="Settings" open={settingsVisible} onClose={() => setSettingsVisible(false)}>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-gray-400">
-                    Slippage Tolerance (%)
-                  </label>
-                  <TooltipIcon title="Maximum allowed price movement before trade reverts. Higher values result in lowering the minimum amount received. Lower values increase the risk of the swap failing." />
-                </div>
-                <NumberInput
-                  value={formValues.slippageTolerance}
-                  onChange={value => handleValuesChange('slippageTolerance', value)}
-                  min={0.01}
-                  max={100}
-                  precision={2}
-                  aria-label="Slippage tolerance percentage"
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-gray-400">
-                    Baseline Priority Fee (GWEI)
-                  </label>
-                  <TooltipIcon title="Threshold transaction gas priority fee above which the filler must provide additional output tokens. Should generally only be necessary during periods of high congestion." />
-                </div>
-                <NumberInput
-                  value={formValues.baselinePriorityFee}
-                  onChange={value => handleValuesChange('baselinePriorityFee', value)}
-                  min={0}
-                  precision={2}
-                  aria-label="Baseline priority fee in GWEI"
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-gray-400">
-                    Resource Lock Reset Period
-                  </label>
-                  <TooltipIcon title="Time needed to wait before you can forcibly exit a resource lock. Only relevant in cases where the allocator does not sign for an instant withdrawal. Lower values can result in higher likelihood of fillers not being able to claim the locked tokens in time. Ten minutes is the default recommended value." />
-                </div>
-                <SegmentedControl<number>
-                  options={[
-                    { label: '1s', value: ResetPeriod.OneSecond },
-                    { label: '15s', value: ResetPeriod.FifteenSeconds },
-                    { label: '1m', value: ResetPeriod.OneMinute },
-                    { label: '10m', value: ResetPeriod.TenMinutes },
-                    { label: '1h 5m', value: ResetPeriod.OneHourAndFiveMinutes },
-                    { label: '1d', value: ResetPeriod.OneDay },
-                    { label: '7d 1h', value: ResetPeriod.SevenDaysAndOneHour },
-                    { label: '30d', value: ResetPeriod.ThirtyDays },
-                  ]}
-                  value={formValues.resetPeriod || ResetPeriod.TenMinutes}
-                  onChange={value => handleValuesChange('resetPeriod', value)}
-                  aria-label="Reset Period"
-                  columns={3}
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-gray-400">Resource Lock Scope</label>
-                  <TooltipIcon title="A parameter that specifies whether or not the resource lock can be used as part of a cross-chain swap involving resource locks on other chains. Chain-specific resource locks can still be used for cross-chain swaps, but cannot be combined with other chain-specific resource locks (i.e. selling tokens across multiple chains at once)." />
-                </div>
-                <SegmentedControl<boolean>
-                  options={scopeOptions}
-                  value={formValues.isMultichain ?? true}
-                  onChange={value => handleValuesChange('isMultichain', value)}
-                  aria-label="Resource Lock Scope"
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={() => setSettingsVisible(false)}
-                className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  // Format numbers before saving
-                  const formatNumber = (num: number | undefined, defaultValue: string) => {
-                    if (num === undefined) return defaultValue;
-                    // Convert to number to remove unnecessary zeros, then back to string
-                    return Number(num).toString();
-                  };
-
-                  localStorage.setItem(
-                    'slippageTolerance',
-                    formatNumber(formValues.slippageTolerance, '0.5')
-                  );
-                  localStorage.setItem(
-                    'baselinePriorityFee',
-                    formatNumber(formValues.baselinePriorityFee, '0')
-                  );
-
-                  // Update form values with formatted numbers
-                  setFormValues(prev => ({
-                    ...prev,
-                    slippageTolerance: Number(formatNumber(formValues.slippageTolerance, '0.5')),
-                    baselinePriorityFee: Number(formatNumber(formValues.baselinePriorityFee, '0')),
-                  }));
-
-                  setSettingsVisible(false);
-                }}
-                className="px-4 py-2 bg-[#00ff00]/10 hover:bg-[#00ff00]/20 border border-gray-800 text-[#00ff00] rounded-lg"
-              >
-                Save
-              </button>
-            </div>
-          </Modal>
-        )}
-      </div>
-    </div>
+        // If the input chain would be the same as the output chain,
+        // select the next available chain, preferring Unichain
+        if (chainId === selectedOutputChain) {
+          const availableChains = SUPPORTED_CHAINS.filter(
+            chain => chain.id !== chainId
+          );
+          const unichain = availableChains.find(chain => chain.id === 130);
+          setSelectedOutputChain(unichain ? unichain.id : availableChains[0].id);
+        }
+      }}
+      onOutputChainChange={(value) => {
+        const newChainId = Number(value);
+        if (newChainId !== selectedOutputChain) {
+          setSelectedOutputChain(newChainId);
+          setSelectedOutputToken(undefined);
+          // Clear quote parameters when output chain changes
+          setQuoteParams(undefined);
+          setFormValues(prev => ({ ...prev, outputToken: '' }));
+        }
+      }}
+      formatBalanceDisplay={formatBalanceDisplay}
+    />
   );
 }

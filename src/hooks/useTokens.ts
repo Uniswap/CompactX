@@ -1,6 +1,6 @@
 import { useChainId, useAccount } from 'wagmi';
 import { INITIAL_CONFIG } from '../config/constants';
-import { Token } from '../types';
+import type { Token } from '../types/index';
 import { useCustomTokens } from './useCustomTokens';
 
 export function useTokens(selectedInputChain?: number): {
@@ -14,10 +14,16 @@ export function useTokens(selectedInputChain?: number): {
   // Determine which chain to use for input tokens
   const effectiveChainId = isConnected ? chainId : (selectedInputChain ?? 1); // Default to Ethereum (1)
 
-  // Get default tokens for the effective chain
-  const defaultTokens = INITIAL_CONFIG.tokens.filter(
-    token => token.chainId === effectiveChainId
-  ) as Token[];
+  // Get default tokens for the effective chain and ensure they match Token type
+  const defaultTokens = INITIAL_CONFIG.tokens
+    .filter(token => token.chainId === effectiveChainId)
+    .map(token => ({
+      address: token.address,
+      symbol: token.symbol,
+      name: token.name,
+      decimals: token.decimals,
+      chainId: token.chainId,
+    })) satisfies Token[];
 
   // Get custom tokens for the effective chain
   const customTokens = getCustomTokens(effectiveChainId);
@@ -26,9 +32,15 @@ export function useTokens(selectedInputChain?: number): {
   const inputTokens = [...defaultTokens, ...customTokens];
 
   // Get tokens from other supported chains for output token selection
-  const outputTokens = INITIAL_CONFIG.tokens.filter(
-    token => token.chainId !== effectiveChainId
-  ) as Token[];
+  const outputTokens = INITIAL_CONFIG.tokens
+    .filter(token => token.chainId !== effectiveChainId)
+    .map(token => ({
+      address: token.address,
+      symbol: token.symbol,
+      name: token.name,
+      decimals: token.decimals,
+      chainId: token.chainId,
+    })) satisfies Token[];
 
   return { inputTokens, outputTokens };
 }

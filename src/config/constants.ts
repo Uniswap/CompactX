@@ -1,6 +1,8 @@
+import type { Token } from '../types/index';
+
 export const INITIAL_CONFIG = {
   supportedChains: [1, 130, 8453, 10], // Mainnet, Unichain, Base, & Optimism
-  tokens: [
+  tokens: ([
     // Native ETH for each chain
     {
       address: '0x0000000000000000000000000000000000000000',
@@ -90,7 +92,7 @@ export const INITIAL_CONFIG = {
       decimals: 6,
       chainId: 130,
     },
-  ],
+  ] satisfies Token[]),
   defaultSlippage: 100, // 1%
   quoteRefreshInterval: 5000, // 5 seconds
   sessionRefreshThreshold: 600000, // 10 minutes
