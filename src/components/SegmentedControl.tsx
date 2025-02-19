@@ -14,18 +14,18 @@ export function SegmentedControl<T extends string | number | boolean>({
   columns = 1,
 }: SegmentedControlProps<T>) {
   const isGrid = columns > 1;
-  
+
   return (
-    <div 
+    <div
       className={`
         inline-grid
         ${isGrid ? `grid-cols-3` : 'grid-cols-2'}
         gap-1 p-1 rounded-lg border border-gray-800 bg-[#0a0a0a] w-full
       `}
-      role="radiogroup" 
+      role="radiogroup"
       aria-label={ariaLabel}
     >
-      {options.map((option) => {
+      {options.map(option => {
         const isSelected = value === option.value;
         return (
           <div
@@ -36,9 +36,10 @@ export function SegmentedControl<T extends string | number | boolean>({
             className={`
               px-3 py-1.5 text-[0.75rem] rounded-md whitespace-nowrap cursor-pointer
               flex items-center justify-center
-              ${isSelected
-                ? 'bg-[#00ff00]/10 text-[#00ff00] border border-[#00ff00]/30'
-                : 'bg-[#111111] text-gray-500 hover:text-gray-400 border border-gray-800'
+              ${
+                isSelected
+                  ? 'bg-[#00ff00]/10 text-[#00ff00] border border-[#00ff00]/30'
+                  : 'bg-[#111111] text-gray-500 hover:text-gray-400 border border-gray-800'
               }
             `}
           >

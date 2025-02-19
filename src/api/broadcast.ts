@@ -260,9 +260,9 @@ export class BroadcastApiClient {
     } catch (error) {
       if (error instanceof Error) {
         // Enhance error message with more context
-        const context = error.message.includes('signature') ? 
-          ' Please try again or check your wallet connection.' :
-          ' This may be due to network issues or the broadcast service being unavailable.';
+        const context = error.message.includes('signature')
+          ? ' Please try again or check your wallet connection.'
+          : ' This may be due to network issues or the broadcast service being unavailable.';
         throw new Error(error.message + context);
       }
       throw new Error('Failed to broadcast message. Please try again later.');

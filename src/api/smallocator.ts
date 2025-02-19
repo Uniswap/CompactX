@@ -284,7 +284,10 @@ export class SmallocatorClient {
    * @param chainId - The chain ID
    * @param lockId - The resource lock ID
    */
-  async getResourceLockBalance(chainId: string | number, lockId: string): Promise<ResourceLockBalance> {
+  async getResourceLockBalance(
+    chainId: string | number,
+    lockId: string
+  ): Promise<ResourceLockBalance> {
     return this.request<ResourceLockBalance>('GET', `/balance/${chainId}/${lockId}`);
   }
 
@@ -300,22 +303,22 @@ export class SmallocatorClient {
 
     // Use the compact.id as the resource lock ID
     const lockId = request.compact.id;
-    
+
     // Get current balance
     const balance = await this.getResourceLockBalance(request.chainId, lockId);
-    
+
     // Check if there's enough available balance
     const requiredAmount = BigInt(request.compact.amount);
     const availableBalance = BigInt(balance.balanceAvailableToAllocate);
-    
+
     // Always log the balance check results
     console.log('Balance check:', {
       required: requiredAmount.toString(),
       available: availableBalance.toString(),
       isDepositAndSwap: options.isDepositAndSwap,
-      witnessTypeString: request.compact.witnessTypeString
+      witnessTypeString: request.compact.witnessTypeString,
     });
-    
+
     if (availableBalance < requiredAmount) {
       const error = `Insufficient balance available to allocate. Required: ${requiredAmount.toString()}, Available: ${availableBalance.toString()}`;
       console.error(error);

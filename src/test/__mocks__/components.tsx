@@ -4,12 +4,7 @@ import type { TooltipProps } from '../../components/Tooltip';
 import type { ModalProps } from '../../components/Modal';
 
 export const Select = ({ value, onChange, options, ...props }: SelectProps) => (
-  <select
-    data-testid="select"
-    value={value}
-    onChange={(e) => onChange(e.target.value)}
-    {...props}
-  >
+  <select data-testid="select" value={value} onChange={e => onChange(e.target.value)} {...props}>
     {options.map((option: Option) => (
       <option key={option.value} value={option.value}>
         {option.label}
@@ -23,7 +18,7 @@ export const NumberInput = ({ value, onChange, ...props }: NumberInputProps) => 
     type="text"
     data-testid="number-input"
     value={value}
-    onChange={(e) => onChange(e.target.value)}
+    onChange={e => onChange(e.target.value)}
     {...props}
   />
 );
@@ -36,7 +31,7 @@ export const Tooltip = ({ title, children }: TooltipProps) => (
 
 export const Modal = ({ title, open, onClose, children }: ModalProps) => {
   if (!open) return null;
-  
+
   return (
     <div data-testid="modal" data-title={title}>
       <button onClick={onClose} data-testid="modal-close">

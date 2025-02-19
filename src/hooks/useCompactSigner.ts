@@ -38,63 +38,63 @@ interface MandateHashInput {
 export function useCompactSigner() {
   return useMemo(() => {
     const deriveMandateHash = (mandate: MandateHashInput): `0x${string}` => {
-    // Calculate MANDATE_TYPEHASH to match Solidity's EIP-712 typed data
-    const MANDATE_TYPE_STRING =
-      'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
-    const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING));
+      // Calculate MANDATE_TYPEHASH to match Solidity's EIP-712 typed data
+      const MANDATE_TYPE_STRING =
+        'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)';
+      const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING));
 
-    // Debug mandate values
-    console.log('Debug mandate values in deriveMandateHash:', {
-      chainId: mandate.chainId,
-      chainIdType: typeof mandate.chainId,
-      tribunal: mandate.tribunal,
-      tribunalType: typeof mandate.tribunal,
-      recipient: mandate.recipient,
-      recipientType: typeof mandate.recipient,
-      expires: mandate.expires,
-      expiresType: typeof mandate.expires,
-      token: mandate.token,
-      tokenType: typeof mandate.token,
-      minimumAmount: mandate.minimumAmount,
-      minimumAmountType: typeof mandate.minimumAmount,
-      baselinePriorityFee: mandate.baselinePriorityFee,
-      baselinePriorityFeeType: typeof mandate.baselinePriorityFee,
-      scalingFactor: mandate.scalingFactor,
-      scalingFactorType: typeof mandate.scalingFactor,
-      salt: mandate.salt,
-      saltType: typeof mandate.salt,
-      fullMandate: mandate,
-    });
+      // Debug mandate values
+      console.log('Debug mandate values in deriveMandateHash:', {
+        chainId: mandate.chainId,
+        chainIdType: typeof mandate.chainId,
+        tribunal: mandate.tribunal,
+        tribunalType: typeof mandate.tribunal,
+        recipient: mandate.recipient,
+        recipientType: typeof mandate.recipient,
+        expires: mandate.expires,
+        expiresType: typeof mandate.expires,
+        token: mandate.token,
+        tokenType: typeof mandate.token,
+        minimumAmount: mandate.minimumAmount,
+        minimumAmountType: typeof mandate.minimumAmount,
+        baselinePriorityFee: mandate.baselinePriorityFee,
+        baselinePriorityFeeType: typeof mandate.baselinePriorityFee,
+        scalingFactor: mandate.scalingFactor,
+        scalingFactorType: typeof mandate.scalingFactor,
+        salt: mandate.salt,
+        saltType: typeof mandate.salt,
+        fullMandate: mandate,
+      });
 
-    const encodedData = encodeAbiParameters(
-      [
-        { type: 'bytes32' }, // MANDATE_TYPEHASH
-        { type: 'uint256' }, // block.chainid
-        { type: 'address' }, // address(this)
-        { type: 'address' }, // mandate.recipient
-        { type: 'uint256' }, // mandate.expires
-        { type: 'address' }, // mandate.token
-        { type: 'uint256' }, // mandate.minimumAmount
-        { type: 'uint256' }, // mandate.baselinePriorityFee
-        { type: 'uint256' }, // mandate.scalingFactor
-        { type: 'bytes32' }, // mandate.salt
-      ],
-      [
-        MANDATE_TYPEHASH,
-        BigInt(mandate.chainId),
-        mandate.tribunal as `0x${string}`,
-        mandate.recipient as `0x${string}`,
-        BigInt(parseInt(mandate.expires)),
-        mandate.token as `0x${string}`,
-        BigInt(mandate.minimumAmount),
-        BigInt(mandate.baselinePriorityFee),
-        BigInt(mandate.scalingFactor),
-        mandate.salt as `0x${string}`,
-      ]
-    );
+      const encodedData = encodeAbiParameters(
+        [
+          { type: 'bytes32' }, // MANDATE_TYPEHASH
+          { type: 'uint256' }, // block.chainid
+          { type: 'address' }, // address(this)
+          { type: 'address' }, // mandate.recipient
+          { type: 'uint256' }, // mandate.expires
+          { type: 'address' }, // mandate.token
+          { type: 'uint256' }, // mandate.minimumAmount
+          { type: 'uint256' }, // mandate.baselinePriorityFee
+          { type: 'uint256' }, // mandate.scalingFactor
+          { type: 'bytes32' }, // mandate.salt
+        ],
+        [
+          MANDATE_TYPEHASH,
+          BigInt(mandate.chainId),
+          mandate.tribunal as `0x${string}`,
+          mandate.recipient as `0x${string}`,
+          BigInt(parseInt(mandate.expires)),
+          mandate.token as `0x${string}`,
+          BigInt(mandate.minimumAmount),
+          BigInt(mandate.baselinePriorityFee),
+          BigInt(mandate.scalingFactor),
+          mandate.salt as `0x${string}`,
+        ]
+      );
 
-    return keccak256(encodedData);
-  };
+      return keccak256(encodedData);
+    };
 
     return {
       signCompact: async (

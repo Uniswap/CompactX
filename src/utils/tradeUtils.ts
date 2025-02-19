@@ -2,7 +2,8 @@ import { encodeAbiParameters, keccak256, toBytes } from 'viem';
 import type { Mandate } from '../types/compact';
 
 // Max uint256 value for infinite approval
-export const MAX_UINT256 = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const;
+export const MAX_UINT256 =
+  '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const;
 
 // Supported chains for output token
 export const SUPPORTED_CHAINS = [

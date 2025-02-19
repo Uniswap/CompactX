@@ -32,21 +32,21 @@ export function AddCustomToken() {
 
   const validateForm = (): boolean => {
     const errors: Partial<Record<keyof FormValues, string>> = {};
-    
+
     if (!formValues.address) {
       errors.address = 'Please input token address';
     } else if (!isAddress(formValues.address)) {
       errors.address = 'Invalid address';
     }
-    
+
     if (!formValues.name) {
       errors.name = 'Please input token name';
     }
-    
+
     if (!formValues.symbol) {
       errors.symbol = 'Please input token symbol';
     }
-    
+
     if (!formValues.decimals) {
       errors.decimals = 'Please input token decimals';
     } else if (formValues.decimals < 0 || formValues.decimals > 18) {
@@ -89,12 +89,14 @@ export function AddCustomToken() {
           <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-white">Add Custom Token</h2>
-              <button
-                onClick={handleClose}
-                className="text-gray-400 hover:text-gray-300"
-              >
+              <button onClick={handleClose} className="text-gray-400 hover:text-gray-300">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -107,7 +109,7 @@ export function AddCustomToken() {
                 <input
                   type="text"
                   value={formValues.address || ''}
-                  onChange={(e) => setFormValues(prev => ({ ...prev, address: e.target.value }))}
+                  onChange={e => setFormValues(prev => ({ ...prev, address: e.target.value }))}
                   placeholder="0x..."
                   className="w-full px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50 text-white"
                 />
@@ -117,29 +119,23 @@ export function AddCustomToken() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Token Name
-                </label>
+                <label className="block text-sm font-medium text-gray-200 mb-1">Token Name</label>
                 <input
                   type="text"
                   value={formValues.name || ''}
-                  onChange={(e) => setFormValues(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={e => setFormValues(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Token Name"
                   className="w-full px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50 text-white"
                 />
-                {formErrors.name && (
-                  <p className="mt-1 text-sm text-red-500">{formErrors.name}</p>
-                )}
+                {formErrors.name && <p className="mt-1 text-sm text-red-500">{formErrors.name}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Token Symbol
-                </label>
+                <label className="block text-sm font-medium text-gray-200 mb-1">Token Symbol</label>
                 <input
                   type="text"
                   value={formValues.symbol || ''}
-                  onChange={(e) => setFormValues(prev => ({ ...prev, symbol: e.target.value }))}
+                  onChange={e => setFormValues(prev => ({ ...prev, symbol: e.target.value }))}
                   placeholder="TOKEN"
                   className="w-full px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50 text-white"
                 />
@@ -149,13 +145,13 @@ export function AddCustomToken() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Decimals
-                </label>
+                <label className="block text-sm font-medium text-gray-200 mb-1">Decimals</label>
                 <input
                   type="number"
                   value={formValues.decimals || ''}
-                  onChange={(e) => setFormValues(prev => ({ ...prev, decimals: Number(e.target.value) }))}
+                  onChange={e =>
+                    setFormValues(prev => ({ ...prev, decimals: Number(e.target.value) }))
+                  }
                   placeholder="18"
                   min="0"
                   max="18"
@@ -177,13 +173,7 @@ export function AddCustomToken() {
         </div>
       )}
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={hideToast}
-        />
-      )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </>
   );
 }

@@ -7,7 +7,7 @@ import { hexToBigInt, getAddress } from 'viem';
  *  - Bits 252-254: reset period
  *  - Bits 160-251: allocator ID (92 bits)
  *  - Bits 0-159: token address (20 bytes = 160 bits)
- * 
+ *
  * @param isMultichain Whether the lock is multichain (maps to scope)
  * @param resetPeriod Reset period (0-7)
  * @param allocatorId Allocator ID as string
@@ -29,7 +29,7 @@ export function toId(
 
   // Convert isMultichain to scope (inverse relationship)
   const scope = isMultichain ? 0n : 1n;
-  
+
   // Convert allocatorId from decimal string to BigInt
   const allocatorBigInt = BigInt(allocatorId);
   if (allocatorBigInt > (1n << 92n) - 1n) {
@@ -49,19 +49,19 @@ export function toId(
       isMultichain,
       resetPeriod,
       allocatorId,
-      token: normalizedToken
+      token: normalizedToken,
     },
     intermediate: {
       scope: scope.toString(),
       scopeBits: '0x' + scopeBits.toString(16),
       resetPeriodBits: '0x' + resetPeriodBits.toString(16),
       allocatorBits: '0x' + allocatorBits.toString(16),
-      tokenBits: '0x' + tokenBigInt.toString(16)
-    }
+      tokenBits: '0x' + tokenBigInt.toString(16),
+    },
   });
 
   // Combine all bits using bitwise OR
   const id = scopeBits | resetPeriodBits | allocatorBits | tokenBigInt;
-  
+
   return id;
 }

@@ -18,17 +18,10 @@ export function Toast({ message, type, onClose }: ToastProps) {
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const baseClasses = "fixed top-4 right-4 p-4 rounded-lg shadow-lg transform transition-all duration-300";
-  const typeClasses = type === 'success' 
-    ? "bg-green-500 text-white" 
-    : "bg-red-500 text-white";
-  const visibilityClasses = isVisible 
-    ? "translate-y-0 opacity-100" 
-    : "translate-y-2 opacity-0";
+  const baseClasses =
+    'fixed top-4 right-4 p-4 rounded-lg shadow-lg transform transition-all duration-300';
+  const typeClasses = type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white';
+  const visibilityClasses = isVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0';
 
-  return (
-    <div className={`${baseClasses} ${typeClasses} ${visibilityClasses}`}>
-      {message}
-    </div>
-  );
+  return <div className={`${baseClasses} ${typeClasses} ${visibilityClasses}`}>{message}</div>;
 }

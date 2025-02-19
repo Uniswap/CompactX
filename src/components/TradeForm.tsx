@@ -236,6 +236,8 @@ export function TradeForm() {
     formValues.isMultichain,
     formValues.baselinePriorityFee,
     address,
+    selectedInputChain,
+    selectedInputToken?.decimals,
   ]);
 
   // Handle form value changes

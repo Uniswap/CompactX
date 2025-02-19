@@ -6,7 +6,7 @@ This document describes the structure of the payload that is sent to the broadca
 
 The broadcast server receives a payload with the following structure:
 
-```typescript
+````typescript
 interface BroadcastRequest {
   chainId: string;
   compact: CompactMessage;
@@ -117,17 +117,18 @@ Example endpoint structure:
 ```typescript
 app.post('/broadcast', async (req, res) => {
   const { compact, sponsorSignature, allocatorSignature, context } = req.body;
-  
+
   // Validate signatures and process swap
   // ...
 
   res.json({ success: true });
 });
-```
+````
 
 ## EIP-712 Type Definition
 
 The Compact payload follows this exact EIP-712 type structure:
+
 ```solidity
 Compact {
   address arbiter;

@@ -25,7 +25,7 @@ export function NumberInput({
 }: NumberInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    
+
     // Allow empty input
     if (!val) {
       onChange('');
@@ -60,10 +60,10 @@ export function NumberInput({
     onChange(val);
   };
 
-  const baseClasses = "w-full px-3 py-2 bg-[#1a1a1a] text-white focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50";
-  const variantClasses = variant === 'borderless' 
-    ? "border-0" 
-    : "border border-gray-700 rounded-lg";
+  const baseClasses =
+    'w-full px-3 py-2 bg-[#1a1a1a] text-white focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50';
+  const variantClasses =
+    variant === 'borderless' ? 'border-0' : 'border border-gray-700 rounded-lg';
 
   return (
     <input

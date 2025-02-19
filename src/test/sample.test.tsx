@@ -23,10 +23,10 @@ describe('Sample Tests', () => {
   it('increments count when button is clicked', async () => {
     const user = userEvent.setup();
     render(<Counter />);
-    
+
     const button = screen.getByText('Increment');
     await user.click(button);
-    
+
     expect(screen.getByText('Count: 1')).toBeInTheDocument();
   });
 

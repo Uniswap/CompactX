@@ -36,7 +36,7 @@ export function Tooltip({ title, children, width = 400, offset = 0 }: TooltipPro
           style={{
             maxWidth: '960px',
             width: `${width}px`,
-            left: `calc(-${width/2}px + ${offset}px)`,
+            left: `calc(-${width / 2}px + ${offset}px)`,
           }}
           className="absolute z-50 bottom-full mb-2 px-3 py-2 text-sm bg-gray-900 text-white rounded shadow-lg whitespace-normal"
         >

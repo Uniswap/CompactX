@@ -5,19 +5,15 @@ interface ToggleGroupProps<T> {
   'aria-label'?: string;
 }
 
-export function ToggleGroup<T extends string | number>({ 
-  options, 
-  value, 
-  onChange, 
-  'aria-label': ariaLabel 
+export function ToggleGroup<T extends string | number>({
+  options,
+  value,
+  onChange,
+  'aria-label': ariaLabel,
 }: ToggleGroupProps<T>) {
   return (
-    <div 
-      className="flex gap-2" 
-      role="radiogroup" 
-      aria-label={ariaLabel}
-    >
-      {options.map((option) => (
+    <div className="flex gap-2" role="radiogroup" aria-label={ariaLabel}>
+      {options.map(option => (
         <button
           key={option.label}
           role="radio"
@@ -25,9 +21,10 @@ export function ToggleGroup<T extends string | number>({
           onClick={() => onChange(option.value)}
           className={`
             px-4 py-2 rounded-lg border transition-colors
-            ${value === option.value
-              ? 'bg-[#00ff00]/10 border-[#00ff00]/50 text-[#00ff00]'
-              : 'bg-transparent border-gray-800 text-gray-400 hover:border-gray-700'
+            ${
+              value === option.value
+                ? 'bg-[#00ff00]/10 border-[#00ff00]/50 text-[#00ff00]'
+                : 'bg-transparent border-gray-800 text-gray-400 hover:border-gray-700'
             }
           `}
         >

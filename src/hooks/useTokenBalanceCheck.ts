@@ -73,9 +73,12 @@ export function useTokenBalanceCheck(
   useEffect(() => {
     async function fetchSmalllocatorBalance() {
       if (!isConnected || !compactId || !chainId) return;
-      
+
       try {
-        const balance = await smallocator.getResourceLockBalance(chainId.toString(), compactId.toString());
+        const balance = await smallocator.getResourceLockBalance(
+          chainId.toString(),
+          compactId.toString()
+        );
         setSmalllocatorBalance(BigInt(balance.balanceAvailableToAllocate));
       } catch (error) {
         console.error('Error fetching smallocator balance:', error);
