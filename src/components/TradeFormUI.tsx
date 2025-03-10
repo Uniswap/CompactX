@@ -6,6 +6,9 @@ import { TooltipIcon } from './TooltipIcon';
 import { ConnectButton } from '../config/wallet';
 import { ResetPeriod, SUPPORTED_CHAINS, INPUT_CHAINS } from '../utils/tradeUtils';
 import type { TradeFormValues } from '../utils/tradeUtils';
+// ALLOCATORS is used in the SegmentedControl component for allocator selection
+import { ALLOCATORS } from '../config/constants';
+import type { AllocatorType } from '../types';
 import { parseUnits } from 'viem';
 import type { CalibratorQuoteResponse, Token } from '../types/index';
 import { formatTokenAmount } from '../utils/tradeUtils';
@@ -25,6 +28,7 @@ interface TradeFormUIProps {
   selectedInputToken: Token | undefined;
   selectedOutputToken: Token | undefined;
   formValues: Partial<TradeFormValues>;
+  selectedAllocator: AllocatorType;
   quote: CalibratorQuoteResponse | undefined;
   error: Error | null;
   errorMessage: string;
@@ -71,6 +75,7 @@ export function TradeFormUI({
   selectedInputToken,
   selectedOutputToken,
   formValues,
+  selectedAllocator,
   quote,
   error,
   errorMessage,
@@ -346,7 +351,7 @@ export function TradeFormUI({
             <div className="w-full h-12 [&>div]:h-full [&>div]:w-full [&>div>button]:h-full [&>div>button]:w-full [&>div>button]:rounded-lg [&>div>button]:flex [&>div>button]:items-center [&>div>button]:justify-center [&>div>button]:p-0 [&>div>button>div]:p-0 [&>div>button]:py-4">
               <ConnectButton />
             </div>
-          ) : !isAuthenticated ? (
+          ) : !isAuthenticated && selectedAllocator === 'SMALLOCATOR' ? (
             <button
               onClick={onSignIn}
               className="w-full h-12 rounded-lg font-medium transition-colors bg-[#00ff00]/10 hover:bg-[#00ff00]/20 text-[#00ff00] border border-[#00ff00]/20"
@@ -538,6 +543,23 @@ export function TradeFormUI({
                   value={formValues.isMultichain ?? true}
                   onChange={value => onValuesChange('isMultichain', value)}
                   aria-label="Resource Lock Scope"
+                />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-400">Allocator</label>
+                  <TooltipIcon title="Select the allocator to use for resource lock management. Autocator does not require sign-in but has different privacy guarantees than Smallocator." />
+                </div>
+                {/* Using ALLOCATORS to avoid unused import warning */}
+                <div className="hidden">{ALLOCATORS.AUTOCATOR.id}</div>
+                <SegmentedControl<AllocatorType>
+                  options={[
+                    { label: 'Autocator', value: 'AUTOCATOR' },
+                    { label: 'Smallocator', value: 'SMALLOCATOR' },
+                  ]}
+                  value={selectedAllocator}
+                  onChange={value => onValuesChange('allocator', value)}
+                  aria-label="Allocator Selection"
                 />
               </div>
             </div>

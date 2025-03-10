@@ -1,5 +1,18 @@
 import type { Token } from '../types/index';
 
+export const ALLOCATORS = {
+  AUTOCATOR: {
+    id: '1730150456036417775412616585',
+    signingAddress: '0x4491fB95F2d51416688D4862f0cAeFE5281Fa3d9', // used to verify signatures from server
+    url: 'https://autocator.org',
+  },
+  SMALLOCATOR: {
+    id: '1223867955028248789127899354',
+    signingAddress: '', // TODO: add for verification
+    url: 'https://smallocator.xyz',
+  },
+} as const;
+
 export const INITIAL_CONFIG = {
   supportedChains: [1, 130, 8453, 10], // Mainnet, Unichain, Base, & Optimism
   tokens: [

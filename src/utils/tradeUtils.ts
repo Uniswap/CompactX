@@ -29,6 +29,8 @@ export enum ResetPeriod {
   ThirtyDays = 7,
 }
 
+import type { AllocatorType } from '../types';
+
 export interface TradeFormValues {
   inputToken: string;
   outputToken: string;
@@ -37,6 +39,7 @@ export interface TradeFormValues {
   baselinePriorityFee: number;
   resetPeriod: ResetPeriod;
   isMultichain: boolean;
+  allocator: AllocatorType;
 }
 
 // Helper functions for deriving claim hash

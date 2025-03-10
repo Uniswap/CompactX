@@ -109,7 +109,7 @@ describe('useCompactSigner', () => {
     });
     expect(signature).toEqual({
       userSignature: '0xUserSignature',
-      smallocatorSignature: '0xSmallSignature',
+      allocatorSignature: '0xSmallSignature',
       nonce: '0x0000000000000000000000000000000000000000000000000000000000000000',
     });
   });

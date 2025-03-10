@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { signTypedData } from '@wagmi/core';
 import { CompactRequestPayload } from '../types/compact';
 import { smallocator } from '../api/smallocator';
+import { autocator } from '../api/autocator';
 import { config } from '../config/wallet';
 import {
   encodeAbiParameters,
@@ -19,8 +20,35 @@ const COMPACT_CONTRACT_ADDRESS = '0x00000000000018DF021Ff2467dF97ff846E09f48';
 
 export interface CompactSignature {
   userSignature: `0x${string}`;
-  smallocatorSignature: string;
+  allocatorSignature: string;
   nonce: string;
+}
+
+// Interface for the signCompact function parameters
+export interface SignCompactParams {
+  chainId: string;
+  tribunal: string;
+  currentChainId: string;
+  compact: {
+    arbiter: string;
+    sponsor: string;
+    nonce: string | null;
+    expires: string;
+    id: string;
+    amount: string;
+    mandate: {
+      recipient: string;
+      expires: string;
+      token: string;
+      minimumAmount: string;
+      baselinePriorityFee: string;
+      scalingFactor: string;
+      salt: string;
+      chainId: number | string;
+      tribunal: string;
+    };
+  };
+  selectedAllocator?: 'AUTOCATOR' | 'SMALLOCATOR';
 }
 
 interface MandateHashInput {
@@ -98,7 +126,11 @@ export function useCompactSigner() {
 
     return {
       signCompact: async (
-        request: CompactRequestPayload & { tribunal: string; currentChainId: string }
+        request: CompactRequestPayload & {
+          tribunal: string;
+          currentChainId: string;
+          selectedAllocator?: 'AUTOCATOR' | 'SMALLOCATOR';
+        }
       ): Promise<CompactSignature> => {
         // Derive the witness hash from the mandate using the output chainId
         const witnessHash = deriveMandateHash({
@@ -128,12 +160,16 @@ export function useCompactSigner() {
           },
         };
 
-        // First, get the smallocator signature
-        const { signature: smallocatorSignature, nonce } =
-          await smallocator.submitCompact(smallocatorRequest);
+        // Determine which allocator to use
+        const allocatorApi = request.selectedAllocator === 'AUTOCATOR' ? autocator : smallocator;
+        const allocatorName = request.selectedAllocator?.toLowerCase() || 'smallocator';
 
-        // Log the smallocator response
-        console.log('Smallocator response:', { signature: smallocatorSignature, nonce });
+        // Get the allocator signature
+        const { signature: allocatorSignature, nonce } =
+          await allocatorApi.submitCompact(smallocatorRequest);
+
+        // Log the allocator response
+        console.log(`${allocatorName} response:`, { signature: allocatorSignature, nonce });
 
         // Create the EIP-712 payload using the current chainId
         const domain = {
@@ -214,16 +250,16 @@ export function useCompactSigner() {
           compactedUserSignature = serializeCompactSignature(compactSig);
         }
 
-        let compactedSmallocatorSignature = smallocatorSignature as `0x${string}`;
-        if (smallocatorSignature.length === 132) {
-          const parsedSig = parseSignature(smallocatorSignature as `0x${string}`);
+        let compactedAllocatorSignature = allocatorSignature as `0x${string}`;
+        if (allocatorSignature.length === 132) {
+          const parsedSig = parseSignature(allocatorSignature as `0x${string}`);
           const compactSig = signatureToCompactSignature(parsedSig);
-          compactedSmallocatorSignature = serializeCompactSignature(compactSig);
+          compactedAllocatorSignature = serializeCompactSignature(compactSig);
         }
 
         return {
           userSignature: compactedUserSignature,
-          smallocatorSignature: compactedSmallocatorSignature,
+          allocatorSignature: compactedAllocatorSignature,
           nonce,
         };
       },

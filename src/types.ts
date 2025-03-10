@@ -42,6 +42,8 @@ export interface CalibratorQuoteResponse {
   };
 }
 
+export type AllocatorType = 'AUTOCATOR' | 'SMALLOCATOR';
+
 export interface GetQuoteParams {
   inputTokenChainId: number;
   inputTokenAddress: string;
@@ -52,4 +54,7 @@ export interface GetQuoteParams {
   allocatorId?: string;
   resetPeriod?: number;
   isMultichain?: boolean;
+  sponsor?: string;
+  baselinePriorityFee?: string;
+  timestamp?: number;
 }

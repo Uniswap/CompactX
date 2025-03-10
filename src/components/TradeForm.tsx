@@ -4,6 +4,8 @@ import { TooltipIcon } from './TooltipIcon';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { useAuth } from '../hooks/useAuth';
 import { parseUnits, type Hex } from 'viem';
+import { ALLOCATORS } from '../config/constants';
+import type { AllocatorType } from '../types';
 import {
   formatTokenAmount,
   MAX_UINT256,
@@ -29,6 +31,7 @@ import { erc20Abi } from 'viem';
 import { usePublicClient, useReadContract, useWriteContract } from 'wagmi';
 import { useHealthCheck } from '../hooks/useHealthCheck';
 import { smallocator } from '../api/smallocator';
+import { autocator } from '../api/autocator';
 
 export function TradeForm() {
   const { isConnected, address = DEFAULT_SPONSOR } = useAccount();
@@ -75,6 +78,9 @@ export function TradeForm() {
   const [selectedInputToken, setSelectedInputToken] = useState<Token | undefined>();
   const [selectedOutputToken, setSelectedOutputToken] = useState<Token | undefined>();
 
+  // Initialize with Autocator as the default allocator
+  const [selectedAllocator, setSelectedAllocator] = useState<AllocatorType>('AUTOCATOR');
+
   const [formValues, setFormValues] = useState<Partial<TradeFormValues>>(() => ({
     inputToken: '',
     outputToken: '',
@@ -87,6 +93,7 @@ export function TradeForm() {
       : 0,
     resetPeriod: ResetPeriod.TenMinutes,
     isMultichain: true,
+    allocator: 'AUTOCATOR',
   }));
 
   // Calculate the lock ID whenever relevant parameters change
@@ -96,17 +103,26 @@ export function TradeForm() {
     }
 
     try {
+      // Get the allocator ID based on the selected allocator
+      const allocatorId = ALLOCATORS[selectedAllocator].id;
+
       return toId(
         formValues.isMultichain ?? true,
         formValues.resetPeriod,
-        '1223867955028248789127899354', // allocatorId
+        allocatorId,
         selectedInputToken.address
       );
     } catch (error) {
       console.error('Error calculating lock ID:', error);
       return undefined;
     }
-  }, [isConnected, selectedInputToken?.address, formValues.resetPeriod, formValues.isMultichain]);
+  }, [
+    isConnected,
+    selectedInputToken?.address,
+    formValues.resetPeriod,
+    formValues.isMultichain,
+    selectedAllocator,
+  ]);
 
   const [isExecutingSwap, setIsExecutingSwap] = useState(false);
   const {
@@ -207,6 +223,9 @@ export function TradeForm() {
       return;
     }
 
+    // Get the allocator ID based on the selected allocator
+    const allocatorId = ALLOCATORS[selectedAllocator].id;
+
     const newParams: GetQuoteParams = {
       inputTokenChainId: selectedInputChain,
       inputTokenAddress: selectedInputToken.address,
@@ -214,7 +233,7 @@ export function TradeForm() {
       outputTokenChainId: selectedOutputChain,
       outputTokenAddress: selectedOutputToken.address,
       slippageBips: Math.round(Number(formValues.slippageTolerance || 0.5) * 100),
-      allocatorId: '1223867955028248789127899354',
+      allocatorId,
       resetPeriod: resetPeriodToSeconds(formValues.resetPeriod || ResetPeriod.TenMinutes),
       isMultichain: formValues.isMultichain ?? true,
       sponsor: isConnected ? address : DEFAULT_SPONSOR,
@@ -238,6 +257,7 @@ export function TradeForm() {
     address,
     selectedInputChain,
     selectedInputToken?.decimals,
+    selectedAllocator,
   ]);
 
   // Handle form value changes
@@ -258,6 +278,8 @@ export function TradeForm() {
         }
       } else if (field === 'inputAmount') {
         setSelectedInputAmount(value as string);
+      } else if (field === 'allocator') {
+        setSelectedAllocator(value as AllocatorType);
       }
 
       setFormValues(prev => {
@@ -333,7 +355,7 @@ export function TradeForm() {
       );
 
       let userSignature = '0x';
-      let smallocatorSignature = '0x';
+      let allocatorSignature = '0x';
       let nonce = '0';
 
       if (!skipSignature) {
@@ -345,7 +367,7 @@ export function TradeForm() {
           compact: compactMessage,
         });
         userSignature = signatures.userSignature;
-        smallocatorSignature = signatures.smallocatorSignature;
+        allocatorSignature = signatures.allocatorSignature;
         nonce = signatures.nonce;
       } else {
         // When skipping signature (after deposit), only get smallocator signature
@@ -365,11 +387,17 @@ export function TradeForm() {
           },
         };
 
-        console.log('Making request to smallocator...');
-        const { signature, nonce: newNonce } = await smallocator.submitCompact(smallocatorRequest, {
-          isDepositAndSwap: false,
-        });
-        smallocatorSignature = signature;
+        console.log(`Making request to ${selectedAllocator.toLowerCase()}...`);
+
+        // Use the appropriate allocator API based on the selected allocator
+        const allocatorApi = selectedAllocator === 'AUTOCATOR' ? autocator : smallocator;
+        const { signature, nonce: newNonce } = await allocatorApi.submitCompact(
+          smallocatorRequest,
+          {
+            isDepositAndSwap: false,
+          }
+        );
+        allocatorSignature = signature;
         nonce = newNonce;
       }
 
@@ -398,7 +426,7 @@ export function TradeForm() {
       const broadcastResponse = await broadcast(
         broadcastPayload,
         userSignature,
-        smallocatorSignature,
+        allocatorSignature,
         broadcastContext
       );
 
@@ -714,10 +742,13 @@ export function TradeForm() {
                   };
 
                   console.log(
-                    'Making request to smallocator with stored nonce:',
+                    `Making request to ${selectedAllocator.toLowerCase()} with stored nonce:`,
                     smallocatorRequest
                   );
-                  const { signature } = await smallocator.submitCompact(smallocatorRequest, {
+
+                  // Use the appropriate allocator API based on the selected allocator
+                  const allocatorApi = selectedAllocator === 'AUTOCATOR' ? autocator : smallocator;
+                  const { signature } = await allocatorApi.submitCompact(smallocatorRequest, {
                     isDepositAndSwap: true,
                   });
 
@@ -835,6 +866,7 @@ export function TradeForm() {
       selectedInputToken={selectedInputToken}
       selectedOutputToken={selectedOutputToken}
       formValues={formValues}
+      selectedAllocator={selectedAllocator}
       quote={quote}
       error={error}
       errorMessage={errorMessage}
