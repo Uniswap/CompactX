@@ -24,12 +24,13 @@ import { useCalibrator } from '../hooks/useCalibrator';
 import { useCompactSigner } from '../hooks/useCompactSigner';
 import { useBroadcast } from '../hooks/useBroadcast';
 import { useTokenBalanceCheck } from '../hooks/useTokenBalanceCheck';
+import { useTokenApprovalCheck } from '../hooks/useTokenApprovalCheck';
 import type { GetQuoteParams } from '../types/index';
 import { CompactRequestPayload, Mandate } from '../types/compact';
 import { BroadcastContext } from '../types/broadcast';
 import { toId } from '../utils/lockId';
 import { erc20Abi } from 'viem';
-import { usePublicClient, useReadContract, useWriteContract } from 'wagmi';
+import { usePublicClient, useWriteContract } from 'wagmi';
 import { useHealthCheck } from '../hooks/useHealthCheck';
 import { smallocator } from '../api/smallocator';
 import { autocator } from '../api/autocator';
@@ -479,23 +480,19 @@ export function TradeForm() {
     return inputAmountBigInt - (lockedBalance || 0n);
   }, [selectedInputToken, selectedInputAmount, lockedBalance]);
 
-  // Check allowance for deposit
-  const { data: allowance } = useReadContract({
-    address: selectedInputToken?.address as `0x${string}`,
-    abi: erc20Abi,
-    functionName: 'allowance',
-    args: [address as `0x${string}`, '0x00000000000018DF021Ff2467dF97ff846E09f48' as `0x${string}`],
-    scopeKey: 'deposit-allowance',
-    query: {
-      enabled: Boolean(
-        selectedInputToken?.address &&
-          address &&
-          selectedInputToken.address !== '0x0000000000000000000000000000000000000000'
-      ),
-    },
-  });
+  // Use the new approval check hook that polls once per second
+  const { hasSufficientApproval } = useTokenApprovalCheck(
+    selectedInputToken?.address as `0x${string}` | undefined,
+    shortfall > 0n ? shortfall : undefined,
+    // Only activate polling when we have a non-native token and a positive shortfall
+    Boolean(
+      selectedInputToken &&
+        selectedInputToken.address !== '0x0000000000000000000000000000000000000000' &&
+        shortfall > 0n
+    )
+  );
 
-  // Update needsApproval state when relevant values change
+  // Update needsApproval state based on the hook result
   useEffect(() => {
     if (
       !selectedInputToken ||
@@ -505,10 +502,12 @@ export function TradeForm() {
       return;
     }
 
-    if (shortfall > 0n && allowance !== undefined) {
-      setNeedsApproval(shortfall > allowance);
+    if (shortfall > 0n) {
+      setNeedsApproval(!hasSufficientApproval);
+    } else {
+      setNeedsApproval(false);
     }
-  }, [shortfall, allowance, selectedInputToken]);
+  }, [shortfall, hasSufficientApproval, selectedInputToken]);
 
   // State for tracking approval transaction
   const [isApproving, setIsApproving] = useState(false);
