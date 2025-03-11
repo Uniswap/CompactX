@@ -2,6 +2,8 @@ import { useAccount, useBalance, useReadContract, useChainId } from 'wagmi';
 import { Address, erc20Abi } from 'viem';
 import { useMemo, useEffect, useState } from 'react';
 import { smallocator } from '../api/smallocator';
+import { autocator } from '../api/autocator';
+import { useAllocator } from './useAllocator';
 
 // The Compact contract address
 const COMPACT_ADDRESS = '0x00000000000018DF021Ff2467dF97ff846E09f48';
@@ -68,29 +70,32 @@ export function useTokenBalanceCheck(
     [tokenAddress, ethBalance?.value, erc20Balance]
   );
 
-  const [smallocatorBalance, setSmalllocatorBalance] = useState<bigint>();
+  const [allocatorBalance, setAllocatorBalance] = useState<bigint>();
+  const { selectedAllocator } = useAllocator();
 
   useEffect(() => {
-    async function fetchSmalllocatorBalance() {
+    async function fetchAllocatorBalance() {
       if (!isConnected || !compactId || !chainId) return;
 
       try {
-        const balance = await smallocator.getResourceLockBalance(
+        // Use the appropriate allocator API based on the selected allocator
+        const allocatorApi = selectedAllocator === 'AUTOCATOR' ? autocator : smallocator;
+        const balance = await allocatorApi.getResourceLockBalance(
           chainId.toString(),
           compactId.toString()
         );
-        setSmalllocatorBalance(BigInt(balance.balanceAvailableToAllocate));
+        setAllocatorBalance(BigInt(balance.balanceAvailableToAllocate));
       } catch (error) {
-        console.error('Error fetching smallocator balance:', error);
-        setSmalllocatorBalance(BigInt(0));
+        console.error(`Error fetching ${selectedAllocator.toLowerCase()} balance:`, error);
+        setAllocatorBalance(BigInt(0));
       }
     }
 
-    fetchSmalllocatorBalance();
-  }, [isConnected, compactId, chainId]);
+    fetchAllocatorBalance();
+  }, [isConnected, compactId, chainId, selectedAllocator]);
 
   return {
-    lockedBalance: isConnected ? smallocatorBalance : undefined,
+    lockedBalance: isConnected ? allocatorBalance : undefined,
     lockedIncludingAllocated: isConnected ? lockedBalance : undefined,
     unlockedBalance: isConnected ? unlockedBalance : undefined,
     error: Boolean(lockedError || erc20Error),

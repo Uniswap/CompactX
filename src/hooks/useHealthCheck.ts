@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useAllocator } from './useAllocator';
+import { ALLOCATORS } from '../config/constants';
 
 interface ChainInfo {
   chainId: string;
@@ -18,12 +20,15 @@ export function useHealthCheck() {
   const [isHealthy, setIsHealthy] = useState(true);
   const [chainInfo, setChainInfo] = useState<Map<string, ChainInfo>>(new Map());
   const [lastChecked, setLastChecked] = useState<Date>();
+  const { selectedAllocator } = useAllocator();
 
   useEffect(() => {
     // Function to perform health check
     const checkHealth = async () => {
       try {
-        const response = await fetch('https://smallocator.xyz/health');
+        // Use the appropriate allocator URL based on the selected allocator
+        const allocatorUrl = ALLOCATORS[selectedAllocator].url;
+        const response = await fetch(`${allocatorUrl}/health`);
         const data: HealthCheckResponse = await response.json();
 
         // Update health status
@@ -50,7 +55,7 @@ export function useHealthCheck() {
 
     // Clean up interval on unmount
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedAllocator]);
 
   return {
     isHealthy,

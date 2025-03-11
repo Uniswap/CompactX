@@ -26,11 +26,11 @@ function App() {
       <WagmiConfig config={config}>
         <RainbowKitProvider modalSize="compact" theme={darkTheme()}>
           <AuthProvider>
-            <HealthProvider>
-              <AllocatorProvider>
+            <AllocatorProvider>
+              <HealthProvider>
                 <AppContent />
-              </AllocatorProvider>
-            </HealthProvider>
+              </HealthProvider>
+            </AllocatorProvider>
           </AuthProvider>
         </RainbowKitProvider>
       </WagmiConfig>
