@@ -3,11 +3,13 @@ import { ConnectButton } from '../config/wallet';
 import { useAuth } from '../hooks/useAuth';
 import { useAccount } from 'wagmi';
 import { useHealthCheck } from '../hooks/useHealthCheck';
+import { useAllocator } from '../hooks/useAllocator';
 
 export const Layout = ({ children }: PropsWithChildren) => {
   const { isConnected } = useAccount();
   const { isAuthenticated, isLoading, signIn, signOut } = useAuth();
   const { isHealthy, lastChecked } = useHealthCheck();
+  const { selectedAllocator } = useAllocator();
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
@@ -42,7 +44,7 @@ export const Layout = ({ children }: PropsWithChildren) => {
                   )}
                 </div>
               )}
-              {isConnected && !isLoading && (
+              {isConnected && !isLoading && selectedAllocator === 'SMALLOCATOR' && (
                 <button
                   onClick={isAuthenticated ? signOut : signIn}
                   className="inline-flex items-center h-[38px] px-2 md:px-3 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-700 transition-colors md:-mr-[22px] -mr-[10px]"

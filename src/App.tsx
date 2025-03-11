@@ -5,6 +5,7 @@ import { Layout } from './components/Layout';
 import { TradeForm } from './components/TradeForm';
 import { AuthProvider } from './contexts/AuthContext';
 import { HealthProvider } from './contexts/HealthContext.tsx';
+import { AllocatorProvider } from './contexts/AllocatorContext';
 
 // Create a client for React Query
 const queryClient = new QueryClient();
@@ -26,7 +27,9 @@ function App() {
         <RainbowKitProvider modalSize="compact" theme={darkTheme()}>
           <AuthProvider>
             <HealthProvider>
-              <AppContent />
+              <AllocatorProvider>
+                <AppContent />
+              </AllocatorProvider>
             </HealthProvider>
           </AuthProvider>
         </RainbowKitProvider>

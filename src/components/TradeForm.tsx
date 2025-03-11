@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { parseUnits, type Hex } from 'viem';
 import { ALLOCATORS } from '../config/constants';
 import type { AllocatorType } from '../types';
+import { useAllocator } from '../hooks/useAllocator';
 import {
   formatTokenAmount,
   MAX_UINT256,
@@ -78,8 +79,8 @@ export function TradeForm() {
   const [selectedInputToken, setSelectedInputToken] = useState<Token | undefined>();
   const [selectedOutputToken, setSelectedOutputToken] = useState<Token | undefined>();
 
-  // Initialize with Autocator as the default allocator
-  const [selectedAllocator, setSelectedAllocator] = useState<AllocatorType>('AUTOCATOR');
+  // Get allocator from context instead of local state
+  const { selectedAllocator, setSelectedAllocator } = useAllocator();
 
   const [formValues, setFormValues] = useState<Partial<TradeFormValues>>(() => ({
     inputToken: '',
@@ -104,7 +105,7 @@ export function TradeForm() {
 
     try {
       // Get the allocator ID based on the selected allocator
-      const allocatorId = ALLOCATORS[selectedAllocator].id;
+      const allocatorId = ALLOCATORS[selectedAllocator as AllocatorType].id;
 
       return toId(
         formValues.isMultichain ?? true,
@@ -224,7 +225,7 @@ export function TradeForm() {
     }
 
     // Get the allocator ID based on the selected allocator
-    const allocatorId = ALLOCATORS[selectedAllocator].id;
+    const allocatorId = ALLOCATORS[selectedAllocator as AllocatorType].id;
 
     const newParams: GetQuoteParams = {
       inputTokenChainId: selectedInputChain,
@@ -287,7 +288,14 @@ export function TradeForm() {
         return newValues;
       });
     },
-    [inputTokens, outputTokens, selectedInputToken, selectedOutputToken, selectedOutputChain]
+    [
+      inputTokens,
+      outputTokens,
+      selectedInputToken,
+      selectedOutputToken,
+      selectedOutputChain,
+      setSelectedAllocator,
+    ]
   );
 
   // Handle chain changes and conflicts

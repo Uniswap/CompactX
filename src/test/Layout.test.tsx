@@ -6,6 +6,7 @@ import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { config } from '../config/wallet';
 import { AuthProvider } from '../contexts/AuthContext';
+import { AllocatorProvider } from '../contexts/AllocatorContext';
 
 // Create a client for React Query
 const queryClient = new QueryClient();
@@ -15,7 +16,9 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={queryClient}>
     <WagmiConfig config={config}>
       <RainbowKitProvider modalSize="compact">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <AllocatorProvider>{children}</AllocatorProvider>
+        </AuthProvider>
       </RainbowKitProvider>
     </WagmiConfig>
   </QueryClientProvider>
