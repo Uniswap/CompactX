@@ -1,3 +1,5 @@
+import { parseSignature, signatureToCompactSignature, serializeCompactSignature } from 'viem';
+
 // Types
 export interface CompactMessage {
   arbiter: string;
@@ -60,14 +62,6 @@ export function isCompactRequest(data: unknown): data is CompactRequest {
     typeof compact.witnessHash === 'string' &&
     typeof compact.witnessTypeString === 'string'
   );
-}
-
-// Convert a signature to EIP-2098 compact format
-function signatureToCompactSignature({ r, s, yParity }: { r: string; s: string; yParity: number }) {
-  return {
-    r,
-    yParityAndS: `0x${yParity.toString(16).padStart(2, '0')}${s.slice(2)}`,
-  };
 }
 
 // API Client
@@ -206,20 +200,37 @@ export class AutocatorClient {
       throw new Error(error);
     }
 
-    const response = await this.request<CompactResponse>('POST', '/compact', request);
+    // Create a copy of the request to avoid modifying the original
+    const requestToSend = { ...request };
+
+    // Convert sponsor signature to compact format if it exists and is 65 bytes long (132 characters)
+    if (requestToSend.sponsorSignature && requestToSend.sponsorSignature.length === 132) {
+      console.log('Converting sponsor signature to compact format');
+      const parsedSig = parseSignature(requestToSend.sponsorSignature as `0x${string}`);
+      const compactSig = signatureToCompactSignature(parsedSig);
+      requestToSend.sponsorSignature = serializeCompactSignature(compactSig);
+
+      console.log('Converted sponsor signature to compact format:', {
+        original: request.sponsorSignature,
+        compact: requestToSend.sponsorSignature,
+      });
+    }
+
+    const response = await this.request<CompactResponse>('POST', '/compact', requestToSend);
     if (!isCompactResponse(response)) {
       throw new Error(
         'Invalid compact response format. The server response was not in the expected format. Please try again later.'
       );
     }
 
-    // Compact the signature if it's 65 bytes long
+    // Compact the signature if it's 65 bytes long (132 characters)
     if (response.signature.length === 132) {
-      const r = response.signature.slice(0, 66);
-      const s = '0x' + response.signature.slice(66, 130);
-      const v = parseInt(response.signature.slice(130, 132), 16);
-      const compact = signatureToCompactSignature({ r, s, yParity: v - 27 });
-      response.signature = compact.r + compact.yParityAndS.slice(2);
+      console.log('Converting allocator response signature to compact format');
+      const parsedSig = parseSignature(response.signature as `0x${string}`);
+      const compactSig = signatureToCompactSignature(parsedSig);
+      response.signature = serializeCompactSignature(compactSig);
+
+      console.log('Converted allocator response signature to compact format');
     }
 
     return response;
