@@ -88,6 +88,7 @@ export class AutocatorClient {
   ): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      // Add mode: 'cors' to explicitly enable CORS
     };
 
     console.log('Making request to Autocator:', {
@@ -97,37 +98,43 @@ export class AutocatorClient {
       body: data,
     });
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method,
-      headers,
-      body: data ? JSON.stringify(data) : undefined,
-    });
-
-    // Now we know we have a response
-    let result;
     try {
-      result = await response.json();
-    } catch (error) {
-      // Response is not JSON
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+        mode: 'cors', // Explicitly enable CORS
+      });
+
+      // Now we know we have a response
+      let result;
+      try {
+        result = await response.json();
+      } catch (error) {
+        // Response is not JSON
+        if (!response.ok) {
+          throw new Error(
+            `Request failed (${response.status}): The server returned an invalid response. Please try again later.`
+          );
+        }
+        // For DELETE requests, empty response is OK
+        if (method === 'DELETE' && response.ok) {
+          return {} as T;
+        }
+        const message = error instanceof Error ? error.message : 'Invalid Response Format';
+        throw new Error(`Invalid response format: ${message}. Please try again later.`);
+      }
+
       if (!response.ok) {
-        throw new Error(
-          `Request failed (${response.status}): The server returned an invalid response. Please try again later.`
-        );
+        const error = result.error || `Request failed with status ${response.status}`;
+        throw new Error(error);
       }
-      // For DELETE requests, empty response is OK
-      if (method === 'DELETE' && response.ok) {
-        return {} as T;
-      }
-      const message = error instanceof Error ? error.message : 'Invalid Response Format';
-      throw new Error(`Invalid response format: ${message}. Please try again later.`);
-    }
 
-    if (!response.ok) {
-      const error = result.error || `Request failed with status ${response.status}`;
-      throw new Error(error);
+      return result;
+    } catch (error) {
+      console.error('Fetch error:', error);
+      throw error;
     }
-
-    return result;
   }
 
   /**

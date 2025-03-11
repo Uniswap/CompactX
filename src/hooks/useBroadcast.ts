@@ -4,11 +4,13 @@ import { broadcast } from '../api/broadcast';
 import { CompactRequestPayload } from '../types/compact';
 import { BroadcastRequest, BroadcastContext, Mandate } from '../types/broadcast';
 import { keccak256, encodeAbiParameters, toBytes } from 'viem';
+import { useAllocator } from './useAllocator';
 
 export function useBroadcast() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { showToast } = useToast();
+  const { selectedAllocator } = useAllocator();
 
   const deriveClaimHash = (
     arbiter: string,
@@ -142,7 +144,7 @@ export function useBroadcast() {
         },
       };
 
-      const result = await broadcast.broadcast(finalPayload);
+      const result = await broadcast.broadcast(finalPayload, selectedAllocator);
 
       if (result.success) {
         showToast('Transaction broadcast successfully', 'success');

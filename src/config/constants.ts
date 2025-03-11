@@ -8,7 +8,7 @@ export const ALLOCATORS = {
   },
   SMALLOCATOR: {
     id: '1223867955028248789127899354',
-    signingAddress: '', // TODO: add for verification
+    signingAddress: '0x51044301738Ba2a27bd9332510565eBE9F03546b',
     url: 'https://smallocator.xyz',
   },
 } as const;

@@ -8,6 +8,8 @@ import {
   serializeSignature,
   encodeAbiParameters,
 } from 'viem';
+import { ALLOCATORS } from '../config/constants';
+import type { AllocatorType } from '../types';
 
 // Chain-specific prefixes for signature verification
 const CHAIN_PREFIXES = {
@@ -16,9 +18,6 @@ const CHAIN_PREFIXES = {
   base: '0x1901a1324f3bfe91ee592367ae7552e9348145e65b410335d72e4507dcedeb41bf52',
   optimism: '0x1901ea25de9c16847077fe9d95916c29598dc64f4850ba02c5dbe7800d2e2ecb338e',
 } as const;
-
-// Allocator address for signature verification
-const ALLOCATOR_ADDRESS = '0x51044301738Ba2a27bd9332510565eBE9F03546b';
 
 export class BroadcastApiClient {
   private deriveClaimHash(
@@ -187,7 +186,12 @@ export class BroadcastApiClient {
     this.baseUrl = baseUrl;
   }
 
-  async broadcast(request: BroadcastRequest): Promise<{ success: boolean }> {
+  async broadcast(
+    request: BroadcastRequest,
+    allocatorType: AllocatorType = 'SMALLOCATOR'
+  ): Promise<{ success: boolean }> {
+    // Get the allocator signing address based on the allocator type
+    const allocatorAddress = ALLOCATORS[allocatorType].signingAddress;
     // Derive claim hash
     const claimHash = this.deriveClaimHash(
       request.compact.arbiter,
@@ -236,7 +240,7 @@ export class BroadcastApiClient {
       const isAllocatorValid = await this.verifySignature(
         claimHash,
         request.allocatorSignature,
-        ALLOCATOR_ADDRESS,
+        allocatorAddress,
         chainPrefix
       );
       if (!isAllocatorValid) {

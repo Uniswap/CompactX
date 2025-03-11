@@ -3,6 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useBroadcast } from '../hooks/useBroadcast';
 import { broadcast } from '../api/broadcast';
 import { keccak256 } from 'viem';
+import { TestWrapper } from './test-wrapper';
 
 vi.mock('viem', () => ({
   keccak256: vi.fn(input => {
@@ -20,12 +21,20 @@ vi.mock('viem', () => ({
   }),
   toBytes: vi.fn(str => str), // Return the string directly instead of converting to Uint8Array
   encodeAbiParameters: vi.fn(() => '0x123456'),
+  http: vi.fn(() => ({})), // Mock the http function
 }));
 
 const mockShowToast = vi.fn();
 vi.mock('../hooks/useToast', () => ({
   useToast: () => ({
     showToast: mockShowToast,
+  }),
+}));
+
+vi.mock('../hooks/useAllocator', () => ({
+  useAllocator: () => ({
+    selectedAllocator: 'SMALLOCATOR',
+    setSelectedAllocator: vi.fn(),
   }),
 }));
 
@@ -80,7 +89,9 @@ describe('useBroadcast', () => {
   it('should broadcast successfully', async () => {
     vi.mocked(broadcast.broadcast).mockResolvedValueOnce({ success: true });
 
-    const { result } = renderHook(() => useBroadcast());
+    const { result } = renderHook(() => useBroadcast(), {
+      wrapper: TestWrapper,
+    });
 
     await act(async () => {
       const response = await result.current.broadcast(
@@ -92,23 +103,26 @@ describe('useBroadcast', () => {
       expect(response).toEqual({ success: true });
     });
 
-    expect(broadcast.broadcast).toHaveBeenCalledWith({
-      chainId: mockPayload.chainId,
-      compact: {
-        ...mockPayload.compact,
-        mandate: {
-          ...mockPayload.compact.mandate,
-          chainId: Number(mockPayload.chainId),
+    expect(broadcast.broadcast).toHaveBeenCalledWith(
+      {
+        chainId: mockPayload.chainId,
+        compact: {
+          ...mockPayload.compact,
+          mandate: {
+            ...mockPayload.compact.mandate,
+            chainId: Number(mockPayload.chainId),
+          },
+        },
+        sponsorSignature: mockUserSignature,
+        allocatorSignature: mockSmallocatorSignature,
+        context: {
+          ...mockContext,
+          claimHash: '0x3333333333333333333333333333333333333333333333333333333333333333',
+          witnessHash: '0x3333333333333333333333333333333333333333333333333333333333333333',
         },
       },
-      sponsorSignature: mockUserSignature,
-      allocatorSignature: mockSmallocatorSignature,
-      context: {
-        ...mockContext,
-        claimHash: '0x3333333333333333333333333333333333333333333333333333333333333333',
-        witnessHash: '0x3333333333333333333333333333333333333333333333333333333333333333',
-      },
-    });
+      'SMALLOCATOR'
+    );
 
     expect(result.current.error).toBeNull();
     expect(mockShowToast).toHaveBeenCalledWith('Transaction broadcast successfully', 'success');
@@ -118,7 +132,9 @@ describe('useBroadcast', () => {
     const error = new Error('Network error');
     vi.mocked(broadcast.broadcast).mockRejectedValueOnce(error);
 
-    const { result } = renderHook(() => useBroadcast());
+    const { result } = renderHook(() => useBroadcast(), {
+      wrapper: TestWrapper,
+    });
 
     await act(async () => {
       await expect(
@@ -138,7 +154,9 @@ describe('useBroadcast', () => {
   it('should handle broadcast failure', async () => {
     vi.mocked(broadcast.broadcast).mockResolvedValueOnce({ success: false });
 
-    const { result } = renderHook(() => useBroadcast());
+    const { result } = renderHook(() => useBroadcast(), {
+      wrapper: TestWrapper,
+    });
 
     await expect(
       result.current.broadcast(
@@ -155,7 +173,9 @@ describe('useBroadcast', () => {
   it('should handle broadcast error', async () => {
     vi.mocked(broadcast.broadcast).mockRejectedValueOnce(new Error('Failed to broadcast'));
 
-    const { result } = renderHook(() => useBroadcast());
+    const { result } = renderHook(() => useBroadcast(), {
+      wrapper: TestWrapper,
+    });
 
     await expect(
       result.current.broadcast(
@@ -178,7 +198,9 @@ describe('useBroadcast', () => {
       },
     };
 
-    const { result } = renderHook(() => useBroadcast());
+    const { result } = renderHook(() => useBroadcast(), {
+      wrapper: TestWrapper,
+    });
 
     await expect(
       result.current.broadcast(
@@ -193,7 +215,9 @@ describe('useBroadcast', () => {
   it('should derive claim hash correctly', async () => {
     vi.mocked(broadcast.broadcast).mockResolvedValueOnce({ success: true });
 
-    const { result } = renderHook(() => useBroadcast());
+    const { result } = renderHook(() => useBroadcast(), {
+      wrapper: TestWrapper,
+    });
 
     const response = await result.current.broadcast(
       mockPayload,
