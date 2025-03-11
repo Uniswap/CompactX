@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
 import { useCompactSigner } from '../hooks/useCompactSigner';
 import * as smallocatorModule from '../api/smallocator';
-import { CompactRequestPayload } from '../types/compact';
+import { SignCompactParams } from '../hooks/useCompactSigner';
 import React from 'react';
 
 // Mock wagmi/core
@@ -61,11 +61,11 @@ describe('useCompactSigner', () => {
     vi.clearAllMocks();
   });
 
-  it('should sign a compact message', async () => {
+  it('should sign a compact message with Smallocator', async () => {
     const wrapper = createWrapper();
     const { result } = renderHook(() => useCompactSigner(), { wrapper });
 
-    const mockCompact: CompactRequestPayload & { tribunal: string; currentChainId: string } = {
+    const mockCompact: SignCompactParams = {
       chainId: '1',
       tribunal: '0x6234567890123456789012345678901234567890',
       currentChainId: '1',
@@ -88,6 +88,7 @@ describe('useCompactSigner', () => {
           tribunal: '0x6234567890123456789012345678901234567890',
         },
       },
+      selectedAllocator: 'SMALLOCATOR',
     };
 
     const signature = await result.current.signCompact(mockCompact);
@@ -114,6 +115,48 @@ describe('useCompactSigner', () => {
     });
   });
 
+  it('should handle skipUserSignature parameter', async () => {
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useCompactSigner(), { wrapper });
+
+    const mockCompact: SignCompactParams = {
+      chainId: '1',
+      tribunal: '0x6234567890123456789012345678901234567890',
+      currentChainId: '1',
+      compact: {
+        arbiter: '0x1234567890123456789012345678901234567890',
+        sponsor: '0x2234567890123456789012345678901234567890',
+        nonce: '0x0000000000000000000000000000000000000000000000000000000000000001', // Provide a nonce
+        expires: '1732520000',
+        id: '0x3234567890123456789012345678901234567890',
+        amount: '1000000000000000000',
+        mandate: {
+          recipient: '0x4234567890123456789012345678901234567890',
+          expires: '1732520000',
+          token: '0x5234567890123456789012345678901234567890',
+          minimumAmount: '1000000000000000000',
+          baselinePriorityFee: '1000000000',
+          scalingFactor: '1000000000',
+          salt: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          chainId: 1,
+          tribunal: '0x6234567890123456789012345678901234567890',
+        },
+      },
+      selectedAllocator: 'SMALLOCATOR',
+      skipUserSignature: true,
+    };
+
+    const signature = await result.current.signCompact(mockCompact);
+
+    // The hook should still call submitCompact but not signTypedData
+    expect(smallocatorModule.smallocator.submitCompact).toHaveBeenCalled();
+    expect(signature).toEqual({
+      userSignature: '0x', // Empty user signature
+      allocatorSignature: '0xSmallSignature',
+      nonce: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    });
+  });
+
   it('should handle errors from smallocator', async () => {
     const wrapper = createWrapper();
     const { result } = renderHook(() => useCompactSigner(), { wrapper });
@@ -123,7 +166,7 @@ describe('useCompactSigner', () => {
       new Error('Smallocator error')
     );
 
-    const mockCompact: CompactRequestPayload & { tribunal: string; currentChainId: string } = {
+    const mockCompact: SignCompactParams = {
       chainId: '1',
       tribunal: '0x6234567890123456789012345678901234567890',
       currentChainId: '1',

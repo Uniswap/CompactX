@@ -365,40 +365,31 @@ export function TradeForm() {
           currentChainId: chainId.toString(),
           tribunal: quote.data.mandate.tribunal,
           compact: compactMessage,
+          selectedAllocator,
         });
         userSignature = signatures.userSignature;
         allocatorSignature = signatures.allocatorSignature;
         nonce = signatures.nonce;
       } else {
-        // When skipping signature (after deposit), only get smallocator signature
-        const witnessHash = quote.context.witnessHash;
-        const smallocatorRequest = {
-          chainId: chainId.toString(),
+        // When skipping signature (after deposit), use the same hook but with a different flow
+        // This ensures consistent handling of both allocators
+        const signatures = await signCompact({
+          chainId: quote.data.mandate.chainId.toString(),
+          currentChainId: chainId.toString(),
+          tribunal: quote.data.mandate.tribunal,
           compact: {
-            arbiter: quote.data.arbiter,
-            sponsor: quote.data.sponsor,
-            nonce: null,
-            expires: quote.data.expires,
-            id: quote.data.id,
-            amount: quote.data.amount,
-            witnessHash,
-            witnessTypeString:
-              'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+            ...compactMessage,
+            // For deposit & swap, we already have a nonce from the deposit
+            nonce: compactMessage.nonce,
           },
-        };
+          selectedAllocator,
+          skipUserSignature: true, // Signal that we're skipping the user signature
+        });
 
-        console.log(`Making request to ${selectedAllocator.toLowerCase()}...`);
-
-        // Use the appropriate allocator API based on the selected allocator
-        const allocatorApi = selectedAllocator === 'AUTOCATOR' ? autocator : smallocator;
-        const { signature, nonce: newNonce } = await allocatorApi.submitCompact(
-          smallocatorRequest,
-          {
-            isDepositAndSwap: false,
-          }
-        );
-        allocatorSignature = signature;
-        nonce = newNonce;
+        // For deposit & swap, we use an empty user signature
+        userSignature = '0x';
+        allocatorSignature = signatures.allocatorSignature;
+        nonce = signatures.nonce;
       }
 
       setStatusMessage('Broadcasting intent...');
@@ -582,7 +573,14 @@ export function TradeForm() {
 
       // Get suggested nonce first
       setStatusMessage('Getting suggested nonce...');
-      const suggestedNonce = await smallocator.getSuggestedNonce(chainId.toString());
+      let suggestedNonce: string;
+      if (selectedAllocator === 'AUTOCATOR') {
+        // Autocator requires account address for nonce
+        suggestedNonce = await autocator.getSuggestedNonce(chainId.toString(), quote.data.sponsor);
+      } else {
+        // Smallocator only needs chainId
+        suggestedNonce = await smallocator.getSuggestedNonce(chainId.toString());
+      }
 
       // Calculate deposit parameters
       const inputAmount = parseUnits(selectedInputAmount, selectedInputToken.decimals);
@@ -725,8 +723,8 @@ export function TradeForm() {
                     mandate,
                   };
 
-                  // Use the stored nonce when making the smallocator request
-                  const smallocatorRequest = {
+                  // Use the stored nonce when making the allocator request
+                  const allocatorRequest = {
                     chainId: chainId.toString(),
                     compact: {
                       arbiter: quote.data.arbiter,
@@ -741,14 +739,20 @@ export function TradeForm() {
                     },
                   };
 
+                  // For Autocator, we need to add sponsorSignature if we have one
+                  const requestWithSignature =
+                    selectedAllocator === 'AUTOCATOR'
+                      ? { ...allocatorRequest, sponsorSignature: '0x' } // Empty signature for deposit & swap
+                      : allocatorRequest;
+
                   console.log(
                     `Making request to ${selectedAllocator.toLowerCase()} with stored nonce:`,
-                    smallocatorRequest
+                    requestWithSignature
                   );
 
                   // Use the appropriate allocator API based on the selected allocator
                   const allocatorApi = selectedAllocator === 'AUTOCATOR' ? autocator : smallocator;
-                  const { signature } = await allocatorApi.submitCompact(smallocatorRequest, {
+                  const { signature } = await allocatorApi.submitCompact(requestWithSignature, {
                     isDepositAndSwap: true,
                   });
 
