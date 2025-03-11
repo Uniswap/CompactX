@@ -75,15 +75,19 @@ export function useTokenBalanceCheck(
 
   useEffect(() => {
     async function fetchAllocatorBalance() {
-      if (!isConnected || !compactId || !chainId) return;
+      if (!isConnected || !compactId || !chainId || !address) return;
 
       try {
-        // Use the appropriate allocator API based on the selected allocator
-        const allocatorApi = selectedAllocator === 'AUTOCATOR' ? autocator : smallocator;
-        const balance = await allocatorApi.getResourceLockBalance(
-          chainId.toString(),
-          compactId.toString()
-        );
+        // Get the balance from the appropriate allocator
+        const balance =
+          selectedAllocator === 'AUTOCATOR'
+            ? await autocator.getResourceLockBalance(
+                chainId.toString(),
+                compactId.toString(),
+                address
+              )
+            : await smallocator.getResourceLockBalance(chainId.toString(), compactId.toString());
+
         setAllocatorBalance(BigInt(balance.balanceAvailableToAllocate));
       } catch (error) {
         console.error(`Error fetching ${selectedAllocator.toLowerCase()} balance:`, error);
@@ -92,7 +96,7 @@ export function useTokenBalanceCheck(
     }
 
     fetchAllocatorBalance();
-  }, [isConnected, compactId, chainId, selectedAllocator]);
+  }, [isConnected, compactId, chainId, selectedAllocator, address]);
 
   return {
     lockedBalance: isConnected ? allocatorBalance : undefined,

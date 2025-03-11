@@ -147,12 +147,14 @@ export class AutocatorClient {
    * Get the balance for a specific resource lock
    * @param chainId - The chain ID
    * @param lockId - The resource lock ID
+   * @param account - The account address (required for autocator)
    */
   async getResourceLockBalance(
     chainId: string | number,
-    lockId: string
+    lockId: string,
+    account: string
   ): Promise<ResourceLockBalance> {
-    return this.request<ResourceLockBalance>('GET', `/balance/${chainId}/${lockId}`);
+    return this.request<ResourceLockBalance>('GET', `/balance/${chainId}/${lockId}/${account}`);
   }
 
   /**
@@ -172,8 +174,12 @@ export class AutocatorClient {
     // Use the compact.id as the resource lock ID
     const lockId = request.compact.id;
 
-    // Get current balance
-    const balance = await this.getResourceLockBalance(request.chainId, lockId);
+    // Get current balance - use the sponsor address as the account
+    const balance = await this.getResourceLockBalance(
+      request.chainId,
+      lockId,
+      request.compact.sponsor
+    );
 
     // Check if there's enough available balance
     const requiredAmount = BigInt(request.compact.amount);
