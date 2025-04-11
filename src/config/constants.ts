@@ -11,6 +11,11 @@ export const ALLOCATORS = {
     signingAddress: '0x51044301738Ba2a27bd9332510565eBE9F03546b',
     url: 'https://smallocator.xyz',
   },
+  ONEBALANCE: {
+    id: '113715831798299514837097216',
+    signingAddress: '0x0e69E52c31225323Dd5e10439815FEE315b75b00',
+    url: 'https://ccm.onebalance.io/compact',
+  },
 } as const;
 
 export const INITIAL_CONFIG = {
