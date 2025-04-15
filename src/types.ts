@@ -42,7 +42,7 @@ export interface CalibratorQuoteResponse {
   };
 }
 
-export type AllocatorType = 'AUTOCATOR' | 'SMALLOCATOR';
+export type AllocatorType = 'AUTOCATOR' | 'SMALLOCATOR' | 'ONEBALANCE';
 
 export interface GetQuoteParams {
   inputTokenChainId: number;

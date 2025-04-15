@@ -581,12 +581,11 @@ export function TradeForm() {
       // Get suggested nonce first
       setStatusMessage('Getting suggested nonce...');
       let suggestedNonce: string;
-      if (selectedAllocator === 'AUTOCATOR') {
-        // Autocator requires account address for nonce
-        suggestedNonce = await autocator.getSuggestedNonce(chainId.toString(), quote.data.sponsor);
-      } else {
-        // Smallocator only needs chainId
+      if (selectedAllocator === 'SMALLOCATOR') {
         suggestedNonce = await smallocator.getSuggestedNonce(chainId.toString());
+      } else {
+        // Both AUTOCATOR and ONEBALANCE use the same API
+        suggestedNonce = await autocator.getSuggestedNonce(chainId.toString(), quote.data.sponsor);
       }
 
       // Calculate deposit parameters
@@ -748,9 +747,9 @@ export function TradeForm() {
 
                   // For Autocator, we need to add sponsorSignature if we have one
                   const requestWithSignature =
-                    selectedAllocator === 'AUTOCATOR'
-                      ? { ...allocatorRequest, sponsorSignature: '0x' } // Empty signature for deposit & swap
-                      : allocatorRequest;
+                    selectedAllocator === 'SMALLOCATOR'
+                      ? allocatorRequest
+                      : { ...allocatorRequest, sponsorSignature: '0x' };
 
                   console.log(
                     `Making request to ${selectedAllocator.toLowerCase()} with stored nonce:`,
@@ -758,7 +757,8 @@ export function TradeForm() {
                   );
 
                   // Use the appropriate allocator API based on the selected allocator
-                  const allocatorApi = selectedAllocator === 'AUTOCATOR' ? autocator : smallocator;
+                  const allocatorApi =
+                    selectedAllocator === 'SMALLOCATOR' ? smallocator : autocator;
                   const { signature } = await allocatorApi.submitCompact(requestWithSignature, {
                     isDepositAndSwap: true,
                   });

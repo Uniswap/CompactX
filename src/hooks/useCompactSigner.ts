@@ -47,7 +47,7 @@ export interface SignCompactParams {
       tribunal: string;
     };
   };
-  selectedAllocator?: 'AUTOCATOR' | 'SMALLOCATOR';
+  selectedAllocator?: 'AUTOCATOR' | 'SMALLOCATOR' | 'ONEBALANCE';
   skipUserSignature?: boolean; // For deposit & swap flow where user signature is not needed
 }
 
@@ -161,7 +161,10 @@ export function useCompactSigner() {
         let nonce: string;
 
         // Handle different flows for Autocator vs Smallocator
-        if (request.selectedAllocator === 'AUTOCATOR') {
+        if (
+          request.selectedAllocator === 'AUTOCATOR' ||
+          request.selectedAllocator === 'ONEBALANCE'
+        ) {
           // Autocator flow:
           // 1. Get suggested nonce if not provided
           if (!compactRequest.compact.nonce) {
