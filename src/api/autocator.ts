@@ -1,4 +1,5 @@
 import { parseSignature, signatureToCompactSignature, serializeCompactSignature } from 'viem';
+import { ALLOCATORS } from '../config/constants';
 
 // Types
 export interface CompactMessage {
@@ -68,8 +69,12 @@ export function isCompactRequest(data: unknown): data is CompactRequest {
 export class AutocatorClient {
   private baseUrl: string;
 
-  constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl || 'https://autocator.org';
+  constructor() {
+    this.baseUrl = ALLOCATORS.AUTOCATOR.url;
+  }
+
+  setBaseUrl(allocator: 'AUTOCATOR' | 'ONEBALANCE') {
+    this.baseUrl = ALLOCATORS[allocator].url;
   }
 
   /**
@@ -85,12 +90,15 @@ export class AutocatorClient {
       // Add mode: 'cors' to explicitly enable CORS
     };
 
-    console.log('Making request to Autocator:', {
-      url: `${this.baseUrl}${endpoint}`,
-      method,
-      headers,
-      body: data,
-    });
+    console.log(
+      `Making request to ${this.baseUrl.includes('onebalance') ? 'OneBalance' : 'Autocator'}:`,
+      {
+        url: `${this.baseUrl}${endpoint}`,
+        method,
+        headers,
+        body: data,
+      }
+    );
 
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {

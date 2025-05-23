@@ -80,13 +80,13 @@ export function useTokenBalanceCheck(
       try {
         // Get the balance from the appropriate allocator
         const balance =
-          selectedAllocator === 'AUTOCATOR'
-            ? await autocator.getResourceLockBalance(
+          selectedAllocator === 'SMALLOCATOR'
+            ? await smallocator.getResourceLockBalance(chainId.toString(), compactId.toString())
+            : await autocator.getResourceLockBalance(
                 chainId.toString(),
                 compactId.toString(),
                 address
-              )
-            : await smallocator.getResourceLockBalance(chainId.toString(), compactId.toString());
+              );
 
         setAllocatorBalance(BigInt(balance.balanceAvailableToAllocate));
       } catch (error) {

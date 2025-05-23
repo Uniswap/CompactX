@@ -12,6 +12,7 @@ import type { AllocatorType } from '../types';
 import { parseUnits } from 'viem';
 import type { CalibratorQuoteResponse, Token } from '../types/index';
 import { formatTokenAmount } from '../utils/tradeUtils';
+import { autocator } from '../api/autocator';
 
 interface TradeFormUIProps {
   isConnected: boolean;
@@ -556,9 +557,15 @@ export function TradeFormUI({
                   options={[
                     { label: 'Autocator', value: 'AUTOCATOR' },
                     { label: 'Smallocator', value: 'SMALLOCATOR' },
+                    { label: 'OneBalance', value: 'ONEBALANCE' },
                   ]}
                   value={selectedAllocator}
-                  onChange={value => onValuesChange('allocator', value)}
+                  onChange={value => {
+                    if (value === 'ONEBALANCE' || value === 'AUTOCATOR') {
+                      autocator.setBaseUrl(value);
+                    }
+                    onValuesChange('allocator', value);
+                  }}
                   aria-label="Allocator Selection"
                 />
               </div>
